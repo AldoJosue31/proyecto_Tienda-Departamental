@@ -1,26 +1,89 @@
 @import "tailwindcss";
+@import "sileo/styles.css";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --page: oklch(0.982 0.003 264);
+  --surface: oklch(0.998 0.001 264);
+  --surface-muted: oklch(0.955 0.009 264);
+  --ink: oklch(0.225 0.03 264);
+  --muted: oklch(0.46 0.02 264);
+  --line: oklch(0.89 0.009 264);
+  --accent: oklch(0.48 0.19 266);
+  --accent-strong: oklch(0.4 0.17 266);
+  --accent-soft: oklch(0.91 0.05 266);
+  --focus: oklch(0.57 0.19 266);
+  --success: oklch(0.45 0.16 260);
+  --success-surface: oklch(0.93 0.045 260);
+  --warning: oklch(0.49 0.11 76);
+  --warning-surface: oklch(0.94 0.05 82);
+  --danger: oklch(0.48 0.16 25);
+  --danger-surface: oklch(0.94 0.035 25);
+  --chart-primary: oklch(0.48 0.19 266);
+  --chart-secondary: oklch(0.71 0.07 266);
+  --chart-grid: oklch(0.84 0.012 264);
+  --sileo-state-success: var(--success);
+  --sileo-state-loading: var(--accent);
+  --sileo-state-info: var(--accent);
+  --sileo-state-warning: var(--warning);
+  --sileo-state-error: var(--danger);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--page);
+  --color-foreground: var(--ink);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --page: oklch(0.18 0.018 264);
+    --surface: oklch(0.225 0.022 264);
+    --surface-muted: oklch(0.285 0.028 264);
+    --ink: oklch(0.965 0.009 264);
+    --muted: oklch(0.76 0.024 264);
+    --line: oklch(0.36 0.028 264);
+    --accent: oklch(0.76 0.16 266);
+    --accent-strong: oklch(0.84 0.13 266);
+    --accent-soft: oklch(0.34 0.065 266);
+    --focus: oklch(0.84 0.15 266);
+    --success: oklch(0.79 0.13 260);
+    --success-surface: oklch(0.31 0.065 260);
+    --warning: oklch(0.83 0.12 82);
+    --warning-surface: oklch(0.32 0.06 82);
+    --danger: oklch(0.82 0.13 25);
+    --danger-surface: oklch(0.32 0.065 25);
+    --chart-primary: oklch(0.76 0.16 266);
+    --chart-secondary: oklch(0.68 0.08 266);
+    --chart-grid: oklch(0.39 0.025 264);
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+* { border-color: var(--line); }
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

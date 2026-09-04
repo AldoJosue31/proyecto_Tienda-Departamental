@@ -1,0 +1,528 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      GATEWAY_INTERNAL_URL: http://gateway:8000
+      NEXT_PUBLIC_GATEWAY_URL: ${NEXT_PUBLIC_GATEWAY_URL:-http://localhost:8000}
+      DATABASE_URL: postgresql://departamental:departamental@postgres:5432/departamental
+      REDIS_URL: redis://redis:6379
+      USE_POSTGRES_PERSISTENCE: "${USE_POSTGRES_PERSISTENCE:-false}"
+      SCHEDULER_SECRET: "${SCHEDULER_SECRET:-cambia-este-secreto-local}"
+    ports:
+      - "${WEB_HOST_PORT:-3000}:3000"
+    depends_on:
+      gateway:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - edge
+      - legacy-internal
+
+  gateway:
+    build:
+      context: ./infra/kong
+    environment:
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
+      CORS_ALLOWED_ORIGIN: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
+    ports:
+      - "8000:8000"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+      pricing-service:
+        condition: service_healthy
+      orders-service:
+        condition: service_healthy
+      realtime-service:
+        condition: service_healthy
+      analytics-service:
+        condition: service_healthy
+      logistics-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "kong health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - edge
+      - auth-internal
+      - catalog-internal
+      - inventory-internal
+      - pricing-internal
+      - orders-internal
+      - realtime-internal
+      - analytics-internal
+      - logistics-internal
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+    environment:
+      NODE_ENV: "${AUTH_NODE_ENV:-development}"
+      DATABASE_URL: "postgresql://auth_service:${AUTH_DB_PASSWORD:?Define AUTH_DB_PASSWORD in .env before starting Compose}@auth-postgres:5432/auth_service"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
+      JWT_ACCESS_TTL_SECONDS: "900"
+      JWT_REFRESH_TTL_DAYS: "30"
+      CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
+      RUN_MIGRATIONS: "true"
+      RUN_SEED: "${AUTH_RUN_SEED:-false}"
+      SEED_ADMIN_PASSWORD: "${SEED_ADMIN_PASSWORD:-AdminLocal!2026}"
+      SEED_EMPLOYEE_PASSWORD: "${SEED_EMPLOYEE_PASSWORD:-EmployeeLocal!2026}"
+      SEED_CUSTOMER_PASSWORD: "${SEED_CUSTOMER_PASSWORD:-CustomerLocal!2026}"
+    expose:
+      - "3001"
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+    networks:
+      - auth-internal
+
+  auth-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: auth_service
+      POSTGRES_PASSWORD: "${AUTH_DB_PASSWORD:?Define AUTH_DB_PASSWORD in .env before starting Compose}"
+      POSTGRES_DB: auth_service
+    expose:
+      - "5432"
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_service -d auth_service"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - auth-internal
+
+  catalog-service:
+    build:
+      context: ./services/catalog-service
+    environment:
+      NODE_ENV: "${CATALOG_NODE_ENV:-development}"
+      DATABASE_URL: "postgresql://catalog_service:${CATALOG_DB_PASSWORD:?Define CATALOG_DB_PASSWORD in .env before starting Compose}@catalog-postgres:5432/catalog_service"
+      REDIS_URL: "redis://catalog-redis:6379"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
+      CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
+      RUN_MIGRATIONS: "true"
+      RUN_SEED: "${CATALOG_RUN_SEED:-false}"
+    expose:
+      - "3002"
+    depends_on:
+      catalog-postgres:
+        condition: service_healthy
+      catalog-redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3002/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - catalog-internal
+
+  catalog-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: catalog_service
+      POSTGRES_PASSWORD: "${CATALOG_DB_PASSWORD:?Define CATALOG_DB_PASSWORD in .env before starting Compose}"
+      POSTGRES_DB: catalog_service
+    expose:
+      - "5432"
+    volumes:
+      - catalog_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U catalog_service -d catalog_service"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - catalog-internal
+
+  catalog-redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - catalog_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - catalog-internal
+
+  inventory-service:
+    build:
+      context: ./services/inventory-service
+    environment:
+      NODE_ENV: "${INVENTORY_NODE_ENV:-development}"
+      DATABASE_URL: "postgresql://inventory_service:${INVENTORY_DB_PASSWORD:?Define INVENTORY_DB_PASSWORD in .env before starting Compose}@inventory-postgres:5432/inventory_service"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
+      INVENTORY_INTERNAL_SERVICE_KEY: "${INVENTORY_INTERNAL_SERVICE_KEY:?Define INVENTORY_INTERNAL_SERVICE_KEY in .env before starting Compose}"
+      INVENTORY_RESERVATION_TTL_SECONDS: "900"
+      RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
+      OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "1000"
+      EVENT_CONSUMER_RETRY_LIMIT: "5"
+      CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
+      RUN_MIGRATIONS: "true"
+      RUN_SEED: "${INVENTORY_RUN_SEED:-false}"
+    expose:
+      - "3003"
+    depends_on:
+      inventory-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3003/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - inventory-internal
+      - events-internal
+
+  inventory-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: inventory_service
+      POSTGRES_PASSWORD: "${INVENTORY_DB_PASSWORD:?Define INVENTORY_DB_PASSWORD in .env before starting Compose}"
+      POSTGRES_DB: inventory_service
+    expose:
+      - "5432"
+    volumes:
+      - inventory_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory_service -d inventory_service"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - inventory-internal
+
+  pricing-service:
+    build:
+      context: ./services/pricing-service
+    environment:
+      NODE_ENV: "${PRICING_NODE_ENV:-development}"
+      DATABASE_URL: "postgresql://pricing_service:${PRICING_DB_PASSWORD:?Define PRICING_DB_PASSWORD in .env before starting Compose}@pricing-postgres:5432/pricing_service"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
+      PRICING_SCHEDULER_INTERVAL_SECONDS: "30"
+      RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
+      OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "1000"
+      CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
+      RUN_MIGRATIONS: "true"
+      RUN_SEED: "false"
+    expose:
+      - "3004"
+    depends_on:
+      pricing-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3004/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - pricing-internal
+      - events-internal
+
+  pricing-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pricing_service
+      POSTGRES_PASSWORD: "${PRICING_DB_PASSWORD:?Define PRICING_DB_PASSWORD in .env before starting Compose}"
+      POSTGRES_DB: pricing_service
+    expose:
+      - "5432"
+    volumes:
+      - pricing_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pricing_service -d pricing_service"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - pricing-internal
+
+  orders-service:
+    build:
+      context: ./services/orders-service
+    environment:
+      NODE_ENV: "${ORDERS_NODE_ENV:-development}"
+      DATABASE_URL: "postgresql://orders_service:${ORDERS_DB_PASSWORD:?Define ORDERS_DB_PASSWORD in .env before starting Compose}@orders-postgres:5432/orders_service"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
+      INVENTORY_INTERNAL_SERVICE_KEY: "${INVENTORY_INTERNAL_SERVICE_KEY:?Define INVENTORY_INTERNAL_SERVICE_KEY in .env before starting Compose}"
+      CATALOG_SERVICE_URL: "http://catalog-service:3002"
+      PRICING_SERVICE_URL: "http://pricing-service:3004"
+      INVENTORY_SERVICE_URL: "http://inventory-service:3003"
+      UPSTREAM_TIMEOUT_MILLISECONDS: "5000"
+      RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
+      OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "1000"
+      CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
+      RUN_MIGRATIONS: "true"
+    expose:
+      - "3005"
+    depends_on:
+      orders-postgres:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      pricing-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3005/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - orders-internal
+      - catalog-internal
+      - pricing-internal
+      - inventory-internal
+      - events-internal
+
+  orders-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: orders_service
+      POSTGRES_PASSWORD: "${ORDERS_DB_PASSWORD:?Define ORDERS_DB_PASSWORD in .env before starting Compose}"
+      POSTGRES_DB: orders_service
+    expose:
+      - "5432"
+    volumes:
+      - orders_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orders_service -d orders_service"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - orders-internal
+
+  realtime-service:
+    build:
+      context: ./services/realtime-service
+    environment:
+      NODE_ENV: "${REALTIME_NODE_ENV:-development}"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
+      RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
+      CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
+    expose:
+      - "3006"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3006/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - realtime-internal
+      - events-internal
+
+  analytics-service:
+    build:
+      context: ./services/analytics-service
+    environment:
+      NODE_ENV: "${ANALYTICS_NODE_ENV:-development}"
+      DATABASE_URL: "postgresql://analytics_service:${ANALYTICS_DB_PASSWORD:?Define ANALYTICS_DB_PASSWORD in .env before starting Compose}@analytics-postgres:5432/analytics_service"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
+      RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
+      ANALYTICS_TIMEZONE: "${ANALYTICS_TIMEZONE:-America/Mexico_City}"
+      CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
+      RUN_MIGRATIONS: "true"
+    expose:
+      - "3007"
+    depends_on:
+      analytics-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3007/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - analytics-internal
+      - events-internal
+
+  analytics-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: analytics_service
+      POSTGRES_PASSWORD: "${ANALYTICS_DB_PASSWORD:?Define ANALYTICS_DB_PASSWORD in .env before starting Compose}"
+      POSTGRES_DB: analytics_service
+    expose:
+      - "5432"
+    volumes:
+      - analytics_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U analytics_service -d analytics_service"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - analytics-internal
+
+  logistics-service:
+    build:
+      context: ./services/logistics-service
+    environment:
+      NODE_ENV: "${LOGISTICS_NODE_ENV:-development}"
+      DATABASE_URL: "postgresql://logistics_service:${LOGISTICS_DB_PASSWORD:-logistics_local_dev}@logistics-postgres:5432/logistics_service"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
+      RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
+      OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "1000"
+      CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
+      RUN_MIGRATIONS: "true"
+    expose:
+      - "3008"
+    depends_on:
+      logistics-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3008/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - logistics-internal
+      - events-internal
+
+  logistics-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: logistics_service
+      POSTGRES_PASSWORD: "${LOGISTICS_DB_PASSWORD:-logistics_local_dev}"
+      POSTGRES_DB: logistics_service
+    expose:
+      - "5432"
+    volumes:
+      - logistics_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logistics_service -d logistics_service"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - logistics-internal
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: departamental
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}"
+    expose:
+      - "5672"
+      - "15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - events-internal
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: departamental
+      POSTGRES_PASSWORD: departamental
+      POSTGRES_DB: departamental
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U departamental -d departamental"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - legacy-internal
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - legacy-internal
+
+volumes:
+  auth_postgres_data:
+  catalog_postgres_data:
+  catalog_redis_data:
+  inventory_postgres_data:
+  pricing_postgres_data:
+  orders_postgres_data:
+  analytics_postgres_data:
+  logistics_postgres_data:
+  rabbitmq_data:
+  postgres_data:
+  redis_data:
+
+networks:
+  edge:
+  auth-internal:
+    internal: true
+  catalog-internal:
+    internal: true
+  inventory-internal:
+    internal: true
+  pricing-internal:
+    internal: true
+  orders-internal:
+    internal: true
+  realtime-internal:
+    internal: true
+  analytics-internal:
+    internal: true
+  logistics-internal:
+    internal: true
+  events-internal:
+    internal: true
+  legacy-internal:
+    internal: true
