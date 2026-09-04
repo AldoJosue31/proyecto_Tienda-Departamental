@@ -59,7 +59,7 @@ Navegador ← Socket.IO ← Kong Gateway ← Realtime Service
 | 7 | Realtime + inventario Dashboard. | Implementada y validada. |
 | 8 | Analytics + Chart.js: proyecciones de lectura, KPIs y gráficas administrativas. | Implementada y validada. |
 | 9 | Pick & Pack y transiciones de Logistics. | Implementada y validada. |
-| 10 | Maps / tracking de repartidores. | Pendiente |
+| 10 | Maps / tracking de repartidores. | Implementada y validada. |
 | 11 | CRM: historial proyectado y segmentación. | Pendiente |
 | 12 | Notification + campañas asíncronas. | Pendiente |
 
@@ -226,10 +226,39 @@ Kong publica estos contratos solo con JWT y Logistics vuelve a validar el rol:
 Las transiciones operativas son explícitas: `PENDING → PACKING → SHIPPED`.
 Una petición con una versión anterior o una transición inválida responde
 `409`, por lo que dos empleados no pueden sobrescribir el trabajo del otro.
-`CANCELLED` nunca puede volver a preparación. La página `/operations` usa
+`CANCELLED` nunca puede volver a preparación. La Fase 10 completa el avance
+de última milla con `SHIPPED → DELIVERED`. La página `/operations` usa
 Server Components para el primer snapshot y TanStack Query contra un BFF de
 Next.js para refresco cada 15 segundos, detalle del pedido y cambio de estado;
 la UI nunca conoce el puerto o la base interna de Logistics.
+
+## Fase 10: Maps y seguimiento de repartidores
+
+`logistics-service` conserva repartidores, la última ubicación y la dirección
+de entrega en su PostgreSQL exclusivo. La ubicación requiere coordenadas
+válidas y timestamp; una señal más antigua no sobreescribe una señal más nueva.
+El umbral de frescura es de cinco minutos, por lo que la interfaz diferencia
+claramente una señal reciente, una anterior y la ausencia de ubicación.
+
+| Ruta | Acceso |
+| --- | --- |
+| `PATCH /shipments/:id/tracking` | `ADMIN`, `EMPLOYEE`; asigna repartidor y dirección de entrega. |
+| `POST /couriers/:id/location` | `ADMIN`, `EMPLOYEE`; registra `{ shipmentId, latitude, longitude, recordedAt? }`. |
+| `GET /couriers/:id/location` | `ADMIN`, `EMPLOYEE`; consulta la última señal. |
+| `GET /shipments` y `GET /shipments/:id` | Operación; `CUSTOMER` recibe solo los propios y sin ubicación ni datos internos del repartidor. |
+
+Cada ubicación aceptada se publica como `shipment.tracking.updated.v1` desde
+el Outbox de Logistics. `realtime-service` la consume mediante la cola durable
+`realtime.courier-tracking.v1`, deduplica por `eventId` y emite
+`courier.location.updated` únicamente a `ADMIN` y `EMPLOYEE` autenticados.
+
+La pantalla `/operations` usa Google Maps JavaScript API para el marcador y
+Google Routes desde un BFF del servidor para calcular la ruta. La llave de
+Routes permanece en `GOOGLE_MAPS_ROUTES_API_KEY`; la llave de navegador se
+entrega solo a la pantalla operativa y debe restringirse por referrer. Si Maps,
+la ruta o las credenciales no están disponibles, la interfaz conserva la
+dirección y la última ubicación sin bloquear Pick & Pack. El CUSTOMER ve el
+estado y la fecha de actualización de sus propias entregas desde `/account`.
 
 ## Arranque local con Docker Compose
 

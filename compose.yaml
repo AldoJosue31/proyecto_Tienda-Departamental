@@ -11,6 +11,11 @@ services:
       REDIS_URL: redis://redis:6379
       USE_POSTGRES_PERSISTENCE: "${USE_POSTGRES_PERSISTENCE:-false}"
       SCHEDULER_SECRET: "${SCHEDULER_SECRET:-cambia-este-secreto-local}"
+      # The browser key is passed only to authenticated operations screens and
+      # must be restricted by HTTP referrer in Google Maps Platform.
+      GOOGLE_MAPS_BROWSER_KEY: "${GOOGLE_MAPS_BROWSER_KEY:-}"
+      GOOGLE_MAPS_MAP_ID: "${GOOGLE_MAPS_MAP_ID:-}"
+      GOOGLE_MAPS_ROUTES_API_KEY: "${GOOGLE_MAPS_ROUTES_API_KEY:-}"
     ports:
       - "${WEB_HOST_PORT:-3000}:3000"
     depends_on:

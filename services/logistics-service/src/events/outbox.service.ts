@@ -11,7 +11,7 @@ const DEAD_LETTER_EXCHANGE = "departamental.events.dlx";
 const BATCH_SIZE = 25;
 
 interface OutboxRow extends QueryResultRow { id: string; event_type: string; occurred_at: Date | string; correlation_id: string | null; payload: Record<string, unknown>; }
-export interface LogisticsDomainEvent { eventType: "shipment.status.changed.v1"; correlationId: string | null; data: Record<string, unknown>; }
+export interface LogisticsDomainEvent { eventType: "shipment.status.changed.v1" | "shipment.tracking.updated.v1"; correlationId: string | null; data: Record<string, unknown>; }
 
 @Injectable()
 export class LogisticsOutboxService implements OnModuleInit, OnModuleDestroy {

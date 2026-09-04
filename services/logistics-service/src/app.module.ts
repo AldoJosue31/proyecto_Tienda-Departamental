@@ -11,10 +11,10 @@ import { DATABASE_CONFIG, DatabaseService } from "./database/database.service";
 import { LogisticsOutboxService } from "./events/outbox.service";
 import { HealthController } from "./health/health.controller";
 import { ShipmentsConsumer } from "./shipments/shipments.consumer";
-import { ShipmentsController } from "./shipments/shipments.controller";
+import { CouriersController, ShipmentsController } from "./shipments/shipments.controller";
 import { ShipmentsService } from "./shipments/shipments.service";
 
-@Module({ controllers: [ShipmentsController, HealthController], providers: [
+@Module({ controllers: [ShipmentsController, CouriersController, HealthController], providers: [
   { provide: DATABASE_CONFIG, useFactory: loadDatabaseConfig }, { provide: LOGISTICS_RUNTIME_CONFIG, useFactory: loadLogisticsRuntimeConfig },
   DatabaseService, TokenService, LogisticsOutboxService, ShipmentsService, ShipmentsConsumer, JwtAuthGuard, RolesGuard, CorrelationIdMiddleware,
   { provide: APP_FILTER, useClass: HttpExceptionFilter },

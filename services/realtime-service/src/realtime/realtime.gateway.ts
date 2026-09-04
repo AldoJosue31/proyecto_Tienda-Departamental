@@ -5,7 +5,7 @@ import type { Server, Socket } from "socket.io";
 import { TokenService } from "../auth/token.service";
 import { REALTIME_RUNTIME_CONFIG } from "../auth/token.service";
 import type { RealtimeRuntimeConfig } from "../config/environment";
-import type { StockUpdatedEvent } from "./realtime.types";
+import type { CourierLocationUpdatedEvent, StockUpdatedEvent } from "./realtime.types";
 
 const accessTokenCookie = "departamental_access";
 
@@ -40,7 +40,7 @@ export class RealtimeGateway {
       try {
         this.assertAllowedOrigin(socket);
         const claims = this.tokenService.verifyAccessToken(this.accessToken(socket));
-        if (claims.role !== "ADMIN") throw new Error("Forbidden socket role.");
+        if (claims.role !== "ADMIN" && claims.role !== "EMPLOYEE") throw new Error("Forbidden socket role.");
         socket.data.userId = claims.sub;
         socket.data.role = claims.role;
         next();
@@ -53,6 +53,11 @@ export class RealtimeGateway {
   broadcastStockUpdated(event: StockUpdatedEvent): void {
     this.server.emit("stock.updated", event);
     this.logger.debug("Published stock.updated to authenticated dashboard clients.");
+  }
+
+  broadcastCourierLocationUpdated(event: CourierLocationUpdatedEvent): void {
+    this.server.emit("courier.location.updated", event);
+    this.logger.debug("Published courier.location.updated to authenticated operations clients.");
   }
 
   private assertAllowedOrigin(socket: Socket): void {

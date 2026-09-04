@@ -19,3 +19,25 @@ export interface RealtimeEventEnvelope {
   producer: "inventory-service";
   data: Record<string, unknown>;
 }
+
+export interface CourierLocationUpdatedEvent {
+  eventId: string;
+  occurredAt: string;
+  correlationId: string | null;
+  shipmentId: string;
+  courierId: string;
+  location: {
+    latitude: number;
+    longitude: number;
+    recordedAt: string;
+  };
+}
+
+export interface CourierTrackingEnvelope {
+  eventId: string;
+  eventType: "shipment.tracking.updated.v1";
+  occurredAt: string;
+  correlationId: string | null;
+  producer: "logistics-service";
+  data: Record<string, unknown>;
+}

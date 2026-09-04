@@ -19,7 +19,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod 0555 ./docker-entrypoint.sh
+RUN tr -d '\r' < ./docker-entrypoint.sh > ./docker-entrypoint.sh.normalized && mv ./docker-entrypoint.sh.normalized ./docker-entrypoint.sh && chmod 0555 ./docker-entrypoint.sh
 
 USER node
 EXPOSE 3002

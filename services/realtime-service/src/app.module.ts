@@ -4,6 +4,7 @@ import { REALTIME_RUNTIME_CONFIG, TokenService } from "./auth/token.service";
 import { loadRealtimeRuntimeConfig } from "./config/environment";
 import { HealthController } from "./health/health.controller";
 import { InventoryStockConsumer } from "./realtime/inventory-stock.consumer";
+import { CourierTrackingConsumer } from "./realtime/courier-tracking.consumer";
 import { RealtimeGateway } from "./realtime/realtime.gateway";
 
 @Module({
@@ -16,6 +17,7 @@ import { RealtimeGateway } from "./realtime/realtime.gateway";
     TokenService,
     RealtimeGateway,
     InventoryStockConsumer,
+    CourierTrackingConsumer,
   ],
 })
 export class AppModule {}

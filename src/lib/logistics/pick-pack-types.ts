@@ -7,5 +7,15 @@ export interface PickPackShipment {
 }
 export interface PickPackTransition { id: string; fromStatus: PickPackStatus | null; toStatus: PickPackStatus; actorId: string | null; actorRole: "ADMIN" | "EMPLOYEE" | "CUSTOMER" | null; source: "ORDER_EVENT" | "OPERATIONS" | "SYSTEM"; createdAt: string; }
 export interface PickPackDashboard { shipments: PickPackShipment[]; refreshedAt: string; }
-export interface PickPackShipmentDetail { shipment: PickPackShipment; transitions: PickPackTransition[]; }
-export interface PickPackStatusInput { status: "PACKING" | "SHIPPED"; version: number; }
+export type PickPackTrackingFreshness = "RECENT" | "STALE" | "UNAVAILABLE";
+export interface PickPackTracking {
+  courier: { id: string; name: string };
+  location: { latitude: number; longitude: number; recordedAt: string } | null;
+  locationFreshness: PickPackTrackingFreshness;
+  deliveryAddress: string;
+}
+export interface PickPackShipmentDetail { shipment: PickPackShipment; transitions: PickPackTransition[]; tracking?: PickPackTracking; }
+export interface PickPackStatusInput { status: "PACKING" | "SHIPPED" | "DELIVERED"; version: number; }
+export interface PickPackTrackingInput { courierId: string; courierName: string; deliveryAddress: string; version: number; }
+export interface CourierTrackingUpdate { eventId: string; shipmentId: string; courierId: string; location: { latitude: number; longitude: number; recordedAt: string }; }
+export interface CourierRoute { available: boolean; reason?: string; durationSeconds?: number; distanceMeters?: number; encodedPolyline?: string; }

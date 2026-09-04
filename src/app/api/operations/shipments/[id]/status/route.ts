@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth/session.server";
 import { PickPackRequestError, updatePickPackShipment } from "@/lib/logistics/pick-pack.server";
 
 export const runtime = "nodejs";
-const inputSchema = z.object({ status: z.enum(["PACKING", "SHIPPED"]), version: z.number().int().positive() });
+const inputSchema = z.object({ status: z.enum(["PACKING", "SHIPPED", "DELIVERED"]), version: z.number().int().positive() });
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const correlationId = request.headers.get("X-Correlation-Id") ?? crypto.randomUUID();

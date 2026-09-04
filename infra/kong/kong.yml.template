@@ -389,3 +389,30 @@ services:
                 - exp
               run_on_preflight: false
               maximum_expiration: 900
+      - name: logistics-shipment-tracking
+        paths:
+          - "~/shipments/[^/]+/tracking$"
+        methods:
+          - PATCH
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: logistics-courier-location
+        paths:
+          - "~/couriers/[^/]+/location$"
+        methods:
+          - GET
+          - POST
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
