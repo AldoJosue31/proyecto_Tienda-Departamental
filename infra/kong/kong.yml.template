@@ -1,0 +1,391 @@
+_format_version: "3.0"
+_transform: true
+
+# Kong is deliberately DB-less in development: it owns routing/policies, not
+# business data.  The entrypoint renders the two placeholders from environment
+# variables at container startup, keeping credentials out of version control.
+
+plugins:
+  - name: correlation-id
+    config:
+      header_name: X-Correlation-Id
+      generator: uuid
+      echo_downstream: true
+  - name: cors
+    config:
+      origins:
+        - "__CORS_ALLOWED_ORIGIN__"
+      methods:
+        - GET
+        - POST
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+        - Idempotency-Key
+        - X-Correlation-Id
+      exposed_headers:
+        - X-Correlation-Id
+      credentials: true
+      max_age: 3600
+
+consumers:
+  - username: departamental-auth-service
+    custom_id: departamental-auth-service
+    jwt_secrets:
+      - key: departamental-auth-service
+        algorithm: HS256
+        secret: __JWT_ACCESS_SECRET__
+
+services:
+  - name: auth-service
+    url: http://auth-service:3001
+    connect_timeout: 3000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
+    routes:
+      - name: auth-login
+        paths:
+          - /auth/login
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
+              limit_by: ip
+              hide_client_headers: false
+      - name: auth-health
+        paths:
+          - /health
+        methods:
+          - GET
+        strip_path: false
+      - name: auth-refresh
+        paths:
+          - /auth/refresh
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 30
+              policy: local
+              limit_by: ip
+              hide_client_headers: false
+      - name: auth-logout
+        paths:
+          - /auth/logout
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 30
+              policy: local
+              limit_by: ip
+              hide_client_headers: false
+      - name: auth-me
+        paths:
+          - /auth/me
+        methods:
+          - GET
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: auth-admin-users
+        paths:
+          - /auth/users
+        methods:
+          - GET
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+  - name: catalog-service
+    url: http://catalog-service:3002
+    connect_timeout: 3000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
+    routes:
+      # The catalog is public for reads, but all mutations require a valid
+      # Gateway JWT as well as the Catalog Service's ADMIN guard.
+      - name: catalog-read
+        paths:
+          - "~/products(?:/[^/]+)?$"
+        methods:
+          - GET
+        strip_path: false
+      - name: catalog-create-product
+        paths:
+          - "~/products$"
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: catalog-update-product
+        paths:
+          - "~/products/[^/]+$"
+        methods:
+          - PATCH
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: catalog-create-variant
+        paths:
+          - "~/products/[^/]+/variants$"
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: catalog-update-variant
+        paths:
+          - "~/variants/[^/]+$"
+        methods:
+          - PATCH
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+  - name: inventory-service
+    url: http://inventory-service:3003
+    connect_timeout: 3000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
+    routes:
+      # Operational reads and mutations remain Gateway-only. Reservations are
+      # intentionally absent: they are private Orders-to-Inventory calls.
+      - name: inventory-read
+        paths:
+          - "~/inventory(?:/branches/[^/]+|/low-stock)?$"
+        methods:
+          - GET
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: inventory-create-movement
+        paths:
+          - "~/inventory/movements$"
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+  - name: pricing-service
+    url: http://pricing-service:3004
+    connect_timeout: 3000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
+    routes:
+      - name: pricing-quote
+        paths:
+          - /pricing/quote
+        methods:
+          - GET
+        strip_path: false
+      - name: pricing-promotions
+        paths:
+          - "~/promotions(?:/[^/]+)?$"
+        methods:
+          - GET
+          - POST
+          - PATCH
+          - DELETE
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+  - name: orders-service
+    url: http://orders-service:3005
+    connect_timeout: 3000
+    read_timeout: 15000
+    write_timeout: 15000
+    retries: 1
+    routes:
+      - name: orders-create-list
+        paths:
+          - /orders
+        methods:
+          - GET
+          - POST
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: orders-detail
+        paths:
+          - "~/orders/[^/]+$"
+        methods:
+          - GET
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: orders-cancel
+        paths:
+          - "~/orders/[^/]+/cancel$"
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+  - name: realtime-service
+    url: http://realtime-service:3006
+    connect_timeout: 3000
+    read_timeout: 60000
+    write_timeout: 60000
+    retries: 1
+    routes:
+      # Socket.IO uses an HTTP upgrade at this path. Kong validates the same
+      # HTTP-only access cookie used by the web app, while Realtime validates
+      # it again and restricts the channel to ADMIN.
+      - name: realtime-stock-updates
+        paths:
+          - "~/realtime/socket.io(?:/.*)?$"
+        methods:
+          - GET
+          - POST
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              cookie_names:
+                - departamental_access
+              run_on_preflight: false
+              maximum_expiration: 900
+  - name: analytics-service
+    url: http://analytics-service:3007
+    connect_timeout: 3000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
+    routes:
+      - name: analytics-reports
+        paths:
+          - "~/analytics/(?:sales/by-branch|sales/today|products/top|ticket-average|inventory/by-branch)$"
+        methods:
+          - GET
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+  - name: logistics-service
+    url: http://logistics-service:3008
+    connect_timeout: 3000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
+    routes:
+      - name: logistics-shipments
+        paths:
+          - /shipments
+        methods:
+          - GET
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: logistics-shipment-detail
+        paths:
+          - "~/shipments/[^/]+$"
+        methods:
+          - GET
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: logistics-shipment-status
+        paths:
+          - "~/shipments/[^/]+/status$"
+        methods:
+          - PATCH
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
