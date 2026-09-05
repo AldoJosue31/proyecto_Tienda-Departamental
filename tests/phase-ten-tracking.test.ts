@@ -36,7 +36,7 @@ describe("Maps y tracking de repartidores de la fase 10", () => {
   it("calcula rutas en servidor y degrada la interfaz si Maps no está disponible", () => {
     const routes = read("src/lib/logistics/courier-route.server.ts");
     const panel = read("src/components/shipment-tracking-panel.tsx");
-    const account = read("src/app/account/page.tsx");
+    const account = read("src/app/(platform)/account/page.tsx");
 
     expect(routes).toContain("GOOGLE_MAPS_ROUTES_API_KEY");
     expect(routes).toContain("routes.googleapis.com/directions/v2:computeRoutes");

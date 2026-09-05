@@ -19,6 +19,10 @@ export interface AuthTokenConfig {
   environment: string;
 }
 
+export interface NotificationInternalConfig {
+  serviceKey: Buffer;
+}
+
 function requiredValue(env: NodeJS.ProcessEnv, name: string): string {
   const value = env[name]?.trim();
   if (!value) {
@@ -116,6 +120,16 @@ export function loadAuthTokenConfig(
     refreshTtlSeconds: refreshDays * 24 * 60 * 60,
     corsOrigins: parseOrigins(env, environment),
     environment,
+  };
+}
+
+export function loadNotificationInternalConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): NotificationInternalConfig {
+  return {
+    serviceKey: parseBase64UrlSecret(
+      requiredValue(env, "NOTIFICATION_INTERNAL_SERVICE_KEY"),
+    ),
   };
 }
 

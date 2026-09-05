@@ -416,3 +416,75 @@ services:
                 - exp
               run_on_preflight: false
               maximum_expiration: 900
+  - name: crm-service
+    url: http://crm-service:3009
+    connect_timeout: 3000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 1
+    routes:
+      - name: crm-customers
+        paths:
+          - /customers
+        methods:
+          - GET
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: crm-customer-detail
+        paths:
+          - "~/customers/[^/]+(?:/purchases)?$"
+        methods:
+          - GET
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: crm-inactive-segment
+        paths:
+          - /segments/inactive
+        methods:
+          - GET
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: crm-campaign-create
+        paths:
+          - /campaigns
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: crm-campaign-detail
+        paths:
+          - "~/campaigns/[^/]+$"
+        methods:
+          - GET
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900

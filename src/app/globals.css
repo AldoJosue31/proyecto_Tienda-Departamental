@@ -59,6 +59,10 @@
   }
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   background: var(--page);
   color: var(--ink);
@@ -68,6 +72,7 @@ body {
 * { border-color: var(--line); }
 
 a:focus-visible,
+summary:focus-visible,
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,

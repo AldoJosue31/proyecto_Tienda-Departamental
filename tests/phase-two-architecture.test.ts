@@ -53,7 +53,7 @@ describe("arquitectura de las fases 1 y 2", () => {
   it("retira el endpoint de catálogo local y usa Server Components más TanStack Query", () => {
     expect(existsSync(path.join(webRoot, "src/app/api/products/route.ts"))).toBe(false);
     expect(existsSync(path.join(webRoot, "src/app/api/products/[productId]/route.ts"))).toBe(false);
-    expect(read("src/app/page.tsx")).toContain("getCatalogPage");
+    expect(read("src/app/(platform)/page.tsx")).toContain("getCatalogPage");
     expect(read("src/components/catalog-experience.tsx")).toContain("@tanstack/react-query");
     expect(read("src/components/catalog-experience.tsx")).not.toContain('fetch("/api/products');
   });

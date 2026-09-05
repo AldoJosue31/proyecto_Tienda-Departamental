@@ -4,28 +4,20 @@ import {
   IconAlertTriangle,
   IconChevronLeft,
   IconChevronRight,
-  IconHome,
-  IconLayoutDashboard,
-  IconPackage,
   IconRefresh,
   IconSearch,
   IconTag,
-  IconUserCircle,
   IconX,
 } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
-import { SessionRefresher } from "@/components/auth/session-refresher";
-import type { SessionUser } from "@/lib/auth/roles";
 import { searchCatalog } from "@/lib/catalog/catalog-client";
 import type { CatalogPage, CatalogProductSummary } from "@/lib/catalog/types";
 
 type CatalogExperienceProps = {
   initialPage: CatalogPage;
   initialError?: boolean;
-  user: SessionUser | null;
 };
 
 const spritePositionBySlug: Record<string, string> = {
@@ -94,7 +86,7 @@ function PriceHint({ product }: { product: CatalogProductSummary }) {
   );
 }
 
-export function CatalogExperience({ initialPage, initialError = false, user }: CatalogExperienceProps) {
+export function CatalogExperience({ initialPage, initialError = false }: CatalogExperienceProps) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [brand, setBrand] = useState("");
@@ -130,14 +122,6 @@ export function CatalogExperience({ initialPage, initialError = false, user }: C
     ? "No pudimos actualizar el catálogo. Conservamos los últimos resultados mientras reintentas."
     : null;
   const totalPages = Math.max(1, Math.ceil(page.total / page.pageSize));
-  const canManageCatalog = user?.role === "ADMIN";
-  const operationsHref = user?.role === "ADMIN" ? "/dashboard" : "/operations";
-  const mobileDestination = user
-    ? user.role === "CUSTOMER"
-      ? { href: "/account", label: "Cuenta", Icon: IconUserCircle }
-      : { href: operationsHref, label: user.role === "ADMIN" ? "Panel" : "Operación", Icon: user.role === "ADMIN" ? IconLayoutDashboard : IconPackage }
-    : { href: "/login?next=/", label: "Acceder", Icon: IconUserCircle };
-  const MobileDestinationIcon = mobileDestination.Icon;
 
   useEffect(() => {
     const dialog = detailDialogRef.current;
@@ -151,24 +135,7 @@ export function CatalogExperience({ initialPage, initialError = false, user }: C
   }
 
   return (
-    <main className="min-h-[100dvh] bg-[var(--page)] pb-20 text-[var(--ink)] md:pb-0">
-      {user && <SessionRefresher />}
-      <header className="border-b border-[var(--line)] bg-[var(--surface)]">
-        <div className="mx-auto flex min-h-16 max-w-[1440px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-          <Link href="/" className="text-lg font-semibold tracking-[-0.035em]">departamental<span className="text-[var(--accent)]">.</span></Link>
-          <nav className="hidden items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] p-1 text-sm font-medium md:flex" aria-label="Principal">
-            <span className="rounded-lg bg-[var(--surface)] px-3.5 py-2 text-[var(--ink)] shadow-sm">Catálogo</span>
-            {canManageCatalog && <Link className="rounded-lg px-3.5 py-2 text-[var(--muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--ink)]" href="/catalog/manage">Gestionar catálogo</Link>}
-            {user && user.role !== "CUSTOMER" && <Link className="rounded-lg px-3.5 py-2 text-[var(--muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--ink)]" href={operationsHref}>{user.role === "ADMIN" ? "Administración" : "Operación"}</Link>}
-          </nav>
-          <div className="flex items-center gap-2">
-            {user
-              ? <Link href="/account" className="hidden min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-[var(--muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)] sm:inline-flex">{user.name}</Link>
-              : <Link href="/login?next=/" className="hidden min-h-11 items-center rounded-xl px-3 text-sm font-semibold text-[var(--muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)] sm:inline-flex">Iniciar sesión</Link>}
-            {canManageCatalog && <Link href="/catalog/manage" className="inline-flex min-h-11 items-center rounded-xl bg-[var(--ink)] px-4 py-2 text-sm font-semibold text-[var(--surface)] transition-colors hover:bg-[var(--accent-strong)]">Administrar</Link>}
-          </div>
-        </div>
-      </header>
+    <>
 
       <section className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
         <div className="grid items-end gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
@@ -227,11 +194,10 @@ export function CatalogExperience({ initialPage, initialError = false, user }: C
         {page.total > page.pageSize && <nav className="mt-10 flex items-center justify-center gap-3" aria-label="Paginación del catálogo"><button type="button" disabled={page.page <= 1 || catalogQuery.isFetching} onClick={() => setRequestedPage(page.page - 1)} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-[var(--line)] px-3 text-sm font-semibold transition-colors hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-45"><IconChevronLeft size={17} aria-hidden="true" />Anterior</button><p className="text-sm text-[var(--muted)]">Página <span className="font-semibold text-[var(--ink)]">{page.page}</span> de {totalPages}</p><button type="button" disabled={page.page >= totalPages || catalogQuery.isFetching} onClick={() => setRequestedPage(page.page + 1)} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-[var(--line)] px-3 text-sm font-semibold transition-colors hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-45">Siguiente<IconChevronRight size={17} aria-hidden="true" /></button></nav>}
       </section>
 
-      <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-1.5 shadow-[0_5px_8px_rgb(18_29_57_/_0.12)] md:hidden" aria-label="Navegación móvil"><Link href="/" className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl bg-[var(--accent-soft)] text-xs font-semibold text-[var(--accent-strong)]"><IconHome size={18} aria-hidden="true" />Catálogo</Link><Link href={mobileDestination.href} className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-xs font-semibold text-[var(--muted)]"><MobileDestinationIcon size={18} aria-hidden="true" />{mobileDestination.label}</Link></nav>
 
       <dialog ref={detailDialogRef} onClose={() => setSelectedProduct(null)} aria-labelledby="product-dialog-title" className="w-[min(46rem,calc(100vw-2rem))] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-0 text-[var(--ink)] shadow-2xl backdrop:bg-black/35">
         {selectedProduct && <div className="grid gap-6 p-5 sm:grid-cols-[11rem_minmax(0,1fr)] sm:p-6"><ProductMedia product={selectedProduct} compact /><div><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-[var(--accent-strong)]">{selectedProduct.brand.name} · {selectedProduct.category.name}</p><h2 id="product-dialog-title" className="mt-1 text-2xl font-semibold tracking-[-0.03em]">{selectedProduct.name}</h2></div><button type="button" onClick={() => detailDialogRef.current?.close()} aria-label="Cerrar detalle" className="grid size-10 shrink-0 place-items-center rounded-xl text-[var(--muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"><IconX size={20} aria-hidden="true" /></button></div><p className="mt-3 text-sm leading-6 text-[var(--muted)]">{selectedProduct.description ?? "Revisa las variantes disponibles de este producto."}</p><div className="mt-5 border-y border-[var(--line)] py-4"><p className="text-sm font-semibold">Variantes disponibles</p><div className="mt-3 space-y-2">{selectedProduct.variants.map((variant) => <div key={variant.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[var(--surface-muted)] px-3 py-2.5"><div><p className="text-sm font-semibold">{variant.label}</p><p className="mt-0.5 text-xs text-[var(--muted)]">SKU {variant.sku}</p></div><p className="text-sm font-semibold">{money(variant.listPrice, variant.currency)}</p></div>)}</div></div><p className="mt-4 text-xs leading-5 text-[var(--muted)]">El precio mostrado es de lista. La promoción vigente y la disponibilidad por sucursal se confirmarán durante la compra.</p></div></div>}
       </dialog>
-    </main>
+    </>
   );
 }

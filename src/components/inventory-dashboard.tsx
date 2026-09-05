@@ -3,15 +3,11 @@
 import {
   IconAlertTriangle,
   IconBuildingStore,
-  IconHome,
-  IconLayoutDashboard,
   IconPackage,
   IconRefresh,
-  IconShoppingBag,
   IconWifi,
   IconWifiOff,
 } from "@tabler/icons-react";
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sileo } from "sileo";
 import { io, type Socket } from "socket.io-client";
@@ -124,20 +120,7 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics }: {
     : <IconWifi size={16} aria-hidden="true" />;
 
   return (
-    <main className="min-h-[100dvh] bg-[var(--page)] pb-20 text-[var(--ink)] md:pb-0">
-      <header className="border-b border-[var(--line)] bg-[var(--surface)]">
-        <div className="mx-auto flex min-h-16 max-w-[1400px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-          <Link href="/" className="text-lg font-semibold tracking-[-0.035em]">departamental<span className="text-[var(--accent)]">.</span></Link>
-          <nav className="hidden items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] p-1 text-sm font-medium md:flex" aria-label="Principal">
-            <Link className="rounded-lg px-3.5 py-2 text-[var(--muted)] transition-colors duration-200 hover:bg-[var(--surface)] hover:text-[var(--ink)]" href="/">Catálogo</Link>
-            <span className="rounded-lg bg-[var(--surface)] px-3.5 py-2 text-[var(--ink)]">Inventario</span>
-          </nav>
-          <button type="button" onClick={() => void updateDashboard(dashboard.branch.id, true)} disabled={isDashboardLoading} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--surface-muted)] px-4 py-2 text-sm font-medium transition-colors duration-200 hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-50">
-            <IconRefresh className={isDashboardLoading ? "animate-spin motion-reduce:animate-none" : undefined} size={16} aria-hidden="true" />
-            {isDashboardLoading ? "Actualizando" : "Actualizar"}
-          </button>
-        </div>
-      </header>
+    <>
 
       <section className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10" aria-busy={isDashboardLoading}>
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
@@ -152,15 +135,21 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics }: {
             <p className="mt-2 text-pretty text-sm leading-6 text-[var(--muted)]">Disponibilidad, reservas y puntos de reabastecimiento de esta sucursal.</p>
             <p className="mt-3 text-sm text-[var(--muted)]" aria-live="polite">Última sincronización: {formatDate(lastUpdate)}</p>
           </div>
-          <label className="block shrink-0">
+          <div className="flex min-w-0 flex-wrap items-end gap-3">
+          <label className="block min-w-0">
             <span className="text-sm font-medium">Sucursal</span>
             <span className="relative mt-2 block">
               <IconBuildingStore className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={18} aria-hidden="true" />
-              <select value={dashboard.branch.id} onChange={(event) => void updateDashboard(event.target.value)} disabled={isDashboardLoading} className="h-11 min-w-56 rounded-xl border border-[var(--line)] bg-[var(--surface)] py-2 pl-10 pr-3 text-sm transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-55">
+              <select value={dashboard.branch.id} onChange={(event) => void updateDashboard(event.target.value)} disabled={isDashboardLoading} className="h-11 w-full max-w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] py-2 pl-10 pr-3 text-sm transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-55">
                 {dashboard.branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
               </select>
             </span>
           </label>
+          <button type="button" onClick={() => void updateDashboard(dashboard.branch.id, true)} disabled={isDashboardLoading} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--surface-muted)] px-4 py-2 text-sm font-medium transition-colors duration-200 hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-50">
+            <IconRefresh className={isDashboardLoading ? "animate-spin motion-reduce:animate-none" : undefined} size={16} aria-hidden="true" />
+            {isDashboardLoading ? "Actualizando" : "Actualizar"}
+          </button>
+          </div>
         </div>
 
         {dashboardError && <div role="alert" className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--danger)]/35 bg-[var(--danger-surface)] px-4 py-3 text-sm"><span>{dashboardError}</span><button type="button" onClick={() => void updateDashboard(dashboard.branch.id, true)} className="font-semibold text-[var(--danger)] underline decoration-1 underline-offset-4">Reintentar</button></div>}
@@ -197,12 +186,7 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics }: {
         </section>
       </section>
 
-      <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-3 rounded-2xl border border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_96%,transparent)] p-1.5 shadow-[0_8px_20px_color-mix(in_oklch,var(--ink)_16%,transparent)] backdrop-blur md:hidden" aria-label="Navegación móvil">
-        <Link href="/" className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-xs font-medium text-[var(--muted)]"><IconHome size={18} aria-hidden="true" />Comprar</Link>
-        <Link href="/#carrito" className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-xs font-medium text-[var(--muted)]"><IconShoppingBag size={18} aria-hidden="true" />Carrito</Link>
-        <span className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl bg-[var(--accent-soft)] text-xs font-medium text-[var(--accent-strong)]"><IconLayoutDashboard size={18} aria-hidden="true" />Inventario</span>
-      </nav>
-    </main>
+    </>
   );
 }
 

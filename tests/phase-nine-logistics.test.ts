@@ -41,7 +41,7 @@ describe("Pick & Pack y Logistics de la fase 9", () => {
   it("presenta un Kanban actualizado por BFF sin exponer conexiones internas", () => {
     const source = read("src/lib/logistics/pick-pack.server.ts");
     const board = read("src/components/pick-pack-board.tsx");
-    const page = read("src/app/operations/page.tsx");
+    const page = read("src/app/(platform)/operations/page.tsx");
 
     expect(source).toContain('request("/shipments"');
     expect(source).not.toContain("logistics-postgres");

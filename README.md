@@ -25,9 +25,13 @@ Navegador → Next.js (UI) → Kong Gateway ─┬→ Auth Service → PostgreSQ
                                                ├→ Catalog API
                                                ├→ Pricing API
                                                └→ Inventory API privada
-                                          └→ Logistics Service → PostgreSQL Logistics
+                                          ├→ Logistics Service → PostgreSQL Logistics
+                                          └→ CRM Service → PostgreSQL CRM
 
 Orders → RabbitMQ → Logistics Service → RabbitMQ → consumidores de envíos
+Orders → RabbitMQ → CRM Service (proyección propia de historial y segmentos)
+CRM → RabbitMQ → Notification Service → PostgreSQL Notification
+Notification → Auth API interna autenticada (contacto mínimo, sin DB compartida)
 Inventory, Pricing y Orders → RabbitMQ (eventos de dominio) → Realtime Service
 Navegador ← Socket.IO ← Kong Gateway ← Realtime Service
 ```
@@ -39,8 +43,10 @@ Navegador ← Socket.IO ← Kong Gateway ← Realtime Service
 - Auth es dueño exclusivo de usuarios, roles y refresh tokens; Catalog es
   dueño de productos, categorías, marcas y variantes; Inventory es dueño de
   stock, reservas, movimientos y mínimos; Pricing es dueño de promociones;
-  Orders es dueño de pedidos, líneas históricas, auditoría e idempotencia; y
-  Logistics es dueño de envíos y sus transiciones operativas. No
+  Orders es dueño de pedidos, líneas históricas, auditoría e idempotencia;
+  Logistics es dueño de envíos y sus transiciones operativas; CRM es dueño de
+  los perfiles de compra proyectados, segmentos y campañas; y Notification es
+  dueño exclusivo de intentos de entrega. No
   comparten bases, credenciales ni FKs entre servicios.
 - Los roles son exactamente `ADMIN`, `EMPLOYEE` y `CUSTOMER`; se validan en el
   backend, se verifican de nuevo en páginas/handlers y se reflejan en la
@@ -60,8 +66,8 @@ Navegador ← Socket.IO ← Kong Gateway ← Realtime Service
 | 8 | Analytics + Chart.js: proyecciones de lectura, KPIs y gráficas administrativas. | Implementada y validada. |
 | 9 | Pick & Pack y transiciones de Logistics. | Implementada y validada. |
 | 10 | Maps / tracking de repartidores. | Implementada y validada. |
-| 11 | CRM: historial proyectado y segmentación. | Pendiente |
-| 12 | Notification + campañas asíncronas. | Pendiente |
+| 11 | CRM: historial proyectado y segmentación. | Implementada y validada. |
+| 12 | Notification + campañas asíncronas. | Implementada y validada. |
 
 ## Fase 1: identidad y permisos
 
@@ -260,6 +266,33 @@ la ruta o las credenciales no están disponibles, la interfaz conserva la
 dirección y la última ubicación sin bloquear Pick & Pack. El CUSTOMER ve el
 estado y la fecha de actualización de sus propias entregas desde `/account`.
 
+## Fase 12: campañas y Notification
+
+CRM crea campañas de cupón solo para el segmento de clientes inactivos y
+responde `202 Accepted`: los trabajos `coupon.email.requested.v1` se guardan
+primero en `crm_campaign_outbox_events` y se publican por lotes sin bloquear
+la vista administrativa. La petición requiere `ADMIN`, `Idempotency-Key`, un
+código de cupón y una vigencia futura. Antes de confirmarla, `/crm` muestra el
+total de destinatarios; después, actualiza pendientes, enviados y no
+entregables mediante TanStack Query.
+
+| Ruta | Acceso |
+| --- | --- |
+| `POST /campaigns` | `ADMIN`; crea una campaña y devuelve `202`. |
+| `GET /campaigns/:id` | `ADMIN`; devuelve el progreso agregado. |
+
+`notification-service` consume el evento en una cola durable con DLQ y conserva
+sus entregas, reintentos y Outbox en PostgreSQL propio. Sus resultados
+`notification.sent.v1` y `notification.failed.v1` regresan a CRM, que actualiza
+el estado sin almacenar direcciones de correo. Para obtener un contacto,
+Notification llama una ruta privada de Auth con una llave independiente; nunca
+consulta PostgreSQL de Auth. Si RabbitMQ o Notification no están disponibles,
+el Outbox conserva el trabajo y las ventas no se interrumpen.
+
+En desarrollo `NOTIFICATION_DELIVERY_MODE=log` es el valor predeterminado:
+acepta y registra la entrega localmente, sin proveedor SMTP ni correo real. Usa
+`smtp` junto con `SMTP_URL` únicamente si se configuró un proveedor de correo.
+
 ## Arranque local con Docker Compose
 
 Se requiere Docker Desktop. Antes de iniciar, crea un archivo `.env` a partir
@@ -268,7 +301,8 @@ PostgreSQL de servicio; no uses los valores de ejemplo en un entorno compartido.
 
 ```powershell
 Copy-Item .env.example .env
-# Edita .env y sustituye JWT_ACCESS_SECRET, AUTH_DB_PASSWORD y CATALOG_DB_PASSWORD.
+# Edita .env y sustituye JWT_ACCESS_SECRET, contraseñas de bases y
+# NOTIFICATION_INTERNAL_SERVICE_KEY.
 docker compose config
 docker compose up --build
 ```
@@ -281,8 +315,8 @@ semilla de Auth y los seis productos de Catalog; consulta
 configuración aislada.
 
 El Compose mantiene `postgres` y `redis` del MVP únicamente para no romper el
-trabajo existente. Auth, Catalog, Inventory, Pricing, Orders y Logistics tienen volúmenes,
-redes y credenciales propias; `catalog-redis` sólo sirve al patrón cache-aside
+trabajo existente. Auth, Catalog, Inventory, Pricing, Orders, Logistics, CRM y
+Notification tienen volúmenes, redes y credenciales propias; `catalog-redis` sólo sirve al patrón cache-aside
 de Catalog. RabbitMQ usa volumen propio y no publica puertos al host. Los
 servicios no crean tablas en bases de otros dominios.
 
@@ -331,6 +365,8 @@ cd ../pricing-service && npm run typecheck && npm run lint && npm test && npm ru
 cd ../orders-service && npm run typecheck && npm run lint && npm test && npm run build
 cd ../realtime-service && npm run typecheck && npm run lint && npm test && npm run build
 cd ../logistics-service && npm run typecheck && npm run lint && npm test && npm run build
+cd ../crm-service && npm run typecheck && npm run lint && npm test && npm run build
+cd ../notification-service && npm run typecheck && npm run lint && npm test && npm run build
 ```
 
 Las validaciones en contenedor que complementan estas pruebas son `docker

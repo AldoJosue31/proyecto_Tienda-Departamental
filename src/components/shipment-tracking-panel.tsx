@@ -19,6 +19,7 @@ type MapsLibrary = {
 type MarkerLibrary = { AdvancedMarkerElement: new (options: { map: MapInstance; position: Position; title: string }) => unknown };
 type GeometryLibrary = { encoding: { decodePath(encoded: string): Array<{ lat(): number; lng(): number }> } };
 type MapsNamespace = { maps: { importLibrary(name: string): Promise<unknown> } };
+type MapsWindow = Window & { google?: MapsNamespace; __departamentalGoogleMapsLoaded?: () => void };
 
 const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8000";
 
@@ -41,7 +42,7 @@ async function updateTracking(shipmentId: string, input: { courierId: string; co
 }
 
 function getMaps(): MapsNamespace | null {
-  return (window as Window & { google?: MapsNamespace }).google ?? null;
+  return (window as MapsWindow).google ?? null;
 }
 
 function loadMaps(browserKey: string): Promise<MapsNamespace> {
@@ -60,11 +61,19 @@ function loadMaps(browserKey: string): Promise<MapsNamespace> {
       return;
     }
     const script = document.createElement("script");
+    const mapsWindow = window as MapsWindow;
+    const callback = "__departamentalGoogleMapsLoaded";
     script.id = "departamental-google-maps";
     script.async = true;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(browserKey)}&v=weekly&loading=async`;
-    script.addEventListener("load", finish, { once: true });
-    script.addEventListener("error", () => reject(new Error("Google Maps no se pudo cargar.")), { once: true });
+    mapsWindow[callback] = () => {
+      delete mapsWindow[callback];
+      finish();
+    };
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(browserKey)}&v=weekly&loading=async&callback=${callback}`;
+    script.addEventListener("error", () => {
+      delete mapsWindow[callback];
+      reject(new Error("Google Maps no se pudo cargar."));
+    }, { once: true });
     document.head.appendChild(script);
   });
 }

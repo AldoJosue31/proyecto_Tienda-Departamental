@@ -54,6 +54,8 @@ services:
         condition: service_healthy
       logistics-service:
         condition: service_healthy
+      crm-service:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "kong health"]
       interval: 10s
@@ -70,6 +72,7 @@ services:
       - realtime-internal
       - analytics-internal
       - logistics-internal
+      - crm-internal
 
   auth-service:
     build:
@@ -78,6 +81,7 @@ services:
       NODE_ENV: "${AUTH_NODE_ENV:-development}"
       DATABASE_URL: "postgresql://auth_service:${AUTH_DB_PASSWORD:?Define AUTH_DB_PASSWORD in .env before starting Compose}@auth-postgres:5432/auth_service"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
+      NOTIFICATION_INTERNAL_SERVICE_KEY: "${NOTIFICATION_INTERNAL_SERVICE_KEY:?Define NOTIFICATION_INTERNAL_SERVICE_KEY in .env before starting Compose}"
       JWT_ACCESS_TTL_SECONDS: "900"
       JWT_REFRESH_TTL_DAYS: "30"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
@@ -443,6 +447,107 @@ services:
     networks:
       - logistics-internal
 
+  crm-service:
+    build:
+      context: ./services/crm-service
+    environment:
+      NODE_ENV: "${CRM_NODE_ENV:-development}"
+      DATABASE_URL: "postgresql://crm_service:${CRM_DB_PASSWORD:-crm_local_dev}@crm-postgres:5432/crm_service"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
+      RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
+      OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "${OUTBOX_PUBLISH_INTERVAL_MILLISECONDS:-1000}"
+      CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
+      RUN_MIGRATIONS: "true"
+    expose:
+      - "3009"
+    depends_on:
+      crm-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3009/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - crm-internal
+      - events-internal
+
+  crm-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: crm_service
+      POSTGRES_PASSWORD: "${CRM_DB_PASSWORD:-crm_local_dev}"
+      POSTGRES_DB: crm_service
+    expose:
+      - "5432"
+    volumes:
+      - crm_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm_service -d crm_service"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - crm-internal
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+    environment:
+      NODE_ENV: "${NOTIFICATION_NODE_ENV:-development}"
+      DATABASE_URL: "postgresql://notification_service:${NOTIFICATION_DB_PASSWORD:-notification_local_dev}@notification-postgres:5432/notification_service"
+      RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
+      AUTH_SERVICE_URL: "http://auth-service:3001"
+      NOTIFICATION_INTERNAL_SERVICE_KEY: "${NOTIFICATION_INTERNAL_SERVICE_KEY:?Define NOTIFICATION_INTERNAL_SERVICE_KEY in .env before starting Compose}"
+      NOTIFICATION_DELIVERY_MODE: "${NOTIFICATION_DELIVERY_MODE:-log}"
+      SMTP_URL: "${SMTP_URL:-}"
+      NOTIFICATION_FROM_EMAIL: "${NOTIFICATION_FROM_EMAIL:-promociones@departamental.local}"
+      NOTIFICATION_RETRY_INTERVAL_SECONDS: "${NOTIFICATION_RETRY_INTERVAL_SECONDS:-10}"
+      NOTIFICATION_RETRY_LIMIT: "${NOTIFICATION_RETRY_LIMIT:-3}"
+      OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "${OUTBOX_PUBLISH_INTERVAL_MILLISECONDS:-1000}"
+      CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
+      RUN_MIGRATIONS: "true"
+    expose:
+      - "3010"
+    depends_on:
+      notification-postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3010/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - notification-internal
+      - auth-internal
+      - events-internal
+
+  notification-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: notification_service
+      POSTGRES_PASSWORD: "${NOTIFICATION_DB_PASSWORD:-notification_local_dev}"
+      POSTGRES_DB: notification_service
+    expose:
+      - "5432"
+    volumes:
+      - notification_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_service -d notification_service"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - notification-internal
+
   rabbitmq:
     image: rabbitmq:4-management-alpine
     environment:
@@ -505,6 +610,8 @@ volumes:
   orders_postgres_data:
   analytics_postgres_data:
   logistics_postgres_data:
+  crm_postgres_data:
+  notification_postgres_data:
   rabbitmq_data:
   postgres_data:
   redis_data:
@@ -526,6 +633,10 @@ networks:
   analytics-internal:
     internal: true
   logistics-internal:
+    internal: true
+  crm-internal:
+    internal: true
+  notification-internal:
     internal: true
   events-internal:
     internal: true
