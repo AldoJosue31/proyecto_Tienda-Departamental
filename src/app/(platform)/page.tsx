@@ -1,4 +1,5 @@
 import { CatalogExperience } from "@/components/catalog-experience";
+import { getCurrentUser } from "@/lib/auth/session.server";
 import { getCatalogPage } from "@/lib/catalog/catalog-client.server";
 import { emptyCatalogPage } from "@/lib/catalog/types";
 
@@ -11,5 +12,12 @@ export default async function Home() {
     initialError = true;
   }
 
-  return <CatalogExperience initialPage={initialPage} initialError={initialError} />;
+  let userRole = null;
+  try {
+    userRole = (await getCurrentUser())?.role ?? null;
+  } catch {
+    // Browsing must remain available while identity is being recovered.
+  }
+
+  return <CatalogExperience initialPage={initialPage} initialError={initialError} userRole={userRole} />;
 }

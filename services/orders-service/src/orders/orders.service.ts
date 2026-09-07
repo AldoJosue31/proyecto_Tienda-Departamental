@@ -12,6 +12,7 @@ import type {
   CreateOrderSnapshot,
   Order,
   OrderActor,
+  OrderChannel,
   OrderResponse,
   StoredOrder,
 } from "./orders.types";
@@ -43,9 +44,11 @@ export class OrdersService {
     actor: OrderActor,
   ): Promise<OrderResponse> {
     const key = this.requireIdempotencyKey(idempotencyKey);
+    const channel = body.channel ?? "ONLINE";
+    this.assertChannelAccess(channel, body.customerId, actor);
     const customerId = actor.role === "CUSTOMER" ? actor.id : body.customerId ?? actor.id;
     const requestedItems = this.mergeRequestedItems(body);
-    const requestHash = this.requestHash(customerId, body.branchId, requestedItems);
+    const requestHash = this.requestHash(customerId, body.branchId, channel, requestedItems);
     const lock = "orders:create:" + actor.id + ":" + key;
 
     return this.database.withAdvisoryLock(lock, async (client) => {
@@ -70,6 +73,7 @@ export class OrdersService {
           this.repository.createDraft(transaction, {
             customerId,
             branchId: body.branchId,
+            channel,
             actor,
             idempotencyKey: key,
             requestHash,
@@ -329,8 +333,36 @@ export class OrdersService {
     );
   }
 
-  private requestHash(customerId: string, branchId: string, items: RequestedItem[]): string {
-    return createHash("sha256").update(JSON.stringify({ customerId, branchId, items })).digest("hex");
+  private requestHash(
+    customerId: string,
+    branchId: string,
+    channel: OrderChannel,
+    items: RequestedItem[],
+  ): string {
+    // Keep ONLINE hashes compatible with orders created before channels were
+    // introduced; physical sales deliberately form a distinct request.
+    const payload = channel === "PHYSICAL"
+      ? { customerId, branchId, channel, items }
+      : { customerId, branchId, items };
+    return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+  }
+
+  private assertChannelAccess(
+    channel: OrderChannel,
+    requestedCustomerId: string | undefined,
+    actor: OrderActor,
+  ): void {
+    if (channel !== "PHYSICAL") return;
+    if (actor.role === "CUSTOMER") {
+      throw new ApiException(403, "FORBIDDEN", "Los clientes no pueden registrar ventas físicas");
+    }
+    if (!requestedCustomerId) {
+      throw new ApiException(
+        400,
+        "PHYSICAL_SALE_CUSTOMER_REQUIRED",
+        "Una venta física requiere el cliente al que se atribuye la compra",
+      );
+    }
   }
 
   private previousFailure(code: string, message: string | null): ApiException {
@@ -369,6 +401,7 @@ export class OrdersService {
     return {
       id: order.id,
       branchId: order.branchId,
+      channel: order.channel,
       status: order.status,
       currency: order.currency,
       subtotal: order.subtotal,
@@ -388,6 +421,7 @@ export class OrdersService {
       orderId: order.id,
       customerId: order.customerId,
       branchId: order.branchId,
+      channel: order.channel,
       status: order.status,
       currency: order.currency,
       subtotal: order.subtotal,

@@ -26,6 +26,7 @@ import {
 } from "./inventory.dto";
 import { InventoryService } from "./inventory.service";
 import type {
+  InventoryBranchListResponse,
   InventoryListResponse,
   MovementResponse,
   ReservationResponse,
@@ -40,6 +41,15 @@ export class InventoryController {
   @Roles("ADMIN", "EMPLOYEE")
   listInventory(): Promise<InventoryListResponse> {
     return this.inventoryService.listInventory();
+  }
+
+  // Checkout needs pickup locations but never operational stock. Keeping this
+  // read owned by Inventory prevents Orders or the BFF from reading its DB.
+  @Get("branches")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN", "EMPLOYEE", "CUSTOMER")
+  listCheckoutBranches(): Promise<InventoryBranchListResponse> {
+    return this.inventoryService.listCheckoutBranches();
   }
 
   @Get("branches/:branchId")

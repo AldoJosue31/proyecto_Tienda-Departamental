@@ -3,6 +3,12 @@ import type { Role } from "../config/environment";
 export const ORDER_STATUSES = ["PENDING", "RESERVED", "CONFIRMED", "CANCELLED"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+// A sale stays owned by Orders regardless of where it began. Keeping the
+// channel on the aggregate prevents a point-of-sale transaction from becoming
+// an untraceable direct stock adjustment.
+export const ORDER_CHANNELS = ["ONLINE", "PHYSICAL"] as const;
+export type OrderChannel = (typeof ORDER_CHANNELS)[number];
+
 export interface OrderActor {
   id: string;
   role: Role;
@@ -30,6 +36,7 @@ export interface OrderItem {
 export interface Order {
   id: string;
   branchId: string;
+  channel: OrderChannel;
   status: OrderStatus;
   currency: string;
   subtotal: number;

@@ -6,6 +6,7 @@ import type {
   CreateOrderSnapshot,
   IdempotencyRecord,
   OrderActor,
+  OrderChannel,
   OrderItem,
   OrderStatus,
   StoredOrder,
@@ -17,6 +18,7 @@ interface OrderRow extends QueryResultRow {
   created_by: string;
   created_by_role: OrderActor["role"];
   branch_id: string;
+  channel: OrderChannel;
   status: OrderStatus;
   currency: string;
   subtotal: string | number;
@@ -86,6 +88,7 @@ export class OrdersRepository {
     input: {
       customerId: string;
       branchId: string;
+      channel: OrderChannel;
       actor: OrderActor;
       idempotencyKey: string;
       requestHash: string;
@@ -93,11 +96,11 @@ export class OrdersRepository {
   ): Promise<StoredOrder> {
     const created = await client.query<IdentifierRow>(
       [
-        "INSERT INTO orders (customer_id, created_by, created_by_role, branch_id)",
-        "VALUES ($1, $2, $3, $4)",
+        "INSERT INTO orders (customer_id, created_by, created_by_role, branch_id, channel)",
+        "VALUES ($1, $2, $3, $4, $5)",
         "RETURNING id",
       ].join("\n"),
-      [input.customerId, input.actor.id, input.actor.role, input.branchId],
+      [input.customerId, input.actor.id, input.actor.role, input.branchId, input.channel],
     );
     const orderId = created.rows[0]?.id;
     if (!orderId) throw new Error("Order creation failed.");
@@ -108,7 +111,12 @@ export class OrdersRepository {
       ].join("\n"),
       [input.actor.id, input.idempotencyKey, input.requestHash, orderId],
     );
-    await this.audit(client, orderId, input.actor, "ORDER_CREATED");
+    await this.audit(
+      client,
+      orderId,
+      input.actor,
+      input.channel === "PHYSICAL" ? "PHYSICAL_SALE_CREATED" : "ORDER_CREATED",
+    );
     const order = await this.findByIdForClient(client, orderId);
     if (!order) throw new Error("Order is missing immediately after creation.");
     return order;
@@ -285,7 +293,7 @@ export class OrdersRepository {
 
   private orderSelect(forUpdate: boolean, suffix = ""): string {
     return [
-      "SELECT id, customer_id, created_by, created_by_role, branch_id, status, currency,",
+      "SELECT id, customer_id, created_by, created_by_role, branch_id, channel, status, currency,",
       "  subtotal, discount_total, total, cancellation_reason, cancelled_at, version, created_at, updated_at",
       "FROM orders WHERE id = $1",
       forUpdate ? "FOR UPDATE" : "",
@@ -303,7 +311,7 @@ export class OrdersRepository {
 
   private ordersListSelect(): string {
     return [
-      "SELECT id, customer_id, created_by, created_by_role, branch_id, status, currency,",
+      "SELECT id, customer_id, created_by, created_by_role, branch_id, channel, status, currency,",
       "  subtotal, discount_total, total, cancellation_reason, cancelled_at, version, created_at, updated_at",
       "FROM orders ORDER BY created_at DESC, id DESC",
     ].join("\n");
@@ -321,6 +329,7 @@ export class OrdersRepository {
       createdBy: row.created_by,
       createdByRole: row.created_by_role,
       branchId: row.branch_id,
+      channel: row.channel,
       status: row.status,
       currency: row.currency,
       subtotal: this.money(Number(row.subtotal)),

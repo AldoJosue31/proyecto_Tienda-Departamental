@@ -19,6 +19,11 @@ import type {
   InventoryDashboardItem,
   StockUpdatedEvent,
 } from "@/lib/inventory/dashboard-types";
+import {
+  mergeStockUpdated,
+  recordRealtimeLatency,
+  type RealtimeLatency,
+} from "@/lib/inventory/realtime";
 
 type RealtimeStatus = "connecting" | "connected" | "fallback";
 
@@ -59,7 +64,10 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics }: {
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>("connecting");
   const [lastRealtimeAt, setLastRealtimeAt] = useState<string | null>(null);
+  const [realtimeLatency, setRealtimeLatency] = useState<RealtimeLatency | null>(null);
   const activeBranchId = useRef(initialDashboard.branch.id);
+  const knownVariantIds = useRef(new Set(initialDashboard.items.map((item) => item.variantId)));
+  const latencySamples = useRef<number[]>([]);
 
   const updateDashboard = useCallback(async (branchId: string, announce = false) => {
     setIsDashboardLoading(true);
@@ -74,6 +82,7 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics }: {
         })
         : await request;
       activeBranchId.current = nextDashboard.branch.id;
+      knownVariantIds.current = new Set(nextDashboard.items.map((item) => item.variantId));
       setDashboard(nextDashboard);
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo cargar el inventario.";
@@ -93,8 +102,18 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics }: {
 
     const refreshCurrentBranch = (event: StockUpdatedEvent) => {
       if (event.branchId !== activeBranchId.current) return;
+      const delivery = recordRealtimeLatency(latencySamples.current, event.occurredAt);
+      latencySamples.current = delivery.samples;
+      if (delivery.latency) setRealtimeLatency(delivery.latency);
       setLastRealtimeAt(event.lastUpdatedAt);
-      void updateDashboard(event.branchId);
+      if (!knownVariantIds.current.has(event.variantId)) {
+        void updateDashboard(event.branchId);
+        return;
+      }
+      setDashboard((current) => {
+        const merged = mergeStockUpdated(current, event);
+        return merged.applied ? merged.dashboard : current;
+      });
     };
     const useFallback = () => {
       setRealtimeStatus("fallback");
@@ -134,6 +153,7 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics }: {
             <h1 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{dashboard.branch.name}</h1>
             <p className="mt-2 text-pretty text-sm leading-6 text-[var(--muted)]">Disponibilidad, reservas y puntos de reabastecimiento de esta sucursal.</p>
             <p className="mt-3 text-sm text-[var(--muted)]" aria-live="polite">Última sincronización: {formatDate(lastUpdate)}</p>
+            {realtimeLatency ? <p className={`mt-1 text-xs ${realtimeLatency.p95Milliseconds > 3_000 ? "text-[var(--warning)]" : "text-[var(--muted)]"}`} aria-live="polite">Entrega Realtime: {realtimeLatency.lastMilliseconds} ms · p95 móvil ({realtimeLatency.sampleSize}) {realtimeLatency.p95Milliseconds} ms{realtimeLatency.p95Milliseconds > 3_000 ? "; revisa la conexión." : "."}</p> : null}
           </div>
           <div className="flex min-w-0 flex-wrap items-end gap-3">
           <label className="block min-w-0">

@@ -14,6 +14,7 @@ import {
 } from "./inventory.dto";
 import type {
   InventoryListResponse,
+  InventoryBranchListResponse,
   InventoryReservation,
   InventoryStock,
   MovementResponse,
@@ -51,6 +52,11 @@ interface ReservationRow extends StockRow {
 
 interface IdentifierRow extends QueryResultRow {
   id: string;
+}
+
+interface BranchRow extends QueryResultRow {
+  id: string;
+  name: string;
 }
 
 interface MovementRow extends QueryResultRow {
@@ -114,6 +120,13 @@ export class InventoryService {
       "ORDER BY b.name ASC, v.product_name ASC NULLS LAST, v.sku ASC NULLS LAST, s.id ASC",
     ));
     return { items: result.rows.map((row) => this.toStock(row)) };
+  }
+
+  async listCheckoutBranches(): Promise<InventoryBranchListResponse> {
+    const result = await this.database.query<BranchRow>(
+      "SELECT id, name FROM inventory_branches ORDER BY name ASC, id ASC",
+    );
+    return { branches: result.rows.map((branch) => ({ id: branch.id, name: branch.name })) };
   }
 
   async listBranchInventory(branchId: string): Promise<InventoryListResponse> {

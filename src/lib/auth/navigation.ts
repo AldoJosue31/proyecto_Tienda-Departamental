@@ -7,6 +7,8 @@ const destinations: readonly Destination[] = [
   { href: "/", label: "Catálogo", roles: ["ADMIN", "EMPLOYEE", "CUSTOMER"] },
   { href: "/catalog/manage", label: "Gestionar catálogo", roles: ["ADMIN"] },
   { href: "/dashboard", label: "Administración", roles: ["ADMIN"] },
+  { href: "/operations/sales", label: "Ventas físicas", roles: ["ADMIN", "EMPLOYEE"] },
+  { href: "/operations/inventory", label: "Inventario", roles: ["ADMIN", "EMPLOYEE"] },
   { href: "/operations", label: "Operación", roles: ["ADMIN", "EMPLOYEE"] },
   { href: "/crm", label: "CRM", roles: ["ADMIN"] },
   { href: "/account", label: "Mi cuenta", roles: ["ADMIN", "EMPLOYEE", "CUSTOMER"] },

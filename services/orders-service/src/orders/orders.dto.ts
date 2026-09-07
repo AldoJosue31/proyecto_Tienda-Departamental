@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -12,6 +13,7 @@ import {
   Min,
   ValidateNested,
 } from "class-validator";
+import { ORDER_CHANNELS, type OrderChannel } from "./orders.types";
 
 function normalizedText(value: unknown): unknown {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : value;
@@ -34,6 +36,13 @@ export class CreateOrderItemDto {
 export class CreateOrderDto {
   @IsUUID()
   branchId!: string;
+
+  // Online is the backwards-compatible default. A physical sale must be
+  // created by an authenticated member of Operations (enforced in the
+  // service, where the JWT role is available).
+  @IsOptional()
+  @IsIn(ORDER_CHANNELS)
+  channel?: OrderChannel;
 
   // CUSTOMER orders always use the authenticated user. Staff may register a
   // sale on behalf of a customer without querying Auth's private database.

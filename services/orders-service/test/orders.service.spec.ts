@@ -23,6 +23,7 @@ function order(status: StoredOrder["status"] = "PENDING"): StoredOrder {
     createdBy: actor.id,
     createdByRole: actor.role,
     branchId,
+    channel: "ONLINE",
     status,
     currency: "MXN",
     subtotal: 0,
@@ -45,6 +46,52 @@ function database() {
 }
 
 describe("OrdersService idempotency and ownership", () => {
+  it("rechaza una venta física iniciada por un CUSTOMER antes de reservar stock", async () => {
+    const repository = { findIdempotency: vi.fn() };
+    const inventory = { reserve: vi.fn() };
+    const service = new OrdersService(
+      database(),
+      repository as never,
+      {} as never,
+      {} as never,
+      inventory as never,
+      { enqueue: vi.fn() } as never,
+    );
+
+    await expect(service.create({
+      channel: "PHYSICAL",
+      branchId,
+      customerId: actor.id,
+      items: [{ productId, variantId, quantity: 1 }],
+    }, "physical-customer-denied", actor)).rejects.toMatchObject(
+      { code: "FORBIDDEN" } satisfies Partial<ApiException>,
+    );
+    expect(repository.findIdempotency).not.toHaveBeenCalled();
+    expect(inventory.reserve).not.toHaveBeenCalled();
+  });
+
+  it("exige un cliente para atribuir una venta física de Operations", async () => {
+    const employee = { ...actor, role: "EMPLOYEE" as const };
+    const repository = { findIdempotency: vi.fn() };
+    const service = new OrdersService(
+      database(),
+      repository as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { enqueue: vi.fn() } as never,
+    );
+
+    await expect(service.create({
+      channel: "PHYSICAL",
+      branchId,
+      items: [{ productId, variantId, quantity: 1 }],
+    }, "physical-customer-required", employee)).rejects.toMatchObject(
+      { code: "PHYSICAL_SALE_CUSTOMER_REQUIRED" } satisfies Partial<ApiException>,
+    );
+    expect(repository.findIdempotency).not.toHaveBeenCalled();
+  });
+
   it("devuelve el pedido confirmado previo sin volver a llamar servicios remotos", async () => {
     const confirmed = order("CONFIRMED");
     const repository = {

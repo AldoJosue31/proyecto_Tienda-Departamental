@@ -5,8 +5,8 @@ import { isActiveDestination, navigationForRole } from "../src/lib/auth/navigati
 
 describe("Navegación global por rol", () => {
   it.each([
-    ["ADMIN", ["/", "/catalog/manage", "/dashboard", "/operations", "/crm", "/account"]],
-    ["EMPLOYEE", ["/", "/operations", "/account"]],
+    ["ADMIN", ["/", "/catalog/manage", "/dashboard", "/operations/sales", "/operations/inventory", "/operations", "/crm", "/account"]],
+    ["EMPLOYEE", ["/", "/operations/sales", "/operations/inventory", "/operations", "/account"]],
     ["CUSTOMER", ["/", "/account"]],
     [null, ["/"]],
   ] as const)("ofrece todos y solo los destinos permitidos para %s, en orden estable", (role, expected) => {
@@ -22,12 +22,21 @@ describe("Navegación global por rol", () => {
     }
   });
 
-  it.each(["/", "/catalog/manage", "/dashboard", "/operations", "/crm", "/account", "/crm/customers/123"])(
-    "marca una sola sección activa en %s",
-    (pathname) => {
-      expect(navigationForRole("ADMIN").filter(({ href }) => isActiveDestination(href, pathname))).toHaveLength(1);
-    },
-  );
+  it.each([
+    ["/", "/"],
+    ["/catalog/manage", "/catalog/manage"],
+    ["/dashboard", "/dashboard"],
+    ["/operations", "/operations"],
+    ["/operations/sales", "/operations/sales"],
+    ["/crm", "/crm"],
+    ["/account", "/account"],
+    ["/crm/customers/123", "/crm"],
+  ])("resuelve el destino más específico en %s", (pathname, expected) => {
+    const active = navigationForRole("ADMIN")
+      .filter(({ href }) => isActiveDestination(href, pathname))
+      .sort((left, right) => right.href.length - left.href.length)[0];
+    expect(active?.href).toBe(expected);
+  });
 
   it("no confunde rutas con prefijos parecidos ni marca catálogo para todo", () => {
     expect(isActiveDestination("/", "/account")).toBe(false);

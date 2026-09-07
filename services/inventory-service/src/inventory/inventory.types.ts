@@ -34,6 +34,17 @@ export interface InventoryListResponse {
   items: InventoryStock[];
 }
 
+// A checkout only needs a safe pickup location identifier and display name.
+// It must not disclose operational stock to a customer.
+export interface InventoryBranch {
+  id: string;
+  name: string;
+}
+
+export interface InventoryBranchListResponse {
+  branches: InventoryBranch[];
+}
+
 export interface InventoryReservation {
   id: string;
   orderId: string;

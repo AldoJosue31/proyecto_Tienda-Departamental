@@ -31,6 +31,7 @@ describe("arquitectura de las fases 1 y 2", () => {
     const productCreate = kong.slice(kong.indexOf("name: catalog-create-product"), kong.indexOf("name: catalog-update-product"));
 
     expect(publicRead).toContain("- GET");
+    expect(publicRead).toContain("- OPTIONS");
     expect(publicRead).not.toContain("name: jwt");
     expect(productCreate).toContain("- POST");
     expect(productCreate).toContain("name: jwt");

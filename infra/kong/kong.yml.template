@@ -133,6 +133,9 @@ services:
           - "~/products(?:/[^/]+)?$"
         methods:
           - GET
+          # The browser catalog sends X-Correlation-Id, so its public GET
+          # requests require this matching preflight route as well.
+          - OPTIONS
         strip_path: false
       - name: catalog-create-product
         paths:
@@ -197,7 +200,7 @@ services:
       # intentionally absent: they are private Orders-to-Inventory calls.
       - name: inventory-read
         paths:
-          - "~/inventory(?:/branches/[^/]+|/low-stock)?$"
+          - "~/inventory(?:/branches(?:/[^/]+)?|/low-stock)?$"
         methods:
           - GET
         strip_path: false

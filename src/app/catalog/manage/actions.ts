@@ -27,6 +27,17 @@ const variantSchema = z.object({
   currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, "Usa un código ISO de tres letras.").default("MXN"),
 });
 
+const variantUpdateSchema = z.object({
+  variantId: z.string().uuid("Selecciona una variante válida."),
+  sku: z.string().trim().min(3, "El SKU debe tener al menos 3 caracteres.").max(80),
+  size: z.string().trim().max(60),
+  color: z.string().trim().max(60),
+  material: z.string().trim().max(80),
+  listPrice: z.coerce.number().positive("El precio de lista debe ser mayor que cero."),
+  currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, "Usa un código ISO de tres letras."),
+  status: z.enum(["ACTIVE", "INACTIVE"]),
+});
+
 function fields(formData: FormData) {
   return Object.fromEntries(Array.from(formData.entries()).map(([key, value]) => [key, typeof value === "string" ? value : ""]));
 }
@@ -103,4 +114,35 @@ export async function createCatalogVariant(_previous: CatalogActionState, formDa
   revalidatePath("/");
   revalidatePath("/catalog/manage");
   return { status: "success", message: "Variante registrada con SKU independiente." };
+}
+
+export async function updateCatalogVariant(_previous: CatalogActionState, formData: FormData): Promise<CatalogActionState> {
+  const parsed = variantUpdateSchema.safeParse(fields(formData));
+  if (!parsed.success) return { status: "error", fieldErrors: parsed.error.flatten().fieldErrors };
+
+  const accessToken = await adminToken();
+  if (!accessToken) return { status: "error", message: "Tu sesión expiró. Inicia sesión de nuevo." };
+
+  try {
+    const { body, response } = await gatewayJson<unknown>(`/variants/${encodeURIComponent(parsed.data.variantId)}`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sku: parsed.data.sku,
+        size: parsed.data.size || null,
+        color: parsed.data.color || null,
+        material: parsed.data.material || null,
+        listPrice: parsed.data.listPrice,
+        currency: parsed.data.currency,
+        status: parsed.data.status,
+      }),
+    });
+    if (!response.ok) return { status: "error", message: resultMessage(body, "No fue posible actualizar la variante.") };
+  } catch {
+    return { status: "error", message: "No fue posible contactar el catálogo." };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/catalog/manage");
+  return { status: "success", message: parsed.data.status === "INACTIVE" ? "Variante desactivada; se conserva para el historial." : "Variante actualizada." };
 }
