@@ -8,11 +8,11 @@ const read = (relativePath: string) => readFileSync(path.join(webRoot, relativeP
 describe("Fase 11: CRM proyectado y segmentación", () => {
   it("aísla CRM con PostgreSQL, red y contenedor propios", () => {
     const compose = read("compose.yaml");
-    expect(compose).toContain("crm-service:");
+    expect(compose).toContain("servicio-clientes:");
     expect(compose).toContain("crm-postgres:");
     expect(compose).toContain("crm-internal:");
     expect(compose).toContain("crm_postgres_data:");
-    expect(compose).not.toMatch(/crm-service:[\s\S]{0,950}\n\s+ports:/);
+    expect(compose).not.toMatch(/servicio-clientes:[\s\S]{0,950}\n\s+ports:/);
   });
 
   it("proyecta compras desde RabbitMQ con idempotencia y DLQ, sin leer Orders DB", () => {
@@ -29,7 +29,7 @@ describe("Fase 11: CRM proyectado y segmentación", () => {
 
   it("protege CRM con ADMIN en Gateway, backend y BFF", () => {
     const kong = read("infra/kong/kong.yml.template");
-    expect(kong).toContain("url: http://crm-service:3009");
+    expect(kong).toContain("url: http://servicio-clientes:3009");
     expect(kong).toContain("name: crm-customers");
     expect(kong).toContain("name: crm-inactive-segment");
     expect(read("services/crm-service/src/crm/crm.controller.ts")).toContain('@Roles("ADMIN")');

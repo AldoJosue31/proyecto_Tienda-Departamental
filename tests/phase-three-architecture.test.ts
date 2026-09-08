@@ -11,17 +11,17 @@ describe("arquitectura de la fase 3", () => {
     const compose = read("compose.yaml");
     const kong = read("infra/kong/kong.yml.template");
 
-    expect(compose).toContain("inventory-service:");
+    expect(compose).toContain("servicio-inventario:");
     expect(compose).toContain("inventory-postgres:");
     expect(compose).toContain("inventory-internal:");
     expect(compose).toContain("inventory_postgres_data:");
-    expect(compose).not.toMatch(/inventory-service:[\s\S]{0,900}\n\s+ports:/);
+    expect(compose).not.toMatch(/servicio-inventario:[\s\S]{0,900}\n\s+ports:/);
     const inventoryPostgres = compose.slice(
       compose.indexOf("inventory-postgres:"),
       compose.indexOf("\n  postgres:"),
     );
     expect(inventoryPostgres).not.toContain("ports:");
-    expect(kong).toContain("url: http://inventory-service:3003");
+    expect(kong).toContain("url: http://servicio-inventario:3003");
     expect(kong).toContain("name: inventory-read");
     expect(kong).toContain("name: inventory-create-movement");
   });

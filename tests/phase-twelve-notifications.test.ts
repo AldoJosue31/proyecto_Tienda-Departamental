@@ -8,11 +8,11 @@ const read = (relativePath: string) => readFileSync(path.join(webRoot, relativeP
 describe("Fase 12: campañas y notificaciones asíncronas", () => {
   it("mantiene Notification aislado con PostgreSQL, red y contenedor propios", () => {
     const compose = read("compose.yaml");
-    expect(compose).toContain("notification-service:");
+    expect(compose).toContain("servicio-notificaciones:");
     expect(compose).toContain("notification-postgres:");
     expect(compose).toContain("notification-internal:");
     expect(compose).toContain("notification_postgres_data:");
-    expect(compose).not.toMatch(/notification-service:[\s\S]{0,1500}\n\s+ports:/);
+    expect(compose).not.toMatch(/servicio-notificaciones:[\s\S]{0,1500}\n\s+ports:/);
   });
 
   it("implementa los dos Outbox y los contratos de eventos, con reintento y DLQ", () => {

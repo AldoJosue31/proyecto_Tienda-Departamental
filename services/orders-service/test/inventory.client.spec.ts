@@ -13,7 +13,7 @@ describe("InventoryClient", () => {
     }), { status: 201, headers: { "content-type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
     const client = new InventoryClient({
-      inventoryServiceUrl: "http://inventory-service:3003",
+      inventoryServiceUrl: "http://servicio-inventario:3003",
       inventoryInternalServiceKey: "service-key",
       upstreamTimeoutMilliseconds: 5_000,
     });
@@ -28,7 +28,7 @@ describe("InventoryClient", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      new URL("http://inventory-service:3003/inventory/reservations"),
+      new URL("http://servicio-inventario:3003/inventory/reservations"),
       expect.objectContaining({
         body: JSON.stringify({
           variantId: "a2000000-0000-4000-8000-000000000001",

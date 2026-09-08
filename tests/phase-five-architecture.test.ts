@@ -15,11 +15,11 @@ describe("arquitectura de la fase 5", () => {
       compose.indexOf("\n  postgres:"),
     );
     const service = compose.slice(
-      compose.indexOf("\n  orders-service:"),
+      compose.indexOf("\n  servicio-pedidos:"),
       compose.indexOf("\n  orders-postgres:"),
     );
 
-    expect(compose).toContain("orders-service:");
+    expect(compose).toContain("servicio-pedidos:");
     expect(compose).toContain("orders-postgres:");
     expect(compose).toContain("orders-internal:");
     expect(compose).toContain("orders_postgres_data:");
@@ -27,7 +27,7 @@ describe("arquitectura de la fase 5", () => {
     expect(service).toContain("CATALOG_SERVICE_URL");
     expect(service).toContain("PRICING_SERVICE_URL");
     expect(service).toContain("INVENTORY_SERVICE_URL");
-    expect(kong).toContain("url: http://orders-service:3005");
+    expect(kong).toContain("url: http://servicio-pedidos:3005");
   });
 
   it("publica solo los contratos de Orders con JWT y delega la propiedad al servicio", () => {

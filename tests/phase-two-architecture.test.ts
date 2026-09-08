@@ -11,15 +11,15 @@ describe("arquitectura de las fases 1 y 2", () => {
     const compose = read("compose.yaml");
     const kong = read("infra/kong/kong.yml.template");
 
-    expect(compose).toContain("catalog-service:");
+    expect(compose).toContain("servicio-catalogo:");
     expect(compose).toContain("catalog-postgres:");
     expect(compose).toContain("catalog-redis:");
     expect(compose).toContain("catalog-internal:");
     expect(compose).toContain("catalog_postgres_data:");
     expect(compose).toContain("catalog_redis_data:");
-    expect(compose).not.toMatch(/catalog-service:[\s\S]{0,900}\n\s+ports:/);
+    expect(compose).not.toMatch(/servicio-catalogo:[\s\S]{0,900}\n\s+ports:/);
     expect(compose).not.toMatch(/catalog-postgres:[\s\S]{0,700}\n\s+ports:/);
-    expect(kong).toContain("url: http://catalog-service:3002");
+    expect(kong).toContain("url: http://servicio-catalogo:3002");
     expect(kong).toContain("name: catalog-read");
     expect(kong).toContain("name: catalog-create-product");
     expect(kong).toContain("name: catalog-update-variant");

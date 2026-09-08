@@ -15,12 +15,12 @@ describe("arquitectura de la fase 4", () => {
       compose.indexOf("\n  postgres:"),
     );
 
-    expect(compose).toContain("pricing-service:");
+    expect(compose).toContain("servicio-precios:");
     expect(compose).toContain("pricing-postgres:");
     expect(compose).toContain("pricing-internal:");
     expect(compose).toContain("pricing_postgres_data:");
     expect(database).not.toContain("ports:");
-    expect(kong).toContain("url: http://pricing-service:3004");
+    expect(kong).toContain("url: http://servicio-precios:3004");
     expect(kong).toContain("name: pricing-quote");
     expect(kong).toContain("name: pricing-promotions");
   });

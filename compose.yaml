@@ -1,11 +1,11 @@
 services:
-  web:
+  aplicacion-web:
     build:
       context: .
       dockerfile: Dockerfile
     environment:
       NODE_ENV: production
-      GATEWAY_INTERNAL_URL: http://gateway:8000
+      GATEWAY_INTERNAL_URL: http://pasarela-api:8000
       NEXT_PUBLIC_GATEWAY_URL: ${NEXT_PUBLIC_GATEWAY_URL:-http://localhost:8000}
       DATABASE_URL: postgresql://departamental:departamental@postgres:5432/departamental
       REDIS_URL: redis://redis:6379
@@ -19,7 +19,7 @@ services:
     ports:
       - "${WEB_HOST_PORT:-3000}:3000"
     depends_on:
-      gateway:
+      pasarela-api:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -29,7 +29,7 @@ services:
       - edge
       - legacy-internal
 
-  gateway:
+  pasarela-api:
     build:
       context: ./infra/kong
     environment:
@@ -38,23 +38,23 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      auth-service:
+      servicio-autenticacion:
         condition: service_healthy
-      catalog-service:
+      servicio-catalogo:
         condition: service_healthy
-      inventory-service:
+      servicio-inventario:
         condition: service_healthy
-      pricing-service:
+      servicio-precios:
         condition: service_healthy
-      orders-service:
+      servicio-pedidos:
         condition: service_healthy
-      realtime-service:
+      servicio-tiempo-real:
         condition: service_healthy
-      analytics-service:
+      servicio-analitica:
         condition: service_healthy
-      logistics-service:
+      servicio-logistica:
         condition: service_healthy
-      crm-service:
+      servicio-clientes:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "kong health"]
@@ -74,7 +74,7 @@ services:
       - logistics-internal
       - crm-internal
 
-  auth-service:
+  servicio-autenticacion:
     build:
       context: ./services/auth-service
     environment:
@@ -116,7 +116,7 @@ services:
     networks:
       - auth-internal
 
-  catalog-service:
+  servicio-catalogo:
     build:
       context: ./services/catalog-service
     environment:
@@ -174,7 +174,7 @@ services:
     networks:
       - catalog-internal
 
-  inventory-service:
+  servicio-inventario:
     build:
       context: ./services/inventory-service
     environment:
@@ -224,7 +224,7 @@ services:
     networks:
       - inventory-internal
 
-  pricing-service:
+  servicio-precios:
     build:
       context: ./services/pricing-service
     environment:
@@ -272,7 +272,7 @@ services:
     networks:
       - pricing-internal
 
-  orders-service:
+  servicio-pedidos:
     build:
       context: ./services/orders-service
     environment:
@@ -280,9 +280,9 @@ services:
       DATABASE_URL: "postgresql://orders_service:${ORDERS_DB_PASSWORD:?Define ORDERS_DB_PASSWORD in .env before starting Compose}@orders-postgres:5432/orders_service"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
       INVENTORY_INTERNAL_SERVICE_KEY: "${INVENTORY_INTERNAL_SERVICE_KEY:?Define INVENTORY_INTERNAL_SERVICE_KEY in .env before starting Compose}"
-      CATALOG_SERVICE_URL: "http://catalog-service:3002"
-      PRICING_SERVICE_URL: "http://pricing-service:3004"
-      INVENTORY_SERVICE_URL: "http://inventory-service:3003"
+      CATALOG_SERVICE_URL: "http://servicio-catalogo:3002"
+      PRICING_SERVICE_URL: "http://servicio-precios:3004"
+      INVENTORY_SERVICE_URL: "http://servicio-inventario:3003"
       UPSTREAM_TIMEOUT_MILLISECONDS: "5000"
       RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
       OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "1000"
@@ -293,11 +293,11 @@ services:
     depends_on:
       orders-postgres:
         condition: service_healthy
-      catalog-service:
+      servicio-catalogo:
         condition: service_healthy
-      pricing-service:
+      servicio-precios:
         condition: service_healthy
-      inventory-service:
+      servicio-inventario:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
@@ -332,7 +332,7 @@ services:
     networks:
       - orders-internal
 
-  realtime-service:
+  servicio-tiempo-real:
     build:
       context: ./services/realtime-service
     environment:
@@ -355,7 +355,7 @@ services:
       - realtime-internal
       - events-internal
 
-  analytics-service:
+  servicio-analitica:
     build:
       context: ./services/analytics-service
     environment:
@@ -401,7 +401,7 @@ services:
     networks:
       - analytics-internal
 
-  logistics-service:
+  servicio-logistica:
     build:
       context: ./services/logistics-service
     environment:
@@ -447,7 +447,7 @@ services:
     networks:
       - logistics-internal
 
-  crm-service:
+  servicio-clientes:
     build:
       context: ./services/crm-service
     environment:
@@ -493,14 +493,14 @@ services:
     networks:
       - crm-internal
 
-  notification-service:
+  servicio-notificaciones:
     build:
       context: ./services/notification-service
     environment:
       NODE_ENV: "${NOTIFICATION_NODE_ENV:-development}"
       DATABASE_URL: "postgresql://notification_service:${NOTIFICATION_DB_PASSWORD:-notification_local_dev}@notification-postgres:5432/notification_service"
       RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
-      AUTH_SERVICE_URL: "http://auth-service:3001"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
       NOTIFICATION_INTERNAL_SERVICE_KEY: "${NOTIFICATION_INTERNAL_SERVICE_KEY:?Define NOTIFICATION_INTERNAL_SERVICE_KEY in .env before starting Compose}"
       NOTIFICATION_DELIVERY_MODE: "${NOTIFICATION_DELIVERY_MODE:-log}"
       SMTP_URL: "${SMTP_URL:-}"
@@ -515,7 +515,7 @@ services:
     depends_on:
       notification-postgres:
         condition: service_healthy
-      auth-service:
+      servicio-autenticacion:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
