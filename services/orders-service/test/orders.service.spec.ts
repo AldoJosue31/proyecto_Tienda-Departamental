@@ -145,6 +145,38 @@ describe("OrdersService idempotency and ownership", () => {
     );
   });
 
+  it("lista únicamente los pedidos que pertenecen al CUSTOMER autenticado", async () => {
+    const repository = { listForCustomer: vi.fn().mockResolvedValue([order("CONFIRMED")]) };
+    const service = new OrdersService(
+      database(),
+      repository as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { enqueue: vi.fn() } as never,
+    );
+
+    const result = await service.listMine(actor);
+
+    expect(repository.listForCustomer).toHaveBeenCalledWith(actor.id);
+    expect(result.orders).toEqual([expect.objectContaining({ id: orderId })]);
+  });
+
+  it("no permite reutilizar la consulta propia para una cuenta operativa", async () => {
+    const service = new OrdersService(
+      database(),
+      { listForCustomer: vi.fn() } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { enqueue: vi.fn() } as never,
+    );
+
+    await expect(service.listMine({ ...actor, role: "EMPLOYEE" })).rejects.toMatchObject(
+      { code: "FORBIDDEN" } satisfies Partial<ApiException>,
+    );
+  });
+
   it("persiste el rechazo cuando Inventory informa OUT_OF_STOCK", async () => {
     const pending = order();
     const repository = {

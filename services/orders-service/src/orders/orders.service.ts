@@ -96,6 +96,14 @@ export class OrdersService {
     return { orders: orders.map((order) => this.publicOrder(order)) };
   }
 
+  async listMine(actor: OrderActor): Promise<{ orders: Order[] }> {
+    if (actor.role !== "CUSTOMER") {
+      throw new ApiException(403, "FORBIDDEN", "Esta consulta está disponible únicamente para clientes");
+    }
+    const orders = await this.repository.listForCustomer(actor.id);
+    return { orders: orders.map((order) => this.publicOrder(order)) };
+  }
+
   async get(orderId: string, actor: OrderActor): Promise<OrderResponse> {
     const order = await this.findAuthorizedOrder(orderId, actor);
     return { order: this.publicOrder(order) };

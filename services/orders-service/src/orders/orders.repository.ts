@@ -156,6 +156,19 @@ export class OrdersRepository {
     return orders;
   }
 
+  async listForCustomer(customerId: string): Promise<StoredOrder[]> {
+    const rows = await this.database.query<OrderRow>(
+      this.customerOrdersListSelect(),
+      [customerId],
+    );
+    const orders: StoredOrder[] = [];
+    for (const row of rows.rows) {
+      const items = await this.database.query<ItemRow>(this.itemSelect(), [row.id]);
+      orders.push(this.toOrder(row, items.rows.map((item) => this.toItem(item))));
+    }
+    return orders;
+  }
+
   async replaceItems(
     client: PoolClient,
     orderId: string,
@@ -314,6 +327,14 @@ export class OrdersRepository {
       "SELECT id, customer_id, created_by, created_by_role, branch_id, channel, status, currency,",
       "  subtotal, discount_total, total, cancellation_reason, cancelled_at, version, created_at, updated_at",
       "FROM orders ORDER BY created_at DESC, id DESC",
+    ].join("\n");
+  }
+
+  private customerOrdersListSelect(): string {
+    return [
+      "SELECT id, customer_id, created_by, created_by_role, branch_id, channel, status, currency,",
+      "  subtotal, discount_total, total, cancellation_reason, cancelled_at, version, created_at, updated_at",
+      "FROM orders WHERE customer_id = $1 ORDER BY created_at DESC, id DESC",
     ].join("\n");
   }
 

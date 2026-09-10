@@ -125,6 +125,7 @@ Kong publica estos contratos con JWT:
 | --- | --- |
 | `POST /orders` | `ADMIN`, `EMPLOYEE`, `CUSTOMER`; requiere `Idempotency-Key`. |
 | `GET /orders` | `ADMIN`, `EMPLOYEE`. |
+| `GET /orders/mine` | Solo `CUSTOMER`; devuelve únicamente los pedidos de su identidad autenticada. |
 | `GET /orders/:id` | Operación o el `CUSTOMER` propietario. |
 | `POST /orders/:id/cancel` | Operación o el `CUSTOMER` propietario. |
 

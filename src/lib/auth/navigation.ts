@@ -11,6 +11,7 @@ const destinations: readonly Destination[] = [
   { href: "/operations/inventory", label: "Inventario", roles: ["ADMIN", "EMPLOYEE"] },
   { href: "/operations", label: "Operación", roles: ["ADMIN", "EMPLOYEE"] },
   { href: "/crm", label: "CRM", roles: ["ADMIN"] },
+  { href: "/orders", label: "Mis pedidos", roles: ["CUSTOMER"] },
   { href: "/account", label: "Mi cuenta", roles: ["ADMIN", "EMPLOYEE", "CUSTOMER"] },
 ];
 

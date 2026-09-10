@@ -39,6 +39,8 @@ describe("arquitectura de la fase 5", () => {
     expect(kong).toContain("name: orders-cancel");
     expect(controller).toContain('@Roles("ADMIN", "EMPLOYEE", "CUSTOMER")');
     expect(controller).toContain('@Roles("ADMIN", "EMPLOYEE")');
+    expect(controller).toContain('@Get("mine")');
+    expect(controller).toContain('@Roles("CUSTOMER")');
     expect(controller).toContain('@Post(":id/cancel")');
   });
 
