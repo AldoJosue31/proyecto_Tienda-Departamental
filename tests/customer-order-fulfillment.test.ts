@@ -35,7 +35,7 @@ describe("seguimiento poscompra de CUSTOMER", () => {
   it("une el avance de entrega al pedido, mantiene recuperación y evita duplicarlo en Mi cuenta", () => {
     const orders = read("src/components/customer-orders.tsx");
     const page = read("src/app/(platform)/orders/page.tsx");
-    const account = read("src/app/(platform)/account/page.tsx");
+    const account = read("src/components/customer-account.tsx");
 
     expect(page).toContain("getCustomerShipmentsFor(user.id)");
     expect(orders).toContain('fetch("/api/orders/shipments"');
