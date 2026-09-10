@@ -7,14 +7,26 @@ const root = path.resolve(import.meta.dirname, "..");
 const read = (relativePath: string) => readFileSync(path.join(root, relativePath), "utf8");
 
 describe("checkout de CUSTOMER", () => {
-  it("presenta una compra progresiva desde una variante del catálogo", () => {
+  it("mantiene una compra progresiva entre catálogo, bolsa persistente y checkout", () => {
     const catalog = read("src/components/catalog-experience.tsx");
+    const checkout = read("src/components/customer-checkout.tsx");
+    const cart = read("src/components/customer-cart-provider.tsx");
+    const checkoutPage = read("src/app/(platform)/checkout/page.tsx");
+    const shell = read("src/components/app-shell.tsx");
 
     expect(catalog).toContain("Elige una variante");
     expect(catalog).toContain("Agregar");
-    expect(catalog).toContain("Tu compra");
-    expect(catalog).toContain("Sucursal de retiro");
-    expect(catalog).toContain("Confirmar pedido");
+    expect(catalog).toContain("Ver bolsa");
+    expect(checkout).toContain("Tu bolsa");
+    expect(checkout).toContain("Sucursal de retiro");
+    expect(checkout).toContain("Confirmar pedido");
+    expect(checkout).toContain("Pedido confirmado");
+    expect(checkout).toContain("checkout.isPending");
+    expect(checkout).toContain('role="status"');
+    expect(cart).toContain("localStorage");
+    expect(cart).toContain("consumeCustomerCart");
+    expect(shell).toContain("CustomerBagLink");
+    expect(checkoutPage).toContain('requireRole(["CUSTOMER"], "/checkout")');
     expect(catalog).toContain('userRole === "CUSTOMER"');
   });
 

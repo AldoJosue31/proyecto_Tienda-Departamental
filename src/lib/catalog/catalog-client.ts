@@ -1,4 +1,4 @@
-import type { CatalogPage, CatalogSearch } from "@/lib/catalog/types";
+import type { CatalogPage, CatalogProductDetail, CatalogSearch } from "@/lib/catalog/types";
 
 const defaultGatewayUrl = "http://localhost:8000";
 const catalogRequestTimeoutMs = 4_000;
@@ -74,4 +74,42 @@ export async function searchCatalog(search: CatalogSearch, signal?: AbortSignal)
   }
 
   return body;
+}
+
+export async function getCatalogProduct(productId: string, signal?: AbortSignal): Promise<CatalogProductDetail> {
+  const correlationId = makeCorrelationId();
+  const controller = new AbortController();
+  let timeout: number | undefined;
+  const abortFromQuery = () => controller.abort();
+  signal?.addEventListener("abort", abortFromQuery, { once: true });
+
+  try {
+    const request = fetch(`${publicGatewayUrl()}/products/${encodeURIComponent(productId)}`, {
+      signal: controller.signal,
+      headers: { "X-Correlation-Id": correlationId },
+    });
+    const deadline = new Promise<never>((_, reject) => {
+      timeout = window.setTimeout(() => {
+        controller.abort();
+        reject(new CatalogRequestError("No fue posible verificar uno de los artículos de tu bolsa.", 503, correlationId));
+      }, catalogRequestTimeoutMs);
+    });
+    const response = await Promise.race([request, deadline]);
+    const responseCorrelationId = response.headers.get("X-Correlation-Id") ?? correlationId;
+    const body = await response.json().catch(() => null) as { product?: CatalogProductDetail; message?: string } | null;
+    if (!response.ok || !body?.product) {
+      throw new CatalogRequestError(
+        body?.message ?? "No fue posible verificar uno de los artículos de tu bolsa.",
+        response.status,
+        responseCorrelationId,
+      );
+    }
+    return body.product;
+  } catch (error) {
+    if (error instanceof CatalogRequestError) throw error;
+    throw new CatalogRequestError("No fue posible contactar el catálogo.", 503, correlationId);
+  } finally {
+    if (timeout !== undefined) window.clearTimeout(timeout);
+    signal?.removeEventListener("abort", abortFromQuery);
+  }
 }
