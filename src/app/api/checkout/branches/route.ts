@@ -28,5 +28,5 @@ export async function GET(request: Request) {
 }
 
 function failure(status: number, code: string, message: string, correlationId: string) {
-  return Response.json({ code, message, correlationId }, { status, headers: { "X-Correlation-Id": correlationId } });
+  return Response.json({ code, message, correlationId }, { status, headers: { "Cache-Control": "private, no-store", "X-Correlation-Id": correlationId } });
 }

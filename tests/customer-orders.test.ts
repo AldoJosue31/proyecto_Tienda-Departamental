@@ -35,6 +35,7 @@ describe("historial de pedidos de CUSTOMER", () => {
     expect(navigation).toContain('{ href: "/orders", label: "Mis pedidos", roles: ["CUSTOMER"] }');
     expect(experience).toContain("Aún no tienes pedidos");
     expect(experience).toContain("Ver artículos y variantes");
+    expect(experience).toContain('href={`/orders/${order.id}`}');
     expect(experience).toContain("No pudimos cargar tus pedidos");
   });
 });

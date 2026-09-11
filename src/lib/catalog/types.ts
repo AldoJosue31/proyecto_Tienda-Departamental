@@ -32,11 +32,21 @@ export type CatalogProductSummary = {
 
 export type CatalogProductDetail = CatalogProductSummary;
 
+export type CatalogFacet = {
+  slug: string;
+  name: string;
+  count: number;
+};
+
 export type CatalogPage = {
   items: CatalogProductSummary[];
   page: number;
   pageSize: number;
   total: number;
+  facets: {
+    categories: CatalogFacet[];
+    brands: CatalogFacet[];
+  };
 };
 
 export type CatalogSearch = {
@@ -52,4 +62,5 @@ export const emptyCatalogPage: CatalogPage = {
   page: 1,
   pageSize: 20,
   total: 0,
+  facets: { categories: [], brands: [] },
 };

@@ -19,8 +19,13 @@ describe("checkout de CUSTOMER", () => {
     expect(catalog).toContain("Ver bolsa");
     expect(checkout).toContain("Tu bolsa");
     expect(checkout).toContain("Sucursal de retiro");
+    expect(checkout).toContain('type="radio"');
+    expect(checkout).toContain("La disponibilidad y el precio vigentes se confirman");
+    expect(checkout).toContain("No hay sucursales disponibles para retiro.");
     expect(checkout).toContain("Confirmar pedido");
     expect(checkout).toContain("Pedido confirmado");
+    expect(checkout).toContain('href="/orders"');
+    expect(checkout).toContain("Ver mis pedidos");
     expect(checkout).toContain("checkout.isPending");
     expect(checkout).toContain('role="status"');
     expect(cart).toContain("localStorage");
@@ -40,6 +45,8 @@ describe("checkout de CUSTOMER", () => {
     expect(checkout).toContain('gatewayJson<unknown>("/orders"');
     expect(checkout).toContain('channel: "ONLINE"');
     expect(checkout).toContain('user.role !== "CUSTOMER"');
+    expect(checkout).toContain('"Cache-Control": "private, no-store"');
+    expect(branches).toContain('"Cache-Control": "private, no-store"');
     expect(inventory).toContain('@Get("branches")');
     expect(kong).toContain("branches(?:/[^/]+)?");
   });

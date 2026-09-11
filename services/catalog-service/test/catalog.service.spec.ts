@@ -37,6 +37,10 @@ const publicSearch: ProductSearchResponse = {
   page: 1,
   pageSize: 20,
   total: 1,
+  facets: {
+    categories: [{ slug: "electronica", name: "Electrónica", count: 1 }],
+    brands: [{ slug: "aurora", name: "Aurora", count: 1 }],
+  },
 };
 
 const adminProduct: CatalogProduct = {
@@ -119,6 +123,20 @@ describe("CatalogService", () => {
       publicSearch,
       120,
     );
+  });
+
+  it("does not reuse an old cached page that has no real filter facets", async () => {
+    const { service, repository, cache } = createService();
+    vi.mocked(cache.getString).mockResolvedValue("7");
+    vi.mocked(cache.getJson).mockResolvedValue({
+      items: publicSearch.items,
+      page: 1,
+      pageSize: 20,
+      total: 1,
+    } as unknown as ProductSearchResponse);
+
+    await expect(service.search({})).resolves.toEqual(publicSearch);
+    expect(vi.mocked(repository.searchActive)).toHaveBeenCalledOnce();
   });
 
   it("advances the versioned cache after an ADMIN product mutation", async () => {

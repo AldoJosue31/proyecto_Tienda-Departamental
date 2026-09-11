@@ -21,7 +21,7 @@ const customerOrderItemSchema = z.object({
   reservationId: z.string().nullable(),
 });
 
-const customerOrderSchema = z.object({
+export const customerOrderSchema = z.object({
   id: z.string().min(1),
   branchId: z.string().min(1),
   channel: orderChannelSchema,
@@ -39,6 +39,7 @@ const customerOrderSchema = z.object({
 });
 
 export const customerOrdersResponseSchema = z.object({ orders: z.array(customerOrderSchema) });
+export const customerOrderResponseSchema = z.object({ order: customerOrderSchema });
 
 export type CustomerOrder = z.infer<typeof customerOrderSchema>;
 export type CustomerOrderStatus = z.infer<typeof orderStatusSchema>;

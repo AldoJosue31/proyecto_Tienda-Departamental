@@ -53,6 +53,12 @@ interface VersionRow {
   value: string | number;
 }
 
+interface FacetRow {
+  slug: string;
+  name: string;
+  count: string | number;
+}
+
 export interface CatalogMutation {
   id: string;
   catalogVersion: number;
@@ -103,7 +109,7 @@ export class CatalogRepository {
       criteria.brand,
     ];
     const where = this.publicSearchWhere();
-    const [totalResult, productsResult] = await Promise.all([
+    const [totalResult, productsResult, categoriesResult, brandsResult] = await Promise.all([
       this.database.query<{ total: string }>(
         `
           SELECT COUNT(*)::text AS total
@@ -126,6 +132,26 @@ export class CatalogRepository {
           (criteria.page - 1) * criteria.pageSize,
         ],
       ),
+      this.database.query<FacetRow>(
+        `
+          SELECT c.slug, c.name, COUNT(p.id)::text AS count
+          ${PRODUCT_JOINS}
+          ${this.publicSearchWhere({ includeCategory: false })}
+          GROUP BY c.slug, c.name
+          ORDER BY c.name ASC, c.slug ASC
+        `,
+        values,
+      ),
+      this.database.query<FacetRow>(
+        `
+          SELECT b.slug, b.name, COUNT(p.id)::text AS count
+          ${PRODUCT_JOINS}
+          ${this.publicSearchWhere({ includeBrand: false })}
+          GROUP BY b.slug, b.name
+          ORDER BY b.name ASC, b.slug ASC
+        `,
+        values,
+      ),
     ]);
 
     const total = Number(totalResult.rows[0]?.total ?? "0");
@@ -139,6 +165,10 @@ export class CatalogRepository {
       page: criteria.page,
       pageSize: criteria.pageSize,
       total,
+      facets: {
+        categories: this.toFacets(categoriesResult.rows),
+        brands: this.toFacets(brandsResult.rows),
+      },
     };
   }
 
@@ -349,7 +379,30 @@ export class CatalogRepository {
     });
   }
 
-  private publicSearchWhere(): string {
+  private publicSearchWhere({ includeCategory = true, includeBrand = true }: {
+    includeCategory?: boolean;
+    includeBrand?: boolean;
+  } = {}): string {
+    const categoryFilter = includeCategory
+      ? `
+        AND (
+          $2::text IS NULL
+          OR c.slug = lower($2)
+          OR lower(c.name) = lower($2)
+        )`
+      // Keep every positional parameter typed for PostgreSQL even when this
+      // facet intentionally ignores the active category filter.
+      : "\n        AND $2::text IS NOT DISTINCT FROM $2::text";
+    const brandFilter = includeBrand
+      ? `
+        AND (
+          $3::text IS NULL
+          OR b.slug = lower($3)
+          OR lower(b.name) = lower($3)
+        )`
+      // Same for brand facets: the filter is omitted semantically, not from
+      // the prepared statement's positional contract.
+      : "\n        AND $3::text IS NOT DISTINCT FROM $3::text";
     return `
       WHERE p.status = 'ACTIVE'
         AND (
@@ -360,17 +413,19 @@ export class CatalogRepository {
           OR b.name ILIKE '%' || $1 || '%'
           OR array_to_string(p.tags, ' ') ILIKE '%' || $1 || '%'
         )
-        AND (
-          $2::text IS NULL
-          OR c.slug = lower($2)
-          OR lower(c.name) = lower($2)
-        )
-        AND (
-          $3::text IS NULL
-          OR b.slug = lower($3)
-          OR lower(b.name) = lower($3)
-        )
+        ${categoryFilter}
+        ${brandFilter}
     `;
+  }
+
+  private toFacets(rows: FacetRow[]): ProductSearchResponse["facets"]["categories"] {
+    return rows.map((row) => {
+      const count = Number(row.count);
+      if (!row.slug || !row.name || !Number.isSafeInteger(count) || count < 0) {
+        throw new Error("Catalog facet is invalid.");
+      }
+      return { slug: row.slug, name: row.name, count };
+    });
   }
 
   private async attachVariants(
