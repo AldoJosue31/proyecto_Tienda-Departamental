@@ -35,6 +35,10 @@ registró y el `correlationId` de auditoría.
    aparece en el listado crítico.
 4. Orders emite `order.created.v1` y `order.completed.v1` con `channel`, para
    que Analytics y CRM no necesiten leer su base de datos.
+5. Logistics valida ese `channel` con su propio contrato. Una venta
+   `PHYSICAL` se reconoce y deduplica como evento recibido, pero no crea un
+   envío ni aparece en Pick & Pack; solamente `ONLINE` inicia preparación y
+   entrega.
 
 La ruta `POST /inventory/movements` se conserva para movimientos operativos
 auditados de `ADMIN`/`EMPLOYEE`; no será llamada por el flujo de caja.

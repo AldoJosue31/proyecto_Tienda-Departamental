@@ -12,8 +12,10 @@ import type {
   CourierLocationRequest,
   CourierLocationResponse,
   LogisticsEvent,
+  OrderChannel,
   Shipment,
   ShipmentActor,
+  ShipmentCancellationResponse,
   ShipmentDetailResponse,
   ShipmentItem,
   ShipmentListResponse,
@@ -31,6 +33,9 @@ interface ShipmentRow extends QueryResultRow {
   order_id: string;
   customer_id: string;
   branch_id: string;
+  // Null is retained only for shipments created before channel propagation.
+  // New events always write ONLINE; PHYSICAL events never create a shipment.
+  channel: OrderChannel | null;
   currency: string;
   total: string | number;
   items: unknown;
@@ -85,6 +90,14 @@ export function trackingFreshness(recordedAt: string | null, now = Date.now()): 
   return "RECENT";
 }
 
+export function requiresShipment(channel: OrderChannel): boolean {
+  return channel === "ONLINE";
+}
+
+export function canCancelBeforeDispatch(status: ShipmentStatus): boolean {
+  return status !== "SHIPPED" && status !== "DELIVERED";
+}
+
 @Injectable()
 export class ShipmentsService {
   constructor(
@@ -99,8 +112,11 @@ export class ShipmentsService {
         [event.eventId, event.eventType, event.occurredAt, event.correlationId],
       );
       if (!claimed.rows[0]) return;
-      if (event.eventType === "order.completed.v1") await this.projectCompletedOrder(client, event);
-      else await this.projectCancelledOrder(client, event);
+      if (event.eventType === "order.completed.v1") {
+        if (requiresShipment(event.channel)) await this.projectCompletedOrder(client, event);
+        return;
+      }
+      await this.projectCancelledOrder(client, event);
     });
   }
 
@@ -122,6 +138,25 @@ export class ShipmentsService {
     const shipment = await this.requireShipment(shipmentId);
     this.assertCanRead(shipment, actor);
     return this.detailFromShipment(shipment, actor.role !== "CUSTOMER");
+  }
+
+  async cancelForOrder(orderId: string, correlationId: string | null): Promise<ShipmentCancellationResponse> {
+    const normalizedOrderId = this.id(orderId);
+    return this.database.withTransaction(async (client) => {
+      const result = await client.query<ShipmentRow>("SELECT * FROM logistics_shipments WHERE order_id = $1 FOR UPDATE", [normalizedOrderId]);
+      const current = result.rows[0];
+      if (!current) return { result: "NOT_PROJECTED" };
+      if (!canCancelBeforeDispatch(current.status)) {
+        throw new ApiException(409, "ORDER_ALREADY_DISPATCHED", "El pedido ya fue despachado y no puede cancelarse");
+      }
+      if (current.status === "CANCELLED") return { result: "CANCELLED" };
+      const updated = await client.query<ShipmentRow>("UPDATE logistics_shipments SET status = 'CANCELLED', version = version + 1, cancelled_at = NOW() WHERE id = $1 RETURNING *", [current.id]);
+      const shipment = updated.rows[0];
+      if (!shipment) throw new Error("Shipment is missing after cancellation.");
+      await this.audit(client, shipment.id, current.status, "CANCELLED", null, null, correlationId, "SYSTEM");
+      await this.enqueueStatusChanged(client, shipment, correlationId, current.status);
+      return { result: "CANCELLED" };
+    });
   }
 
   async changeStatus(id: string, input: ShipmentStatusRequest, actor: ShipmentActor): Promise<ShipmentDetailResponse> {
@@ -217,10 +252,10 @@ export class ShipmentsService {
     const cancelled = await client.query<{ order_id: string }>("SELECT order_id FROM logistics_cancelled_orders WHERE order_id = $1", [event.orderId]);
     const status: ShipmentStatus = cancelled.rows[0] ? "CANCELLED" : "PENDING";
     const inserted = await client.query<ShipmentRow>([
-      "INSERT INTO logistics_shipments (order_id, customer_id, branch_id, currency, total, items, status, cancelled_at)",
-      "VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8::timestamptz)",
+      "INSERT INTO logistics_shipments (order_id, customer_id, branch_id, channel, currency, total, items, status, cancelled_at)",
+      "VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::timestamptz)",
       "ON CONFLICT (order_id) DO NOTHING RETURNING *",
-    ].join("\n"), [event.orderId, event.customerId, event.branchId, event.currency, event.total, JSON.stringify(event.items), status, status === "CANCELLED" ? event.occurredAt : null]);
+    ].join("\n"), [event.orderId, event.customerId, event.branchId, event.channel, event.currency, event.total, JSON.stringify(event.items), status, status === "CANCELLED" ? event.occurredAt : null]);
     const row = inserted.rows[0];
     if (!row) return;
     await this.audit(client, row.id, null, status, null, null, event.correlationId, "ORDER_EVENT");
@@ -285,7 +320,7 @@ export class ShipmentsService {
     await this.outbox.enqueue(client, {
       eventType: "shipment.status.changed.v1",
       correlationId,
-      data: { shipmentId: shipment.id, orderId: shipment.order_id, customerId: shipment.customer_id, branchId: shipment.branch_id, previousStatus, status: shipment.status, version: shipment.version, packedAt: this.isoOrNull(shipment.packed_at), shippedAt: this.isoOrNull(shipment.shipped_at), cancelledAt: this.isoOrNull(shipment.cancelled_at), updatedAt: this.iso(shipment.updated_at) },
+      data: { shipmentId: shipment.id, orderId: shipment.order_id, customerId: shipment.customer_id, branchId: shipment.branch_id, channel: shipment.channel, previousStatus, status: shipment.status, version: shipment.version, packedAt: this.isoOrNull(shipment.packed_at), shippedAt: this.isoOrNull(shipment.shipped_at), cancelledAt: this.isoOrNull(shipment.cancelled_at), updatedAt: this.iso(shipment.updated_at) },
     });
   }
 
@@ -298,7 +333,7 @@ export class ShipmentsService {
   }
 
   private publicShipment(row: ShipmentRow): Shipment {
-    return { id: row.id, orderId: row.order_id, customerId: row.customer_id, branchId: row.branch_id, currency: row.currency, total: this.number(row.total), items: this.items(row.items), status: row.status, version: row.version, packedAt: this.isoOrNull(row.packed_at), shippedAt: this.isoOrNull(row.shipped_at), cancelledAt: this.isoOrNull(row.cancelled_at), createdAt: this.iso(row.created_at), updatedAt: this.iso(row.updated_at) };
+    return { id: row.id, orderId: row.order_id, customerId: row.customer_id, branchId: row.branch_id, channel: row.channel, currency: row.currency, total: this.number(row.total), items: this.items(row.items), status: row.status, version: row.version, packedAt: this.isoOrNull(row.packed_at), shippedAt: this.isoOrNull(row.shipped_at), cancelledAt: this.isoOrNull(row.cancelled_at), createdAt: this.iso(row.created_at), updatedAt: this.iso(row.updated_at) };
   }
 
   private publicTransition(row: TransitionRow, includeActors: boolean): ShipmentTransition {

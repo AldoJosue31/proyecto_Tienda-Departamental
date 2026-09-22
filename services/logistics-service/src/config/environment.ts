@@ -7,6 +7,7 @@ export type Role = (typeof ROLES)[number];
 export interface DatabaseConfig { databaseUrl: string; databaseSsl: boolean; }
 export interface LogisticsRuntimeConfig {
   accessSecret: Buffer;
+  internalOrdersServiceKey: Buffer;
   corsOrigins: string[];
   environment: string;
   rabbitmqUrl: string;
@@ -19,8 +20,8 @@ function requiredValue(env: NodeJS.ProcessEnv, name: string): string {
   return value;
 }
 
-function base64UrlSecret(value: string): Buffer {
-  if (!/^[A-Za-z0-9_-]+$/.test(value) || Buffer.from(value, "base64url").length < 32) throw new Error("JWT_ACCESS_SECRET must use base64url encoding with at least 32 bytes.");
+function base64UrlSecret(value: string, name: string): Buffer {
+  if (!/^[A-Za-z0-9_-]+$/.test(value) || Buffer.from(value, "base64url").length < 32) throw new Error(name + " must use base64url encoding with at least 32 bytes.");
   return Buffer.from(value, "utf8");
 }
 
@@ -57,7 +58,8 @@ export function loadDatabaseConfig(env: NodeJS.ProcessEnv = process.env): Databa
 export function loadLogisticsRuntimeConfig(env: NodeJS.ProcessEnv = process.env): LogisticsRuntimeConfig {
   const environment = env.NODE_ENV?.trim() || "development";
   return {
-    accessSecret: base64UrlSecret(requiredValue(env, "JWT_ACCESS_SECRET")),
+    accessSecret: base64UrlSecret(requiredValue(env, "JWT_ACCESS_SECRET"), "JWT_ACCESS_SECRET"),
+    internalOrdersServiceKey: base64UrlSecret(requiredValue(env, "LOGISTICS_INTERNAL_SERVICE_KEY"), "LOGISTICS_INTERNAL_SERVICE_KEY"),
     corsOrigins: origins(env, environment), environment, rabbitmqUrl: amqp(requiredValue(env, "RABBITMQ_URL")),
     outboxPublishIntervalMilliseconds: positiveInteger(env.OUTBOX_PUBLISH_INTERVAL_MILLISECONDS, 1_000, "OUTBOX_PUBLISH_INTERVAL_MILLISECONDS"),
   };

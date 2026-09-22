@@ -27,5 +27,14 @@ describe("detalle de pedido de CUSTOMER", () => {
     expect(detail).not.toContain("courier");
     expect(detail).not.toContain("latitude");
     expect(detail).not.toContain("deliveryAddress");
+    expect(detail).toContain("formatCustomerDateTime");
+  });
+
+  it("muestra las fechas del cliente en una zona explícita y coherente", () => {
+    const format = read("src/lib/format/customer-date-time.ts");
+
+    expect(format).toContain('timeZone: customerTimeZone');
+    expect(format).toContain('"America/Mexico_City"');
+    expect(format).toContain("hora del Centro de México");
   });
 });

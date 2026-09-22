@@ -20,10 +20,13 @@ consulta Pricing y guarda listUnitPrice, unitPrice y descuentos como snapshots
 inmutables. El navegador no recibe la llave de Inventory ni contacta servicios
 internos.
 
-La cancelación de una reserva aún no consumida la libera de inmediato. Una
-cancelación de un pedido ya CONFIRMED se persiste y será compensada mediante
-order.cancelled.v1 y el Outbox de la Fase 6; no se inventa una escritura
-directa en Inventory fuera de su contrato.
+La cancelación de una reserva aún no consumida la libera de inmediato. Antes de
+cancelar una orden online `CONFIRMED`, Orders consulta por red privada la
+decisión atómica de Logistics: acepta `PENDING` y `PACKING`, pero responde
+`409 ORDER_ALREADY_DISPATCHED` si ya está `SHIPPED` o `DELIVERED`. Si Logistics
+no está disponible, la orden queda en `CANCELLATION_PENDING` para reintentar;
+no se publica la compensación ni se declara un reembolso. Sólo una decisión
+aceptada persiste `CANCELLED` y emite `order.cancelled.v1` para Inventory.
 
 ## Calidad
 

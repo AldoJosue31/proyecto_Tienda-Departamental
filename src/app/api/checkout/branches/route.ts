@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const fallbackCorrelationId = request.headers.get("X-Correlation-Id") ?? crypto.randomUUID();
   try {
     const user = await getCurrentUser();
-    if (!user) return failure(401, "UNAUTHENTICATED", "Inicia sesión para elegir una sucursal de retiro.", fallbackCorrelationId);
+    if (!user) return failure(401, "UNAUTHENTICATED", "Inicia sesión para elegir la sucursal que atenderá tu pedido.", fallbackCorrelationId);
     if (user.role !== "CUSTOMER") return failure(403, "FORBIDDEN", "La compra en línea está disponible para cuentas de cliente.", fallbackCorrelationId);
 
     const token = (await cookies()).get(ACCESS_TOKEN_COOKIE)?.value;
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     if (error instanceof GatewayRequestError) return failure(error.status, "INVENTORY_UNAVAILABLE", error.message, error.correlationId);
-    return failure(503, "INVENTORY_UNAVAILABLE", "No fue posible cargar las sucursales de retiro.", fallbackCorrelationId);
+    return failure(503, "INVENTORY_UNAVAILABLE", "No fue posible cargar las sucursales de atención.", fallbackCorrelationId);
   }
 }
 

@@ -1,6 +1,9 @@
 import type { Role } from "../config/environment";
 
-export const ORDER_STATUSES = ["PENDING", "RESERVED", "CONFIRMED", "CANCELLED"] as const;
+// A confirmed online order enters CANCELLATION_PENDING while Logistics owns
+// the atomic decision about whether it has already been dispatched. It is not
+// a commercial cancellation until that decision has been accepted.
+export const ORDER_STATUSES = ["PENDING", "RESERVED", "CONFIRMED", "CANCELLATION_PENDING", "CANCELLED"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 // A sale stays owned by Orders regardless of where it began. Keeping the

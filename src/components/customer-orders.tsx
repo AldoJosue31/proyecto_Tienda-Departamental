@@ -15,6 +15,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 
+import { formatCustomerDateTime } from "@/lib/format/customer-date-time";
 import { customerOrdersResponseSchema, type CustomerOrder, type CustomerOrderStatus } from "@/lib/orders/customer-orders";
 import { customerShipmentsResponseSchema, type CustomerShipment, type CustomerShipmentStatus } from "@/lib/logistics/customer-shipments";
 
@@ -74,18 +75,13 @@ function money(value: number, currency: string) {
   }
 }
 
-function dateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return "Fecha no disponible";
-  return new Intl.DateTimeFormat("es-MX", { dateStyle: "medium", timeStyle: "short" }).format(date);
-}
-
 function reference(orderId: string) {
   return `PEDIDO-${orderId.slice(0, 8).toUpperCase()}`;
 }
 
 function statusPresentation(status: CustomerOrderStatus) {
   if (status === "CONFIRMED") return { label: "Confirmado", className: "bg-[var(--success-surface)] text-[var(--success)]" };
+  if (status === "CANCELLATION_PENDING") return { label: "Cancelación en validación", className: "bg-[var(--warning-surface)] text-[var(--warning)]" };
   if (status === "CANCELLED") return { label: "Cancelado", className: "bg-[var(--danger-surface)] text-[var(--danger)]" };
   if (status === "RESERVED") return { label: "Reservado", className: "bg-[var(--accent-soft)] text-[var(--accent-strong)]" };
   return { label: "En validación", className: "bg-[var(--warning-surface)] text-[var(--warning)]" };
@@ -146,9 +142,10 @@ function OrderRecord({ order, shipment, latest }: { order: CustomerOrder; shipme
 
   return <article className={`px-5 py-5 sm:px-6 ${latest ? "bg-[var(--surface-muted)]/45" : ""}`}>
     <div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-mono text-xs font-semibold text-[var(--accent-strong)]">{reference(order.id)}</p>{latest ? <span className="rounded-md bg-[var(--accent-soft)] px-2 py-1 text-xs font-semibold text-[var(--accent-strong)]">Más reciente</span> : null}</div><h2 className="mt-2 text-lg font-semibold tracking-[-0.025em]">{channel}</h2><p className="mt-1 max-w-2xl truncate text-sm text-[var(--muted)]" title={itemSummary(order)}>{itemSummary(order)}</p></div><span className={`inline-flex rounded-full px-3 py-1.5 text-sm font-semibold ${status.className}`}>{status.label}</span></div>
-    <div className="mt-5 grid gap-3 border-y border-[var(--line)] py-4 text-sm sm:grid-cols-[minmax(0,1fr)_auto_auto]"><p className="flex items-center gap-2 text-[var(--muted)]"><IconCalendar size={17} aria-hidden="true" />{dateTime(order.createdAt)}</p><p className="text-[var(--muted)]">{totalItems} {totalItems === 1 ? "artículo" : "artículos"}</p><p className="font-semibold sm:text-right">{money(order.total, order.currency)}</p></div>
+    <div className="mt-5 grid gap-3 border-y border-[var(--line)] py-4 text-sm sm:grid-cols-[minmax(0,1fr)_auto_auto]"><p className="flex items-center gap-2 text-[var(--muted)]"><IconCalendar size={17} aria-hidden="true" />{formatCustomerDateTime(order.createdAt)}</p><p className="text-[var(--muted)]">{totalItems} {totalItems === 1 ? "artículo" : "artículos"}</p><p className="font-semibold sm:text-right">{money(order.total, order.currency)}</p></div>
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><details className="group flex-1"><summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg px-2 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)] [&::-webkit-details-marker]:hidden"><IconBox size={17} aria-hidden="true" />Ver artículos y variantes<IconChevronDown size={17} className="ml-auto transition-transform group-open:rotate-180" aria-hidden="true" /></summary><ul className="mt-3 divide-y divide-[var(--line)] border-t border-[var(--line)]">{order.items.map((item) => <li key={item.id} className="flex flex-wrap items-start justify-between gap-3 py-3"><div><p className="text-sm font-semibold">{item.productName}</p><p className="mt-1 text-xs text-[var(--muted)]">{item.variantLabel} · SKU {item.sku} · {item.quantity} {item.quantity === 1 ? "unidad" : "unidades"}</p></div><p className="text-sm font-semibold">{money(item.lineTotal, item.currency)}</p></li>)}</ul></details><Link href={`/orders/${order.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[var(--line)] px-3 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)]"><IconArrowRight size={17} aria-hidden="true" />Ver detalle</Link></div>
     {order.channel === "ONLINE" && (shipment || order.status === "CONFIRMED") ? <FulfillmentProgress shipment={shipment} /> : null}
+    {order.status === "CANCELLATION_PENDING" ? <p className="mt-4 flex items-start gap-2 rounded-xl bg-[var(--warning-surface)] px-3 py-3 text-sm leading-6 text-[var(--warning)]" role="status"><IconClockHour4 className="mt-0.5 shrink-0" size={17} aria-hidden="true" />Estamos confirmando si la entrega sigue antes de despacho. El pedido no se considera cancelado hasta terminar esa validación.</p> : null}
     {order.status === "CANCELLED" && order.cancellationReason ? <p className="mt-4 text-sm leading-6 text-[var(--muted)]">Motivo de cancelación: {order.cancellationReason}</p> : null}
   </article>;
 }
@@ -161,7 +158,7 @@ function FulfillmentProgress({ shipment }: { shipment: CustomerShipment | undefi
   const activeIndex = shipment.status === "CANCELLED" ? -1 : stages.indexOf(shipment.status as (typeof stages)[number]);
 
   return <section className="mt-5 border-t border-[var(--line)] pt-4" aria-labelledby={`shipment-${shipment.id}-title`}>
-    <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-start gap-3"><span className={`grid size-9 shrink-0 place-items-center rounded-lg ${presentation.iconClassName}`}><IconTruckDelivery size={18} aria-hidden="true" /></span><div><h3 id={`shipment-${shipment.id}-title`} className="text-sm font-semibold">{presentation.label}</h3><p className="mt-1 text-sm leading-6 text-[var(--muted)]">{presentation.description}</p></div></div><time className="text-xs text-[var(--muted)]" dateTime={shipment.updatedAt}>Actualizado {dateTime(shipment.updatedAt)}</time></div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-start gap-3"><span className={`grid size-9 shrink-0 place-items-center rounded-lg ${presentation.iconClassName}`}><IconTruckDelivery size={18} aria-hidden="true" /></span><div><h3 id={`shipment-${shipment.id}-title`} className="text-sm font-semibold">{presentation.label}</h3><p className="mt-1 text-sm leading-6 text-[var(--muted)]">{presentation.description}</p></div></div><time className="text-xs text-[var(--muted)]" dateTime={shipment.updatedAt}>Actualizado {formatCustomerDateTime(shipment.updatedAt)}</time></div>
     {activeIndex >= 0 ? <ol className="mt-4 grid grid-cols-4 gap-1.5" aria-label={`Progreso de entrega: ${presentation.label}`}>{stages.map((stage, index) => <li key={stage} className="min-w-0"><span className={`block h-1.5 rounded-full ${index <= activeIndex ? "bg-[var(--accent)]" : "bg-[var(--surface-muted)]"}`} aria-hidden="true" /><span className={`mt-2 block text-xs leading-5 ${index <= activeIndex ? "font-semibold text-[var(--ink)]" : "text-[var(--muted)]"}`}>{shipmentStageLabel(stage)}</span></li>)}</ol> : null}
   </section>;
 }

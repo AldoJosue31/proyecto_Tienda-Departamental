@@ -37,5 +37,6 @@ describe("historial de pedidos de CUSTOMER", () => {
     expect(experience).toContain("Ver artículos y variantes");
     expect(experience).toContain('href={`/orders/${order.id}`}');
     expect(experience).toContain("No pudimos cargar tus pedidos");
+    expect(experience).toContain("formatCustomerDateTime");
   });
 });

@@ -11,28 +11,20 @@ import {
   IconTag,
   IconX,
 } from "@tabler/icons-react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import { useCustomerCart } from "@/components/customer-cart-provider";
 import type { Role } from "@/lib/auth/roles";
 import { searchCatalog } from "@/lib/catalog/catalog-client";
-import type { CatalogPage, CatalogProductSummary, CatalogVariant } from "@/lib/catalog/types";
+import { catalogProductImageStyle } from "@/lib/catalog/product-image";
+import { emptyCatalogPage, type CatalogPage, type CatalogProductSummary, type CatalogVariant } from "@/lib/catalog/types";
 
 type CatalogExperienceProps = {
   initialPage: CatalogPage;
   initialError?: boolean;
   userRole: Role | null;
-};
-
-const spritePositionBySlug: Record<string, string> = {
-  "smart-tv-aurora-55": "0% 0%",
-  "audifonos-nova-anc": "50% 0%",
-  "lampara-lumen-mesa": "100% 0%",
-  "tenis-kinetic-run": "0% 100%",
-  "silla-atelier": "50% 100%",
-  "reloj-vertex-fit": "100% 100%",
 };
 
 function money(value: number, currency: string) {
@@ -61,10 +53,7 @@ function variantAttributes(variant: CatalogVariant) {
 }
 
 function ProductMedia({ product, compact = false }: { product: CatalogProductSummary; compact?: boolean }) {
-  const source = product.imageUrl;
-  const style = source?.includes("departmental-products-v1.png")
-    ? { backgroundImage: `url("${source}")`, backgroundPosition: spritePositionBySlug[product.slug] ?? "50% 50%", backgroundSize: "300% 200%" }
-    : source ? { backgroundImage: `url("${source}")`, backgroundSize: "cover", backgroundPosition: "center" } : undefined;
+  const style = catalogProductImageStyle(product);
   return <div role="img" aria-label={`Imagen de ${product.name}`} className={`${compact ? "aspect-square" : "aspect-[3/4]"} grid overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-muted)] bg-no-repeat ${style ? "" : "place-items-center"}`} style={style}>
     {!style && <span aria-hidden="true" className="text-3xl font-semibold tracking-[-0.04em] text-[var(--accent-strong)]">{product.name.slice(0, 1)}</span>}
   </div>;
@@ -93,8 +82,10 @@ export function CatalogExperience({ initialPage, initialError = false, userRole 
   const canBuy = userRole === "CUSTOMER";
 
   const catalogSearch = useMemo(() => ({ search: deferredSearch, category, brand, page: requestedPage, pageSize: 20 }), [brand, category, deferredSearch, requestedPage]);
-  const catalogQuery = useQuery({ queryKey: ["catalog", catalogSearch], queryFn: ({ signal }) => searchCatalog(catalogSearch, signal), initialData: initialError ? undefined : initialPage, placeholderData: keepPreviousData, retry: false });
-  const page = catalogQuery.data ?? initialPage;
+  const isInitialCatalogSearch = !initialError && !deferredSearch && !category && !brand && requestedPage === initialPage.page;
+  const catalogQuery = useQuery({ queryKey: ["catalog", catalogSearch], queryFn: ({ signal }) => searchCatalog(catalogSearch, signal), initialData: isInitialCatalogSearch ? initialPage : undefined, retry: false });
+  const page = catalogQuery.data ?? (isInitialCatalogSearch ? initialPage : emptyCatalogPage);
+  const resultsLoading = catalogQuery.isLoading && !catalogQuery.data;
   const categories = page.facets.categories;
   const brands = page.facets.brands;
   const catalogError = catalogQuery.isError || (initialError && !catalogQuery.data) ? "No pudimos actualizar el catálogo. Conservamos los últimos resultados mientras reintentas." : null;
@@ -121,7 +112,7 @@ export function CatalogExperience({ initialPage, initialError = false, userRole 
   return <>
     <section className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
       <div className="grid items-end gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
-        <div className="max-w-2xl"><h1 className="text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Compra con la variante correcta.</h1><p className="mt-3 max-w-xl text-pretty text-base leading-7 text-[var(--muted)]">Revisa talla, color o material antes de agregar a tu bolsa. Al confirmar eliges sucursal de retiro; el precio y la existencia se validan de forma segura.</p></div>
+        <div className="max-w-2xl"><h1 className="text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Compra con la variante correcta.</h1><p className="mt-3 max-w-xl text-pretty text-base leading-7 text-[var(--muted)]">Revisa talla, color o material antes de agregar a tu bolsa. Al confirmar eliges la sucursal que atenderá tu pedido; el precio y la existencia se validan de forma segura.</p></div>
         <div className="flex flex-wrap items-center justify-end gap-3"><p className="px-1 text-sm text-[var(--muted)]"><span className="font-semibold text-[var(--ink)]">{page.total}</span> productos publicados</p>{canBuy && <Link href="/checkout" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[var(--accent-strong)]"><IconShoppingBag size={18} aria-hidden="true" />Bolsa{itemCount ? ` · ${itemCount}` : ""}</Link>}</div>
       </div>
       <p className="sr-only" role="status" aria-live="polite">{cartAnnouncement}</p>
@@ -129,14 +120,22 @@ export function CatalogExperience({ initialPage, initialError = false, userRole 
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]"><label className="relative block"><span className="sr-only">Buscar productos</span><IconSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={19} stroke={1.75} aria-hidden="true" /><input value={search} onChange={(event) => { setSearch(event.target.value); resetPage(); }} placeholder="Buscar productos, marcas o categorías" className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] pl-10 pr-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none" /></label><label><span className="sr-only">Categoría</span><select value={category} onChange={(event) => { setCategory(event.target.value); resetPage(); }} className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none"><option value="">Todas las categorías</option>{categories.map((facet) => <option key={facet.slug} value={facet.slug}>{facet.name} ({facet.count})</option>)}</select></label><label><span className="sr-only">Marca</span><select value={brand} onChange={(event) => { setBrand(event.target.value); resetPage(); }} className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none"><option value="">Todas las marcas</option>{brands.map((facet) => <option key={facet.slug} value={facet.slug}>{facet.name} ({facet.count})</option>)}</select></label></div>
       </section>
       {catalogError && <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--danger)]/30 bg-[var(--danger-surface)] px-4 py-3 text-sm text-[var(--ink)]" role="alert"><span className="flex items-center gap-2"><IconAlertTriangle size={18} className="text-[var(--danger)]" aria-hidden="true" />{catalogError}</span><button type="button" onClick={() => { void catalogQuery.refetch(); }} className="inline-flex min-h-10 items-center gap-2 font-semibold text-[var(--danger)] underline decoration-1 underline-offset-4"><IconRefresh size={16} aria-hidden="true" />Reintentar</button></div>}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3" aria-live="polite"><p className="text-sm text-[var(--muted)]">{catalogQuery.isFetching ? "Actualizando catálogo…" : `${page.items.length} resultados en esta página`}</p>{(search || category || brand) && <button type="button" onClick={() => { setSearch(""); setCategory(""); setBrand(""); setRequestedPage(1); }} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)]"><IconX size={16} aria-hidden="true" />Limpiar filtros</button>}</div>
-      {page.items.length === 0 ? <div className="mt-6 rounded-2xl border border-dashed border-[var(--line)] px-6 py-16 text-center"><IconSearch className="mx-auto text-[var(--muted)]" size={30} stroke={1.5} aria-hidden="true" /><h2 className="mt-3 font-semibold">No encontramos coincidencias</h2><p className="mt-1 text-sm text-[var(--muted)]">Prueba con otra búsqueda, categoría o marca.</p></div> : <div className="mt-7 grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{page.items.map((product) => <ProductCard key={product.id} product={product} canBuy={canBuy} onOpen={() => { setSelectedProduct(product); setAddedVariantId(null); }} />)}</div>}
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3" aria-live="polite"><p className="text-sm text-[var(--muted)]">{resultsLoading ? "Cargando resultados…" : catalogQuery.isFetching ? "Actualizando catálogo…" : `${page.items.length} resultados en esta página`}</p>{(search || category || brand) && <button type="button" onClick={() => { setSearch(""); setCategory(""); setBrand(""); setRequestedPage(1); }} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)]"><IconX size={16} aria-hidden="true" />Limpiar filtros</button>}</div>
+      {resultsLoading ? <CatalogResultsSkeleton /> : catalogError && !catalogQuery.data ? <CatalogUnavailable onRetry={() => { void catalogQuery.refetch(); }} /> : page.items.length === 0 ? <div className="mt-6 rounded-2xl border border-dashed border-[var(--line)] px-6 py-16 text-center"><IconSearch className="mx-auto text-[var(--muted)]" size={30} stroke={1.5} aria-hidden="true" /><h2 className="mt-3 font-semibold">No encontramos coincidencias</h2><p className="mt-1 text-sm text-[var(--muted)]">Prueba con otra búsqueda, categoría o marca.</p></div> : <div className="mt-7 grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{page.items.map((product) => <ProductCard key={product.id} product={product} canBuy={canBuy} onOpen={() => { setSelectedProduct(product); setAddedVariantId(null); }} />)}</div>}
       {page.total > page.pageSize && <nav className="mt-10 flex items-center justify-center gap-3" aria-label="Paginación del catálogo"><button type="button" disabled={page.page <= 1 || catalogQuery.isFetching} onClick={() => setRequestedPage(page.page - 1)} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-[var(--line)] px-3 text-sm font-semibold transition-colors hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-45"><IconChevronLeft size={17} aria-hidden="true" />Anterior</button><p className="text-sm text-[var(--muted)]">Página <span className="font-semibold text-[var(--ink)]">{page.page}</span> de {totalPages}</p><button type="button" disabled={page.page >= totalPages || catalogQuery.isFetching} onClick={() => setRequestedPage(page.page + 1)} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-[var(--line)] px-3 text-sm font-semibold transition-colors hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-45">Siguiente<IconChevronRight size={17} aria-hidden="true" /></button></nav>}
     </section>
     <dialog ref={detailDialogRef} onClose={() => setSelectedProduct(null)} aria-labelledby="product-dialog-title" className="w-[min(46rem,calc(100vw-2rem))] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-0 text-[var(--ink)] shadow-xl backdrop:bg-black/35">
       {selectedProduct && <ProductDialog key={selectedProduct.id} product={selectedProduct} userRole={userRole} addedVariantId={addedVariantId} itemCount={itemCount} onAdd={addVariant} onClose={() => detailDialogRef.current?.close()} />}
     </dialog>
   </>;
+}
+
+function CatalogResultsSkeleton() {
+  return <div className="mt-7 grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" aria-label="Cargando resultados del catálogo" aria-busy="true">{Array.from({ length: 8 }, (_, index) => <div key={index} className="space-y-4"><div className="aspect-[3/4] animate-pulse rounded-2xl bg-[var(--surface-muted)] motion-reduce:animate-none" /><div className="h-5 w-2/3 animate-pulse rounded bg-[var(--surface-muted)] motion-reduce:animate-none" /><div className="h-4 w-full animate-pulse rounded bg-[var(--surface-muted)] motion-reduce:animate-none" /></div>)}</div>;
+}
+
+function CatalogUnavailable({ onRetry }: { onRetry: () => void }) {
+  return <div className="mt-6 rounded-2xl border border-[var(--danger)]/30 bg-[var(--danger-surface)] px-6 py-10 text-center" role="alert"><IconAlertTriangle className="mx-auto text-[var(--danger)]" size={28} aria-hidden="true" /><h2 className="mt-4 font-semibold">No pudimos cargar estos resultados</h2><p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--muted)]">Los filtros se conservan. Intenta de nuevo para consultar resultados que coincidan con tu selección.</p><button type="button" onClick={onRetry} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--surface)] px-4 text-sm font-semibold text-[var(--danger)] transition-colors hover:bg-white"><IconRefresh size={17} aria-hidden="true" />Reintentar</button></div>;
 }
 
 function ProductCard({ product, canBuy, onOpen }: { product: CatalogProductSummary; canBuy: boolean; onOpen: () => void }) {

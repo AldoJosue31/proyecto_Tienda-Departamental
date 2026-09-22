@@ -27,4 +27,13 @@ describe("facetas reales del catálogo", () => {
     expect(catalog).toContain("No encontramos coincidencias");
     expect(catalog).toContain("Reintentar");
   });
+
+  it("no reutiliza la carga inicial al cambiar filtros y muestra una carga específica", () => {
+    const catalog = read("src/components/catalog-experience.tsx");
+
+    expect(catalog).toContain("isInitialCatalogSearch ? initialPage : undefined");
+    expect(catalog).not.toContain("placeholderData: keepPreviousData");
+    expect(catalog).toContain("Cargando resultados del catálogo");
+    expect(catalog).toContain("No pudimos cargar estos resultados");
+  });
 });

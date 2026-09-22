@@ -283,6 +283,8 @@ services:
       CATALOG_SERVICE_URL: "http://servicio-catalogo:3002"
       PRICING_SERVICE_URL: "http://servicio-precios:3004"
       INVENTORY_SERVICE_URL: "http://servicio-inventario:3003"
+      LOGISTICS_SERVICE_URL: "http://servicio-logistica:3008"
+      LOGISTICS_INTERNAL_SERVICE_KEY: "${LOGISTICS_INTERNAL_SERVICE_KEY:?Define LOGISTICS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
       UPSTREAM_TIMEOUT_MILLISECONDS: "5000"
       RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
       OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "1000"
@@ -312,6 +314,7 @@ services:
       - catalog-internal
       - pricing-internal
       - inventory-internal
+      - logistics-internal
       - events-internal
 
   orders-postgres:
@@ -408,6 +411,7 @@ services:
       NODE_ENV: "${LOGISTICS_NODE_ENV:-development}"
       DATABASE_URL: "postgresql://logistics_service:${LOGISTICS_DB_PASSWORD:-logistics_local_dev}@logistics-postgres:5432/logistics_service"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
+      LOGISTICS_INTERNAL_SERVICE_KEY: "${LOGISTICS_INTERNAL_SERVICE_KEY:?Define LOGISTICS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
       RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
       OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "1000"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"

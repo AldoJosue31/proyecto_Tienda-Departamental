@@ -13,6 +13,7 @@ import { OrdersOutboxService } from "./events/outbox.service";
 import { HealthController } from "./health/health.controller";
 import { CatalogClient } from "./orders/catalog.client";
 import { InventoryClient } from "./orders/inventory.client";
+import { LogisticsClient } from "./orders/logistics.client";
 import { OrdersController } from "./orders/orders.controller";
 import { OrdersRepository } from "./orders/orders.repository";
 import { OrdersService } from "./orders/orders.service";
@@ -30,6 +31,7 @@ import { PricingClient } from "./orders/pricing.client";
     CatalogClient,
     PricingClient,
     InventoryClient,
+    LogisticsClient,
     OrdersService,
     JwtAuthGuard,
     RolesGuard,

@@ -18,10 +18,10 @@ describe("checkout de CUSTOMER", () => {
     expect(catalog).toContain("Agregar");
     expect(catalog).toContain("Ver bolsa");
     expect(checkout).toContain("Tu bolsa");
-    expect(checkout).toContain("Sucursal de retiro");
+    expect(checkout).toContain("Sucursal que atiende el pedido");
     expect(checkout).toContain('type="radio"');
-    expect(checkout).toContain("La disponibilidad y el precio vigentes se confirman");
-    expect(checkout).toContain("No hay sucursales disponibles para retiro.");
+    expect(checkout).toContain("no confirma una modalidad de entrega");
+    expect(checkout).toContain("No hay sucursales de atención disponibles.");
     expect(checkout).toContain("Confirmar pedido");
     expect(checkout).toContain("Pedido confirmado");
     expect(checkout).toContain('href="/orders"');
@@ -33,6 +33,8 @@ describe("checkout de CUSTOMER", () => {
     expect(shell).toContain("CustomerBagLink");
     expect(checkoutPage).toContain('requireRole(["CUSTOMER"], "/checkout")');
     expect(catalog).toContain('userRole === "CUSTOMER"');
+    expect(catalog).not.toContain("retiro");
+    expect(checkout).not.toContain("retiro");
   });
 
   it("mantiene sucursales en Inventory y pedidos en Orders", () => {
@@ -49,5 +51,21 @@ describe("checkout de CUSTOMER", () => {
     expect(branches).toContain('"Cache-Control": "private, no-store"');
     expect(inventory).toContain('@Get("branches")');
     expect(kong).toContain("branches(?:/[^/]+)?");
+  });
+
+  it("usa la BFF para el catálogo y conserva el encuadre de imágenes en la bolsa", () => {
+    const client = read("src/lib/catalog/catalog-client.ts");
+    const catalogRoute = read("src/app/api/catalog/route.ts");
+    const productRoute = read("src/app/api/catalog/products/[id]/route.ts");
+    const checkout = read("src/components/customer-checkout.tsx");
+    const image = read("src/lib/catalog/product-image.ts");
+
+    expect(client).toContain('fetch(`/api/catalog?${buildSearchParams(search)}`');
+    expect(client).toContain('fetch(`/api/catalog/products/${encodeURIComponent(productId)}`');
+    expect(client).not.toContain("localhost:8000");
+    expect(catalogRoute).toContain("gatewayJson<unknown>(`/products?");
+    expect(productRoute).toContain('gatewayJson<unknown>(`/products/${encodeURIComponent(parsed.data.id)}`');
+    expect(checkout).toContain("catalogProductImageStyle(item.product)");
+    expect(image).toContain('backgroundSize: "300% 200%"');
   });
 });

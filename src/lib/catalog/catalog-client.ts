@@ -1,6 +1,5 @@
 import type { CatalogPage, CatalogProductDetail, CatalogSearch } from "@/lib/catalog/types";
 
-const defaultGatewayUrl = "http://localhost:8000";
 const catalogRequestTimeoutMs = 4_000;
 
 export class CatalogRequestError extends Error {
@@ -12,10 +11,6 @@ export class CatalogRequestError extends Error {
     super(message);
     this.name = "CatalogRequestError";
   }
-}
-
-function publicGatewayUrl(): string {
-  return (process.env.NEXT_PUBLIC_GATEWAY_URL ?? defaultGatewayUrl).replace(/\/$/, "");
 }
 
 function makeCorrelationId(): string {
@@ -43,7 +38,7 @@ export async function searchCatalog(search: CatalogSearch, signal?: AbortSignal)
   let response: Response;
 
   try {
-    const request = fetch(`${publicGatewayUrl()}/products?${buildSearchParams(search)}`, {
+    const request = fetch(`/api/catalog?${buildSearchParams(search)}`, {
       signal: controller.signal,
       headers: { "X-Correlation-Id": correlationId },
     });
@@ -84,7 +79,7 @@ export async function getCatalogProduct(productId: string, signal?: AbortSignal)
   signal?.addEventListener("abort", abortFromQuery, { once: true });
 
   try {
-    const request = fetch(`${publicGatewayUrl()}/products/${encodeURIComponent(productId)}`, {
+    const request = fetch(`/api/catalog/products/${encodeURIComponent(productId)}`, {
       signal: controller.signal,
       headers: { "X-Correlation-Id": correlationId },
     });

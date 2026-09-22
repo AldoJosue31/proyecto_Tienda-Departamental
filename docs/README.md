@@ -4,7 +4,15 @@ La referencia vigente es [Proyecto Universitario Tienda Departamental v2.3](./Pr
 
 La revisión mantiene tecnologías, microservicios, bases independientes, roles y las doce fases del roadmap arquitectónico. Aclara sucursal de atención frente a modalidad de entrega, confirmación comercial frente a pago, estados logísticos, permisos y endpoints ya existentes.
 
-No declara corregidos los pendientes del código: textos de retiro, proyección de envíos sin distinguir el canal, cancelación comercial después de despacho y coherencia de filtros, fechas, imágenes y cargas. Su cierre exige implementación y pruebas, no una adaptación documental para validar defectos.
+La versión 2.3 registró cuatro pendientes de código, ya cerrados mediante
+implementación y pruebas. Logistics valida `channel`, conserva el snapshot de
+los nuevos envíos y sólo proyecta `ONLINE`; una venta `PHYSICAL` se deduplica
+sin crear preparación ni entrega. Orders sólo publica la compensación cuando
+Logistics acepta la cancelación antes de `SHIPPED`; después responde `409` y no
+promete un reembolso. La interfaz llama a la sucursal “que atiende el pedido”,
+sin prometer retiro; Catálogo evita reutilizar resultados entre filtros, usa el
+BFF de Next.js, conserva el encuadre de imágenes en la bolsa y muestra fechas
+de CUSTOMER con una zona horaria explícita.
 
 El nuevo ciclo de mejora CUSTOMER tiene **cinco fases** y está separado del roadmap arquitectónico: navegación y claridad; catálogo y variantes; bolsa y checkout; pedidos y cuenta; movimiento, accesibilidad y QA. Esta actualización documental no ejecuta esas fases.
 

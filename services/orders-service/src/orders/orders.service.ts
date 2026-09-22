@@ -1,10 +1,11 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 
 import { ApiException } from "../common/api-exception";
 import { CatalogClient } from "./catalog.client";
 import { InventoryClient } from "./inventory.client";
+import { LogisticsClient } from "./logistics.client";
 import { OrdersOutboxService } from "../events/outbox.service";
 import { type CreateOrderDto } from "./orders.dto";
 import { OrdersRepository } from "./orders.repository";
@@ -36,6 +37,7 @@ export class OrdersService {
     private readonly pricing: PricingClient,
     private readonly inventory: InventoryClient,
     private readonly outbox: OrdersOutboxService,
+    @Inject(LogisticsClient) private readonly logistics: LogisticsClient | null = null,
   ) {}
 
   async create(
@@ -81,7 +83,7 @@ export class OrdersService {
         );
       }
 
-      if (order.status === "CONFIRMED" || order.status === "CANCELLED") {
+      if (order.status === "CONFIRMED" || order.status === "CANCELLATION_PENDING" || order.status === "CANCELLED") {
         return { order: this.publicOrder(order) };
       }
       return this.completeCheckout(client, order, requestedItems, actor, key);
@@ -119,35 +121,88 @@ export class OrdersService {
 
       // Only non-consumed reservations can be returned synchronously. A
       // confirmed cancellation is compensated asynchronously by Inventory
-      // after the transactional order.cancelled.v1 Outbox event is published.
+      // only after Logistics has atomically accepted the pre-dispatch request.
       if (existing.status === "PENDING" || existing.status === "RESERVED") {
         await this.releaseReservations(existing, "cancel", actor.correlationId);
+        return this.finalizeCancellation(client, normalizedId, actor, reason, false);
       }
-      const cancelled = await this.database.withTransactionOnClient(client, async (transaction) => {
-        const locked = await this.repository.findByIdForClient(transaction, normalizedId, true);
-        if (!locked) throw new ApiException(404, "ORDER_NOT_FOUND", "Pedido no encontrado");
-        this.assertOwner(locked, actor);
-        if (locked.status !== "CANCELLED") {
-          await this.repository.cancel(transaction, normalizedId, actor, reason);
-          if (locked.status === "CONFIRMED") {
-            await this.outbox.enqueue(transaction, {
-              eventType: "order.cancelled.v1",
-              correlationId: actor.correlationId,
-              data: {
-                ...this.eventData(locked),
-                status: "CANCELLED",
-                cancellationReason: reason,
-                cancelledBy: { id: actor.id, role: actor.role },
-              },
-            });
+
+      const pending = await this.stageConfirmedCancellation(client, normalizedId, actor);
+      if (pending.channel === "ONLINE") {
+        try {
+          await this.requireLogistics().cancelBeforeDispatch(normalizedId, actor.correlationId);
+        } catch (error) {
+          if (error instanceof ApiException && error.code === "ORDER_ALREADY_DISPATCHED") {
+            await this.restoreConfirmed(client, normalizedId, actor);
           }
+          throw error;
         }
-        const result = await this.repository.findByIdForClient(transaction, normalizedId);
-        if (!result) throw new Error("Cancelled order is missing.");
-        return result;
-      });
-      return { order: this.publicOrder(cancelled) };
+      }
+      return this.finalizeCancellation(client, normalizedId, actor, reason, true);
     });
+  }
+
+  private async stageConfirmedCancellation(client: PoolClient, orderId: string, actor: OrderActor): Promise<StoredOrder> {
+    return this.database.withTransactionOnClient(client, async (transaction) => {
+      const locked = await this.repository.findByIdForClient(transaction, orderId, true);
+      if (!locked) throw new ApiException(404, "ORDER_NOT_FOUND", "Pedido no encontrado");
+      this.assertOwner(locked, actor);
+      if (locked.status === "CONFIRMED") {
+        await this.repository.setStatus(transaction, orderId, "CANCELLATION_PENDING");
+        await this.repository.audit(transaction, orderId, actor, "ORDER_CANCELLATION_REQUESTED");
+      } else if (locked.status !== "CANCELLATION_PENDING") {
+        throw new ApiException(409, "ORDER_NOT_CANCELLABLE", "El pedido no se puede cancelar en su estado actual");
+      }
+      const pending = await this.repository.findByIdForClient(transaction, orderId);
+      if (!pending) throw new Error("Cancellation-pending order is missing.");
+      return pending;
+    });
+  }
+
+  private async restoreConfirmed(client: PoolClient, orderId: string, actor: OrderActor): Promise<void> {
+    await this.database.withTransactionOnClient(client, async (transaction) => {
+      const locked = await this.repository.findByIdForClient(transaction, orderId, true);
+      if (!locked || locked.status !== "CANCELLATION_PENDING") return;
+      await this.repository.setStatus(transaction, orderId, "CONFIRMED");
+      await this.repository.audit(transaction, orderId, actor, "ORDER_CANCELLATION_REJECTED_ALREADY_DISPATCHED");
+    });
+  }
+
+  private async finalizeCancellation(
+    client: PoolClient,
+    orderId: string,
+    actor: OrderActor,
+    reason: string | null,
+    compensateInventory: boolean,
+  ): Promise<OrderResponse> {
+    const cancelled = await this.database.withTransactionOnClient(client, async (transaction) => {
+      const locked = await this.repository.findByIdForClient(transaction, orderId, true);
+      if (!locked) throw new ApiException(404, "ORDER_NOT_FOUND", "Pedido no encontrado");
+      this.assertOwner(locked, actor);
+      if (locked.status === "CANCELLED") return locked;
+      await this.repository.cancel(transaction, orderId, actor, reason);
+      if (compensateInventory) {
+        await this.outbox.enqueue(transaction, {
+          eventType: "order.cancelled.v1",
+          correlationId: actor.correlationId,
+          data: {
+            ...this.eventData(locked),
+            status: "CANCELLED",
+            cancellationReason: reason,
+            cancelledBy: { id: actor.id, role: actor.role },
+          },
+        });
+      }
+      const result = await this.repository.findByIdForClient(transaction, orderId);
+      if (!result) throw new Error("Cancelled order is missing.");
+      return result;
+    });
+    return { order: this.publicOrder(cancelled) };
+  }
+
+  private requireLogistics(): LogisticsClient {
+    if (this.logistics) return this.logistics;
+    throw new ApiException(503, "LOGISTICS_UNAVAILABLE", "No pudimos validar el estado de entrega. Intenta cancelar nuevamente.");
   }
 
   private async completeCheckout(

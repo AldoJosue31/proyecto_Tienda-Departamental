@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const orderStatusSchema = z.enum(["PENDING", "RESERVED", "CONFIRMED", "CANCELLED"]);
+const orderStatusSchema = z.enum(["PENDING", "RESERVED", "CONFIRMED", "CANCELLATION_PENDING", "CANCELLED"]);
 const orderChannelSchema = z.enum(["ONLINE", "PHYSICAL"]);
 
 const customerOrderItemSchema = z.object({

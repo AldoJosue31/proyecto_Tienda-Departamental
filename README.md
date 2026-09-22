@@ -133,9 +133,13 @@ Orders toma el precio efectivo desde Pricing, conserva el snapshot de producto
 y precio en sus propias líneas, reserva y confirma stock mediante la API
 privada de Inventory y nunca lee tablas ajenas. Repetir el mismo checkout con
 la misma clave devuelve el mismo pedido sin volver a consumir existencias; un
-pedido que no alcanza stock devuelve `409 OUT_OF_STOCK`. La cancelación de una
-orden ya confirmada se compensa mediante `order.cancelled.v1`, sin acoplar
-Orders a la base de Inventory.
+pedido que no alcanza stock devuelve `409 OUT_OF_STOCK`. Para una orden online
+confirmada, Orders pide a Logistics una decisión interna y autenticada antes de
+cancelarla: `PENDING` o `PACKING` se cancelan atómicamente, mientras que
+`SHIPPED` o `DELIVERED` responden `409 ORDER_ALREADY_DISPATCHED`. La orden usa
+el estado reintentable `CANCELLATION_PENDING` si Logistics está temporalmente
+indisponible; solo al aceptar la decisión se publica `order.cancelled.v1` para
+compensar Inventory. No se declara ni procesa un reembolso.
 
 ## Fase 6: RabbitMQ y Outbox transaccional
 
@@ -214,9 +218,14 @@ inventario sigan funcionando.
 ## Fase 9: Pick & Pack y Logistics
 
 `logistics-service` es dueño de su PostgreSQL y no consulta la base de Orders.
-Su consumidor durable `logistics.order-events.v1` proyecta
-`order.completed.v1` en un envío con snapshot de artículos y procesa
-`order.cancelled.v1` para retirar pedidos cancelados de preparación. El
+Su consumidor durable `logistics.order-events.v1` valida y conserva el canal
+del evento: proyecta únicamente `order.completed.v1` con `channel: ONLINE` en
+un envío con snapshot de artículos; una venta `PHYSICAL` queda procesada y
+deduplicada, pero no inicia preparación ni entrega. También procesa
+`order.cancelled.v1` para retirar pedidos cancelados de preparación. Antes de
+publicar esa compensación, Orders usa la ruta interna no expuesta por Kong
+`POST /internal/shipments/orders/:orderId/cancel`, protegida con una llave de
+servicio, para impedir cancelar un envío ya despachado. El
 `eventId` se registra transaccionalmente, de modo que una reentrega no crea un
 segundo envío. Cada transición y su actor quedan en
 `logistics_shipment_transitions`; su outbox publica
