@@ -10,7 +10,7 @@ export default async function AccountPage() {
   if (user.role === "CUSTOMER") return <CustomerAccount user={user} />;
 
   return (
-    <section className="mx-auto max-w-[980px] px-4 py-9 sm:px-6 lg:px-8 lg:py-12">
+    <section className="platform-page">
         <p className="text-sm font-semibold text-[var(--accent-strong)]">Mi cuenta</p>
         <h1 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Sesión y permisos</h1>
         <div className="mt-8 grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(18rem,0.72fr)]">

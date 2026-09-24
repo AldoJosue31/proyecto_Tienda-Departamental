@@ -120,7 +120,7 @@ export function CustomerOrders({ initialOrders, initialError, initialShipments, 
     void Promise.all([ordersQuery.refetch(), shipmentsQuery.refetch()]);
   };
 
-  return <section className="mx-auto max-w-[1120px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12" aria-labelledby="customer-orders-title">
+  return <section className="platform-page" aria-labelledby="customer-orders-title">
     <header className="flex flex-wrap items-end justify-between gap-5">
       <div className="max-w-2xl"><h1 id="customer-orders-title" className="text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Mis pedidos</h1><p className="mt-3 text-pretty leading-7 text-[var(--muted)]">Revisa tus compras registradas, los artículos confirmados y su estado comercial.</p></div>
       <div className="flex flex-wrap items-center gap-3"><p className="rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-sm font-semibold text-[var(--accent-strong)]">{orders.length} {orders.length === 1 ? "pedido" : "pedidos"}</p><Link href="/" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-strong)]"><IconShoppingBag size={17} aria-hidden="true" />Seguir comprando</Link></div>

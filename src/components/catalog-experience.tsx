@@ -110,7 +110,7 @@ export function CatalogExperience({ initialPage, initialError = false, userRole 
   }
 
   return <>
-    <section className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+    <section className="platform-page">
       <div className="grid items-end gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
         <div className="max-w-2xl"><h1 className="text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Compra con la variante correcta.</h1><p className="mt-3 max-w-xl text-pretty text-base leading-7 text-[var(--muted)]">Revisa talla, color o material antes de agregar a tu bolsa. Al confirmar eliges la sucursal que atenderá tu pedido; el precio y la existencia se validan de forma segura.</p></div>
         <div className="flex flex-wrap items-center justify-end gap-3"><p className="px-1 text-sm text-[var(--muted)]"><span className="font-semibold text-[var(--ink)]">{page.total}</span> productos publicados</p>{canBuy && <Link href="/checkout" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[var(--accent-strong)]"><IconShoppingBag size={18} aria-hidden="true" />Bolsa{itemCount ? ` · ${itemCount}` : ""}</Link>}</div>

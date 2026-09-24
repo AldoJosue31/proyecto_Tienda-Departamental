@@ -317,12 +317,12 @@ docker compose config
 docker compose up --build
 ```
 
-La aplicación web queda en `http://localhost:3000` y el Gateway en
-`http://localhost:8000`. En desarrollo local se pueden crear los tres usuarios
-semilla de Auth y los seis productos de Catalog; consulta
-[Auth Service](services/auth-service/README.md) y
-[Catalog Service](services/catalog-service/README.md) para sus contratos y
-configuración aislada.
+La aplicación web queda en `http://localhost:3000` (o el puerto configurado en
+`WEB_HOST_PORT`) y el Gateway en `http://localhost:8000`. Para las cuentas
+locales de demostración de los tres roles, consulta [Acceso local](ACCESO_LOCAL.md).
+En desarrollo también se pueden crear los seis productos semilla de Catalog;
+consulta [Catalog Service](services/catalog-service/README.md) para sus
+contratos y configuración.
 
 El Compose mantiene `postgres` y `redis` del MVP únicamente para no romper el
 trabajo existente. Auth, Catalog, Inventory, Pricing, Orders, Logistics, CRM y

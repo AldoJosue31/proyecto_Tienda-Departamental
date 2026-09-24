@@ -12,7 +12,7 @@ import Link from "next/link";
 import type { SessionUser } from "@/lib/auth/roles";
 
 export function CustomerAccount({ user }: { user: SessionUser }) {
-  return <section className="mx-auto max-w-[1120px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12" aria-labelledby="customer-account-title">
+  return <section className="platform-page" aria-labelledby="customer-account-title">
     <header className="max-w-2xl">
       <h1 id="customer-account-title" className="text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Mi cuenta</h1>
       <p className="mt-3 text-pretty leading-7 text-[var(--muted)]">Un espacio breve para reconocer tu acceso y volver a lo que importa: comprar, revisar pedidos y seguir entregas.</p>

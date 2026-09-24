@@ -126,7 +126,7 @@ export function InventoryReplenishmentDesk({
 
   const selectedStock = selection ? currentStock.get(selection.variant.id) : null;
   return (
-    <section className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10" aria-busy={inventory.isFetching || movement.isPending}>
+    <section className="platform-page" aria-busy={inventory.isFetching || movement.isPending}>
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
         <div className="max-w-2xl">
           <div className="flex items-center gap-2 text-sm font-semibold text-[var(--accent-strong)]"><IconBoxSeam size={18} aria-hidden="true" />Inventory Service</div>

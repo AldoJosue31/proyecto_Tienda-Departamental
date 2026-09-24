@@ -141,7 +141,7 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics }: {
   return (
     <>
 
-      <section className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10" aria-busy={isDashboardLoading}>
+      <section className="platform-page" aria-busy={isDashboardLoading}>
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div className="max-w-2xl">
             <div className="flex flex-wrap items-center gap-2 text-sm">
