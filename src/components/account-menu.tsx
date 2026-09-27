@@ -9,6 +9,12 @@ import { useFormStatus } from "react-dom";
 import { signOut } from "@/app/login/actions";
 import { roleLabel, type SessionUser } from "@/lib/auth/roles";
 
+const compactRoleLabel: Record<SessionUser["role"], string> = {
+  ADMIN: "Admin",
+  EMPLOYEE: "Empleado",
+  CUSTOMER: "Cliente",
+};
+
 function SignOutActions({ onCancel }: { onCancel: () => void }) {
   const { pending } = useFormStatus();
 
@@ -52,14 +58,14 @@ export function AccountMenu({ user }: { user: SessionUser }) {
     dialogRef.current?.showModal();
   }
 
-  return <div ref={rootRef} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }} className="relative min-w-0 shrink-0">
+  return <div ref={rootRef} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }} className="static min-w-0 shrink-0 sm:relative">
     <button ref={triggerRef} type="button" aria-label={`Menú de cuenta de ${user.name}, ${roleLabel[user.role]}`} aria-expanded={open} aria-controls={open ? "account-options" : undefined} onClick={() => setOpen((current) => !current)} className={`inline-flex min-h-11 max-w-[8.5rem] items-center gap-1 rounded-xl border px-2.5 text-left transition-colors sm:max-w-[16rem] sm:gap-2 sm:px-3 ${open || onAccountPage ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "border-[var(--line)] text-[var(--ink)] hover:bg-[var(--surface-muted)]"}`}>
       <span className="hidden size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface)] text-[var(--accent-strong)] sm:grid"><IconUserCircle size={20} stroke={1.75} aria-hidden="true" /></span>
-      <span className="min-w-0 flex-1"><span className="hidden truncate text-sm font-semibold sm:block" title={user.name}>{user.name}</span><span className="block truncate text-xs font-medium sm:text-[11px]" title={roleLabel[user.role]}>{roleLabel[user.role]}</span></span>
+      <span className="min-w-0 flex-1"><span className="hidden truncate text-sm font-semibold sm:block" title={user.name}>{user.name}</span><span className="block truncate text-xs font-medium sm:hidden">{compactRoleLabel[user.role]}</span><span className="hidden truncate text-[11px] font-medium sm:block" title={roleLabel[user.role]}>{roleLabel[user.role]}</span></span>
       <IconChevronDown size={16} aria-hidden="true" className={`shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
     </button>
 
-    {open && <div id="account-options" className="absolute right-0 top-full z-50 mt-2 w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)] shadow-lg">
+    {open && <div id="account-options" className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)] shadow-lg sm:w-72">
       <div className="border-b border-[var(--line)] px-4 py-3">
         <p className="truncate text-sm font-semibold" title={user.name}>{user.name}</p>
         <p className="mt-0.5 truncate text-xs text-[var(--muted)]" title={user.email}>{user.email}</p>

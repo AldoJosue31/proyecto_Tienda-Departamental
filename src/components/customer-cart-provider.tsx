@@ -106,8 +106,8 @@ export function CustomerBagLink() {
   if (!customerId) return null;
 
   const label = ready && itemCount > 0 ? `Bolsa, ${itemCount} artículos` : "Bolsa";
-  return <Link href="/checkout" aria-current={pathname === "/checkout" ? "page" : undefined} aria-label={label} className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-colors ${pathname === "/checkout" ? "bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"}`}>
-    <IconShoppingBag size={18} aria-hidden="true" />
+  return <Link href="/checkout" aria-current={pathname === "/checkout" ? "page" : undefined} aria-label={label} className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-2.5 text-sm font-semibold transition-colors sm:px-3 ${pathname === "/checkout" ? "bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "text-[var(--ink)] hover:bg-[var(--surface-muted)]"}`}>
+    <IconShoppingBag size={21} stroke={1.8} aria-hidden="true" />
     <span className="hidden sm:inline">Bolsa</span>
     {ready && itemCount > 0 ? <span className="grid min-w-5 place-items-center rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-xs font-bold text-white" aria-hidden="true">{itemCount}</span> : null}
   </Link>;

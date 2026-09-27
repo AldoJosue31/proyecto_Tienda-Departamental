@@ -13,7 +13,8 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useCustomerCart } from "@/components/customer-cart-provider";
 import type { Role } from "@/lib/auth/roles";
@@ -24,6 +25,7 @@ import { emptyCatalogPage, type CatalogPage, type CatalogProductSummary, type Ca
 type CatalogExperienceProps = {
   initialPage: CatalogPage;
   initialError?: boolean;
+  initialSearch: string;
   userRole: Role | null;
 };
 
@@ -68,8 +70,8 @@ function PriceHint({ product }: { product: CatalogProductSummary }) {
   return <div><p className="text-xs font-medium text-[var(--muted)]">Precio base</p><p className="mt-0.5 text-lg font-semibold tracking-[-0.025em]">{minimum === maximum ? money(minimum, currency) : `Desde ${money(minimum, currency)}`}</p></div>;
 }
 
-export function CatalogExperience({ initialPage, initialError = false, userRole }: CatalogExperienceProps) {
-  const [search, setSearch] = useState("");
+export function CatalogExperience({ initialPage, initialError = false, initialSearch: search, userRole }: CatalogExperienceProps) {
+  const router = useRouter();
   const [category, setCategory] = useState("");
   const [brand, setBrand] = useState("");
   const [requestedPage, setRequestedPage] = useState(initialPage.page);
@@ -77,12 +79,11 @@ export function CatalogExperience({ initialPage, initialError = false, userRole 
   const [addedVariantId, setAddedVariantId] = useState<string | null>(null);
   const [cartAnnouncement, setCartAnnouncement] = useState("");
   const detailDialogRef = useRef<HTMLDialogElement>(null);
-  const deferredSearch = useDeferredValue(search);
   const { add: addToCart, itemCount, ready: cartReady } = useCustomerCart();
   const canBuy = userRole === "CUSTOMER";
 
-  const catalogSearch = useMemo(() => ({ search: deferredSearch, category, brand, page: requestedPage, pageSize: 20 }), [brand, category, deferredSearch, requestedPage]);
-  const isInitialCatalogSearch = !initialError && !deferredSearch && !category && !brand && requestedPage === initialPage.page;
+  const catalogSearch = useMemo(() => ({ search, category, brand, page: requestedPage, pageSize: 20 }), [brand, category, requestedPage, search]);
+  const isInitialCatalogSearch = !initialError && !category && !brand && requestedPage === initialPage.page;
   const catalogQuery = useQuery({ queryKey: ["catalog", catalogSearch], queryFn: ({ signal }) => searchCatalog(catalogSearch, signal), initialData: isInitialCatalogSearch ? initialPage : undefined, retry: false });
   const page = catalogQuery.data ?? (isInitialCatalogSearch ? initialPage : emptyCatalogPage);
   const resultsLoading = catalogQuery.isLoading && !catalogQuery.data;
@@ -112,15 +113,15 @@ export function CatalogExperience({ initialPage, initialError = false, userRole 
   return <>
     <section className="platform-page">
       <div className="grid items-end gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
-        <div className="max-w-2xl"><h1 className="text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Compra con la variante correcta.</h1><p className="mt-3 max-w-xl text-pretty text-base leading-7 text-[var(--muted)]">Revisa talla, color o material antes de agregar a tu bolsa. Al confirmar eliges la sucursal que atenderá tu pedido; el precio y la existencia se validan de forma segura.</p></div>
-        <div className="flex flex-wrap items-center justify-end gap-3"><p className="px-1 text-sm text-[var(--muted)]"><span className="font-semibold text-[var(--ink)]">{page.total}</span> productos publicados</p>{canBuy && <Link href="/checkout" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[var(--accent-strong)]"><IconShoppingBag size={18} aria-hidden="true" />Bolsa{itemCount ? ` · ${itemCount}` : ""}</Link>}</div>
+        <div className="max-w-2xl"><h1 className="text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Compra con la variante correcta.</h1><p className="mt-3 max-w-xl text-pretty text-base leading-7 text-[var(--muted)]">Revisa talla, color o material antes de agregar a tu bolsa. Al confirmar eliges la sucursal que atenderá tu pedido; el precio y la existencia se validan de forma segura.</p>{search && <p className="mt-3 text-sm text-[var(--muted)]">Resultados para <strong className="font-semibold text-[var(--ink)]">“{search}”</strong></p>}</div>
+        <p className="text-sm text-[var(--muted)] lg:text-right"><span className="font-semibold text-[var(--ink)]">{page.total}</span> {page.total === 1 ? "producto publicado" : "productos publicados"}</p>
       </div>
       <p className="sr-only" role="status" aria-live="polite">{cartAnnouncement}</p>
-      <section className="mt-8 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3" aria-label="Filtros del catálogo" aria-busy={catalogQuery.isFetching}>
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]"><label className="relative block"><span className="sr-only">Buscar productos</span><IconSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" size={19} stroke={1.75} aria-hidden="true" /><input value={search} onChange={(event) => { setSearch(event.target.value); resetPage(); }} placeholder="Buscar productos, marcas o categorías" className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] pl-10 pr-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none" /></label><label><span className="sr-only">Categoría</span><select value={category} onChange={(event) => { setCategory(event.target.value); resetPage(); }} className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none"><option value="">Todas las categorías</option>{categories.map((facet) => <option key={facet.slug} value={facet.slug}>{facet.name} ({facet.count})</option>)}</select></label><label><span className="sr-only">Marca</span><select value={brand} onChange={(event) => { setBrand(event.target.value); resetPage(); }} className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none"><option value="">Todas las marcas</option>{brands.map((facet) => <option key={facet.slug} value={facet.slug}>{facet.name} ({facet.count})</option>)}</select></label></div>
+      <section className="mt-8 w-full max-w-[31rem] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3" aria-label="Filtros del catálogo" aria-busy={catalogQuery.isFetching}>
+        <div className="grid gap-3 sm:grid-cols-2"><label><span className="sr-only">Categoría</span><select value={category} onChange={(event) => { setCategory(event.target.value); resetPage(); }} className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none"><option value="">Todas las categorías</option>{categories.map((facet) => <option key={facet.slug} value={facet.slug}>{facet.name} ({facet.count})</option>)}</select></label><label><span className="sr-only">Marca</span><select value={brand} onChange={(event) => { setBrand(event.target.value); resetPage(); }} className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none"><option value="">Todas las marcas</option>{brands.map((facet) => <option key={facet.slug} value={facet.slug}>{facet.name} ({facet.count})</option>)}</select></label></div>
       </section>
       {catalogError && <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--danger)]/30 bg-[var(--danger-surface)] px-4 py-3 text-sm text-[var(--ink)]" role="alert"><span className="flex items-center gap-2"><IconAlertTriangle size={18} className="text-[var(--danger)]" aria-hidden="true" />{catalogError}</span><button type="button" onClick={() => { void catalogQuery.refetch(); }} className="inline-flex min-h-10 items-center gap-2 font-semibold text-[var(--danger)] underline decoration-1 underline-offset-4"><IconRefresh size={16} aria-hidden="true" />Reintentar</button></div>}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3" aria-live="polite"><p className="text-sm text-[var(--muted)]">{resultsLoading ? "Cargando resultados…" : catalogQuery.isFetching ? "Actualizando catálogo…" : `${page.items.length} resultados en esta página`}</p>{(search || category || brand) && <button type="button" onClick={() => { setSearch(""); setCategory(""); setBrand(""); setRequestedPage(1); }} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)]"><IconX size={16} aria-hidden="true" />Limpiar filtros</button>}</div>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3" aria-live="polite"><p className="text-sm text-[var(--muted)]">{resultsLoading ? "Cargando resultados…" : catalogQuery.isFetching ? "Actualizando catálogo…" : `${page.items.length} ${page.items.length === 1 ? "resultado" : "resultados"} en esta página`}</p>{(search || category || brand) && <button type="button" onClick={() => { if (search) { router.push("/"); return; } setCategory(""); setBrand(""); setRequestedPage(1); }} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)]"><IconX size={16} aria-hidden="true" />Limpiar filtros</button>}</div>
       {resultsLoading ? <CatalogResultsSkeleton /> : catalogError && !catalogQuery.data ? <CatalogUnavailable onRetry={() => { void catalogQuery.refetch(); }} /> : page.items.length === 0 ? <div className="mt-6 rounded-2xl border border-dashed border-[var(--line)] px-6 py-16 text-center"><IconSearch className="mx-auto text-[var(--muted)]" size={30} stroke={1.5} aria-hidden="true" /><h2 className="mt-3 font-semibold">No encontramos coincidencias</h2><p className="mt-1 text-sm text-[var(--muted)]">Prueba con otra búsqueda, categoría o marca.</p></div> : <div className="mt-7 grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{page.items.map((product) => <ProductCard key={product.id} product={product} canBuy={canBuy} onOpen={() => { setSelectedProduct(product); setAddedVariantId(null); }} />)}</div>}
       {page.total > page.pageSize && <nav className="mt-10 flex items-center justify-center gap-3" aria-label="Paginación del catálogo"><button type="button" disabled={page.page <= 1 || catalogQuery.isFetching} onClick={() => setRequestedPage(page.page - 1)} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-[var(--line)] px-3 text-sm font-semibold transition-colors hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-45"><IconChevronLeft size={17} aria-hidden="true" />Anterior</button><p className="text-sm text-[var(--muted)]">Página <span className="font-semibold text-[var(--ink)]">{page.page}</span> de {totalPages}</p><button type="button" disabled={page.page >= totalPages || catalogQuery.isFetching} onClick={() => setRequestedPage(page.page + 1)} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-[var(--line)] px-3 text-sm font-semibold transition-colors hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-45">Siguiente<IconChevronRight size={17} aria-hidden="true" /></button></nav>}
     </section>
