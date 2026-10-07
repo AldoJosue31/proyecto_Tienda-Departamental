@@ -132,7 +132,7 @@ npm run db:seed
 npm run start:dev
 ```
 
-El seed no se ejecuta en producción. En una base nueva crea seis productos `ACTIVE`, todos con `imageUrl: "/catalog/departmental-products-v1.png"`:
+El seed no se ejecuta en producción. En una base nueva crea catorce productos `ACTIVE`. Los seis originales usan el sprite `/catalog/departmental-products-v1.png`:
 
 | Producto | UUID | Sprite sugerido |
 | --- | --- | --- |
@@ -142,6 +142,19 @@ El seed no se ejecuta en producción. En una base nueva crea seis productos `ACT
 | `tenis-kinetic-run` | `a1000000-0000-4000-8000-000000000004` | `0% 100%` |
 | `silla-atelier` | `a1000000-0000-4000-8000-000000000005` | `50% 100%` |
 | `reloj-vertex-fit` | `a1000000-0000-4000-8000-000000000006` | `100% 100%` |
+
+Los ocho productos adicionales tienen una imagen individual en `public/catalog/`:
+
+| Producto | Categoría | Imagen |
+| --- | --- | --- |
+| `cafetera-bruma-espresso` | Cocina | `cafetera-bruma-espresso.png` |
+| `licuadora-nara-personal` | Cocina | `licuadora-nara-personal.png` |
+| `mochila-vento-urbana` | Viajes | `mochila-vento-urbana.png` |
+| `maleta-nomad-cabina` | Viajes | `maleta-nomad-cabina.png` |
+| `serum-clara-hidratante` | Belleza | `serum-clara-hidratante.png` |
+| `escritorio-luma-compacto` | Oficina | `escritorio-luma-compacto.png` |
+| `camara-prisma-instantanea` | Electrónica | `camara-prisma-instantanea.png` |
+| `bloques-tilo-madera` | Juguetes | `bloques-tilo-madera.png` |
 
 ## Calidad
 

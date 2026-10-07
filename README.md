@@ -1,7 +1,8 @@
 # Plataforma Departamental
 
-Este repositorio se desarrolla tomando como fuente principal de verdad
-`Proyecto_Universitario_Tienda_Departamental_Historias_Detalladas.docx`.
+Este repositorio se desarrolla tomando como referencia vigente
+[Proyecto Universitario Tienda Departamental v2.4](docs/Proyecto_Universitario_Tienda_Departamental_v2.4.docx),
+actualizada contra el código el 6 de octubre de 2026.
 La meta es una plataforma omnicanal de microservicios, no convertir el MVP
 existente de Next.js en un monolito mayor.
 
@@ -320,7 +321,7 @@ docker compose up --build
 La aplicación web queda en `http://localhost:3000` (o el puerto configurado en
 `WEB_HOST_PORT`) y el Gateway en `http://localhost:8000`. Para las cuentas
 locales de demostración de los tres roles, consulta [Acceso local](ACCESO_LOCAL.md).
-En desarrollo también se pueden crear los seis productos semilla de Catalog;
+En desarrollo también se pueden crear los catorce productos semilla de Catalog;
 consulta [Catalog Service](services/catalog-service/README.md) para sus
 contratos y configuración.
 

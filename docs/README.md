@@ -1,19 +1,11 @@
 # Especificación del proyecto
 
-La referencia vigente es [Proyecto Universitario Tienda Departamental v2.3](./Proyecto_Universitario_Tienda_Departamental_v2.3.docx), revisada el 10 de septiembre de 2026. Sustituye a la versión 2.2 para las aclaraciones indicadas en sus comentarios y sección 18. El original recibido se conserva sin cambios en Downloads.
+La referencia vigente es [Proyecto Universitario Tienda Departamental v2.4](./Proyecto_Universitario_Tienda_Departamental_v2.4.docx), revisada el 6 de octubre de 2026 contra el código y la configuración del repositorio en `1c6a677`. La [versión 2.3](./Proyecto_Universitario_Tienda_Departamental_v2.3.docx) se conserva como antecedente.
 
-La revisión mantiene tecnologías, microservicios, bases independientes, roles y las doce fases del roadmap arquitectónico. Aclara sucursal de atención frente a modalidad de entrega, confirmación comercial frente a pago, estados logísticos, permisos y endpoints ya existentes.
+La revisión mantiene microservicios, bases independientes, roles y las doce fases del roadmap arquitectónico. Actualiza tecnologías, diagramas, consumidores reales de eventos, Outbox, recursos heredados y límites de escalado. Las doce áreas tienen implementación en código; esto no certifica integración completa, rendimiento ni producción.
 
-La versión 2.3 registró cuatro pendientes de código, ya cerrados mediante
-implementación y pruebas. Logistics valida `channel`, conserva el snapshot de
-los nuevos envíos y sólo proyecta `ONLINE`; una venta `PHYSICAL` se deduplica
-sin crear preparación ni entrega. Orders sólo publica la compensación cuando
-Logistics acepta la cancelación antes de `SHIPPED`; después responde `409` y no
-promete un reembolso. La interfaz llama a la sucursal “que atiende el pedido”,
-sin prometer retiro; Catálogo evita reutilizar resultados entre filtros, usa el
-BFF de Next.js, conserva el encuadre de imágenes en la bolsa y muestra fechas
-de CUSTOMER con una zona horaria explícita.
+P01 y P02 están incorporados: la interfaz distingue sucursal de atención y modalidad de entrega; Logistics valida `channel`, conserva el snapshot y sólo proyecta `ONLINE`. Una venta `PHYSICAL` se deduplica sin crear envío. P03 incorpora consulta privada a Logistics, rechazo de cancelación de un envío existente después del despacho y estado reintentable `CANCELLATION_PENDING`; aún debe validarse la carrera con una proyección tardía. P04 está parcialmente corregido: BFF, `initialData`, encuadre de imágenes y fechas explícitas ya están presentes, pero siguen pendientes el loader específico de otras rutas y la continuidad de categoría, marca y página al salir del catálogo.
 
-El nuevo ciclo de mejora CUSTOMER tiene **cinco fases** y está separado del roadmap arquitectónico: navegación y claridad; catálogo y variantes; bolsa y checkout; pedidos y cuenta; movimiento, accesibilidad y QA. Esta actualización documental no ejecuta esas fases.
+El ciclo CUSTOMER tiene **cinco fases** separadas del roadmap arquitectónico. Ya incluye navegación por rol, selección de variantes, bolsa local por usuario, checkout idempotente, pedidos propios y seguimiento privado. Su cierre funcional y de accesibilidad sigue pendiente; la sección 18 del Word detalla el estado de cada fase. Pasaron 36 pruebas seleccionadas de frontend, Orders y Logistics, sin atribuirles cobertura E2E ni integración real con contenedores.
 
 El [contrato de venta física](./physical-sales-contract.md) complementa la especificación. Ante una discrepancia con el código, distinguir requisito, capacidad implementada y defecto pendiente antes de modificar cualquiera de ellos.
