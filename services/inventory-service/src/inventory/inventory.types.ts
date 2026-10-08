@@ -28,6 +28,7 @@ export interface InventoryStock {
   available: number;
   reorderPoint: number | null;
   lastUpdatedAt: string;
+  revision: number;
 }
 
 export interface InventoryListResponse {

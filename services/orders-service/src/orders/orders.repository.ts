@@ -24,6 +24,7 @@ interface OrderRow extends QueryResultRow {
   subtotal: string | number;
   discount_total: string | number;
   total: string | number;
+  coupon_code: string | null;
   cancellation_reason: string | null;
   cancelled_at: Date | string | null;
   version: number;
@@ -307,7 +308,7 @@ export class OrdersRepository {
   private orderSelect(forUpdate: boolean, suffix = ""): string {
     return [
       "SELECT id, customer_id, created_by, created_by_role, branch_id, channel, status, currency,",
-      "  subtotal, discount_total, total, cancellation_reason, cancelled_at, version, created_at, updated_at",
+      "  subtotal, discount_total, total, coupon_code, cancellation_reason, cancelled_at, version, created_at, updated_at",
       "FROM orders WHERE id = $1",
       forUpdate ? "FOR UPDATE" : "",
       suffix,
@@ -325,7 +326,7 @@ export class OrdersRepository {
   private ordersListSelect(): string {
     return [
       "SELECT id, customer_id, created_by, created_by_role, branch_id, channel, status, currency,",
-      "  subtotal, discount_total, total, cancellation_reason, cancelled_at, version, created_at, updated_at",
+      "  subtotal, discount_total, total, coupon_code, cancellation_reason, cancelled_at, version, created_at, updated_at",
       "FROM orders ORDER BY created_at DESC, id DESC",
     ].join("\n");
   }
@@ -333,7 +334,7 @@ export class OrdersRepository {
   private customerOrdersListSelect(): string {
     return [
       "SELECT id, customer_id, created_by, created_by_role, branch_id, channel, status, currency,",
-      "  subtotal, discount_total, total, cancellation_reason, cancelled_at, version, created_at, updated_at",
+      "  subtotal, discount_total, total, coupon_code, cancellation_reason, cancelled_at, version, created_at, updated_at",
       "FROM orders WHERE customer_id = $1 ORDER BY created_at DESC, id DESC",
     ].join("\n");
   }
@@ -356,6 +357,7 @@ export class OrdersRepository {
       subtotal: this.money(Number(row.subtotal)),
       discountTotal: this.money(Number(row.discount_total)),
       total: this.money(Number(row.total)),
+      couponCode: row.coupon_code,
       cancellationReason: row.cancellation_reason,
       cancelledAt: row.cancelled_at ? this.iso(row.cancelled_at) : null,
       version: row.version,

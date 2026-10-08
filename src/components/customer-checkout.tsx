@@ -58,6 +58,7 @@ function reference(orderId: string) {
 export function CustomerCheckout() {
   const { lines, itemCount, ready, revise, remove, consume } = useCustomerCart();
   const [branchId, setBranchId] = useState("");
+  const [couponCode,setCouponCode] = useState("");
   const [confirmation, setConfirmation] = useState<CheckoutConfirmation | null>(null);
   const checkoutKey = useRef<string | null>(null);
   const productIds = useMemo(() => [...new Set(lines.map((line) => line.productId))], [lines]);
@@ -100,7 +101,9 @@ export function CustomerCheckout() {
   const total = resolvedLines.reduce((sum, item) => sum + item.variant.listPrice * item.quantity, 0);
   const currency = resolvedLines[0]?.variant.currency ?? "MXN";
 
-  useEffect(() => { checkoutKey.current = null; }, [branchId, cartSignature]);
+  useEffect(() => { checkoutKey.current = null; }, [branchId, cartSignature,couponCode]);
+  const coupon = useMutation({mutationFn:async()=>({signature:cartSignature+"|"+couponCode,result:await jsonRequest<{discountTotal:number;prices:Array<{variantId:string;unitPrice:number}>}>("/api/checkout/coupon",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:couponCode,items:lines})})})});
+  const couponPreview = coupon.data?.signature === cartSignature+"|"+couponCode ? coupon.data.result : null;
 
   const checkout = useMutation({
     mutationFn: async () => {
@@ -110,7 +113,7 @@ export function CustomerCheckout() {
       const result = await jsonRequest<CheckoutResult>("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-        body: JSON.stringify({ branchId: selectedBranch.id, items: sentLines }),
+        body: JSON.stringify({ branchId: selectedBranch.id, items: sentLines, ...(couponCode.trim() ? {couponCode:couponCode.trim().toUpperCase()} : {}) }),
       });
       return { result, sentLines, branchName: selectedBranch.name, itemCount: sentLines.reduce((sum, line) => sum + line.quantity, 0) } satisfies CheckoutMutationResult;
     },
@@ -136,7 +139,13 @@ export function CustomerCheckout() {
         <h2 id="checkout-summary-title" className="font-semibold">Confirmar pedido</h2><p className="mt-1 text-sm leading-6 text-[var(--muted)]">Elige la sucursal que atenderá tu pedido.</p>
         <fieldset disabled={branchesQuery.isLoading || Boolean(branchesQuery.error) || checkout.isPending} className="mt-5"><legend className="text-sm font-semibold">Sucursal que atiende el pedido</legend><p id="checkout-branch-help" className="mt-1 text-xs leading-5 text-[var(--muted)]">Esta selección indica la sucursal que atiende tu pedido; no confirma una modalidad de entrega. La disponibilidad y el precio vigentes se validan al enviarlo.</p>{branchesQuery.isLoading ? <p className="mt-3 flex min-h-11 items-center gap-2 rounded-xl bg-[var(--surface-muted)] px-3 text-sm text-[var(--muted)]"><IconLoader2 size={17} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Cargando sucursales…</p> : branches.length > 0 ? <div className="mt-3 space-y-2">{branches.map((branch) => { const selected = branch.id === branchId; return <label key={branch.id} className={`flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border px-3 py-3 transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 has-[:focus-visible]:outline-[var(--focus)] ${selected ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--line)] bg-[var(--surface-muted)] hover:bg-[var(--surface)]"}`}><input type="radio" name="checkout-branch" value={branch.id} checked={selected} onChange={() => setBranchId(branch.id)} aria-describedby="checkout-branch-help" className="sr-only" /><span className="text-sm font-semibold">{branch.name}</span><span className={`text-xs font-semibold ${selected ? "text-[var(--accent-strong)]" : "text-[var(--muted)]"}`}>{selected ? "Seleccionada" : "Elegir"}</span></label>; })}</div> : !branchesQuery.isError ? <p className="mt-3 rounded-xl border border-dashed border-[var(--line)] px-3 py-3 text-sm leading-6 text-[var(--muted)]" role="status">No hay sucursales de atención disponibles.</p> : null}</fieldset>
         {branchesQuery.isError ? <div role="alert" className="mt-3 flex flex-wrap items-start gap-2 text-sm leading-5 text-[var(--danger)]"><IconAlertTriangle className="mt-0.5 shrink-0" size={16} aria-hidden="true" /><span>{branchesQuery.error instanceof Error ? branchesQuery.error.message : "No fue posible cargar las sucursales."}</span><button type="button" onClick={() => { void branchesQuery.refetch(); }} disabled={checkout.isPending} className="min-h-10 rounded-lg px-2 font-semibold underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-45">Reintentar</button></div> : null}
-        <dl className="mt-6 space-y-2 border-y border-[var(--line)] py-4 text-sm"><div className="flex items-center justify-between gap-4 text-[var(--muted)]"><dt>Artículos</dt><dd>{itemCount}</dd></div><div className="flex items-end justify-between gap-4"><dt className="font-semibold">Total estimado</dt><dd className="text-xl font-semibold tracking-[-0.03em]">{money(total, currency)}</dd></div></dl>
+        <div className="mt-5 space-y-2">
+          <label htmlFor="checkout-coupon" className="text-sm font-medium">Código de descuento</label>
+          <div className="flex gap-2"><input id="checkout-coupon" value={couponCode} maxLength={64} disabled={checkout.isPending} onChange={event=>{setCouponCode(event.target.value.toUpperCase());coupon.reset();}} className="min-w-0 flex-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm" placeholder="Código recibido por correo" /><button type="button" disabled={!couponCode.trim() || coupon.isPending || checkout.isPending || !resolvedLines.length} onClick={()=>coupon.mutate()} className="rounded-xl bg-[var(--surface-muted)] px-3 text-sm font-semibold disabled:opacity-50">Validar</button></div>
+          {coupon.isError ? <p role="alert" className="text-sm text-[var(--danger)]">{coupon.error.message}</p> : null}
+          {coupon.isSuccess && couponPreview ? <p role="status" className="text-sm text-[var(--success)]">Cupón válido. Total estimado {money(total-couponPreview.discountTotal,currency)}. Se aplica el mejor beneficio por artículo, sin acumular descuentos.</p> : null}
+        </div>
+        <dl className="mt-6 space-y-2 border-y border-[var(--line)] py-4 text-sm"><div className="flex items-center justify-between gap-4 text-[var(--muted)]"><dt>Artículos</dt><dd>{itemCount}</dd></div><div className="flex items-end justify-between gap-4"><dt className="font-semibold">Total estimado</dt><dd className="text-xl font-semibold tracking-[-0.03em]">{money(couponPreview ? total-couponPreview.discountTotal : total, currency)}</dd></div></dl>
         <p className="mt-4 text-xs leading-5 text-[var(--muted)]">El total se calcula con el precio publicado. Pricing e Inventory validan el precio vigente y la existencia al confirmar.</p>
         {hasMixedCurrencies ? <p role="alert" className="mt-4 flex gap-2 text-sm leading-5 text-[var(--danger)]"><IconAlertTriangle className="mt-0.5 shrink-0" size={16} aria-hidden="true" />Tu bolsa contiene precios en distintas monedas. Ajusta los artículos antes de confirmar.</p> : null}
         {checkout.isError ? <p role="alert" className="mt-4 flex gap-2 text-sm leading-5 text-[var(--danger)]"><IconAlertTriangle className="mt-0.5 shrink-0" size={16} aria-hidden="true" />{checkout.error instanceof Error ? checkout.error.message : "No fue posible confirmar tu pedido."}</p> : null}

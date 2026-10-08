@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 const idempotencyKey = /^[A-Za-z0-9._:-]{1,200}$/;
 const requestSchema = z.object({
   branchId: z.string().uuid(),
+  couponCode: z.string().trim().toUpperCase().regex(/^[A-Z0-9][A-Z0-9_-]{2,63}$/).optional(),
   items: z.array(z.object({
     productId: z.string().uuid(),
     variantId: z.string().uuid(),

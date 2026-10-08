@@ -1,3 +1,4 @@
+import { publicGatewayUrl } from "@/lib/auth/public-gateway.server";
 import { PickPackBoard } from "@/components/pick-pack-board";
 import { requireRole } from "@/lib/auth/session.server";
 import { getPickPackDashboard } from "@/lib/logistics/pick-pack.server";
@@ -8,7 +9,7 @@ export default async function OperationsPage() {
 
   return (
     <section className="platform-page">
-        <PickPackBoard initialDashboard={initialDashboard} maps={{ browserKey: process.env.GOOGLE_MAPS_BROWSER_KEY?.trim() || null, mapId: process.env.GOOGLE_MAPS_MAP_ID?.trim() || null }} />
+        <PickPackBoard initialDashboard={initialDashboard} maps={{ gatewayUrl: publicGatewayUrl(), browserKey: process.env.GOOGLE_MAPS_BROWSER_KEY?.trim() || null, mapId: process.env.GOOGLE_MAPS_MAP_ID?.trim() || null }} />
     </section>
   );
 }

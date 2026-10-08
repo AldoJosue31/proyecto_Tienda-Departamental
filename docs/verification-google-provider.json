@@ -1,0 +1,11 @@
+{
+  "checkedAt": "2026-10-08T15:30:03.423Z",
+  "routesConfigured": true,
+  "browserConfigured": true,
+  "mapIdConfigured": true,
+  "routesVerified": true,
+  "httpStatus": 200,
+  "browserVerified": true,
+  "browserOrigin": "http://localhost:3105",
+  "browserCheckedAt": "2026-10-08T16:04:26.4645748Z"
+}

@@ -10,7 +10,7 @@ const EVENTS_EXCHANGE = "departamental.events";
 const DEAD_LETTER_EXCHANGE = "departamental.events.dlx";
 const QUEUE = "crm.campaign-delivery-status.v1";
 const DLQ = QUEUE + ".dlq";
-const ROUTING_KEYS = ["notification.sent.v1", "notification.failed.v1"] as const;
+const ROUTING_KEYS = ["notification.sent.v1", "notification.simulated.v1", "notification.failed.v1"] as const;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 @Injectable()
@@ -43,8 +43,8 @@ export class CampaignDeliveryConsumer implements OnModuleInit, OnModuleDestroy {
 
   private event(value: unknown): NotificationDeliveryEvent {
     if (!this.object(value) || !this.uuid(value.eventId) || !this.date(value.occurredAt) || (typeof value.correlationId !== "string" && value.correlationId !== null) || value.producer !== "notification-service" || !this.object(value.data) || !this.uuid(value.data.campaignId) || !this.uuid(value.data.customerId) || !this.uuid(value.data.notificationId)) throw new Error("Invalid notification status event.");
-    if (value.eventType === "notification.sent.v1") return { eventId: value.eventId, eventType: value.eventType, occurredAt: value.occurredAt, correlationId: value.correlationId, campaignId: value.data.campaignId, customerId: value.data.customerId, notificationId: value.data.notificationId };
-    if (value.eventType === "notification.failed.v1" && (value.data.failureCode === "DELIVERY_FAILED" || value.data.failureCode === "UNDELIVERABLE")) return { eventId: value.eventId, eventType: value.eventType, occurredAt: value.occurredAt, correlationId: value.correlationId, campaignId: value.data.campaignId, customerId: value.data.customerId, notificationId: value.data.notificationId, failureCode: value.data.failureCode };
+    if (value.eventType === "notification.sent.v1" || value.eventType === "notification.simulated.v1") return { eventId: value.eventId, eventType: value.eventType, occurredAt: value.occurredAt, correlationId: value.correlationId, campaignId: value.data.campaignId, customerId: value.data.customerId, notificationId: value.data.notificationId, attempt:Number.isSafeInteger(value.data.attempt) && Number(value.data.attempt)>0 ? Number(value.data.attempt) : 1, deliveryMode: value.data.deliveryMode === "smtp" ? "smtp" : "log" };
+    if (value.eventType === "notification.failed.v1" && (value.data.failureCode === "DELIVERY_FAILED" || value.data.failureCode === "UNDELIVERABLE" || value.data.failureCode === "COUPON_EXPIRED")) return { eventId: value.eventId, eventType: value.eventType, occurredAt: value.occurredAt, correlationId: value.correlationId, campaignId: value.data.campaignId, customerId: value.data.customerId, notificationId: value.data.notificationId, failureCode: value.data.failureCode,attempt:Number.isSafeInteger(value.data.attempt) && Number(value.data.attempt)>0 ? Number(value.data.attempt) : 1,willRetry:value.data.willRetry === true };
     throw new Error("Unexpected notification status event type.");
   }
 

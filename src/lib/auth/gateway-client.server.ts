@@ -14,7 +14,7 @@ export class GatewayRequestError extends Error {
 }
 
 function gatewayUrl() {
-  return (process.env.GATEWAY_INTERNAL_URL ?? process.env.NEXT_PUBLIC_GATEWAY_URL ?? defaultGatewayUrl).replace(/\/$/, "");
+  return (process.env.GATEWAY_INTERNAL_URL ?? process.env.PUBLIC_GATEWAY_URL ?? defaultGatewayUrl).replace(/\/$/, "");
 }
 
 export async function gatewayFetch(path: string, init: RequestInit = {}) {

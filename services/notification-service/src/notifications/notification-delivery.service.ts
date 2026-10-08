@@ -1,4 +1,4 @@
-import { Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import type { QueryResultRow } from "pg";
 import { DatabaseService } from "../database/database.service";
 import { AuthContactClient } from "./auth-contact.client";
@@ -21,6 +21,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 @Injectable()
 export class NotificationDeliveryService implements OnModuleInit, OnModuleDestroy {
   private retryTimer: NodeJS.Timeout | null = null;
+  private readonly logger = new Logger(NotificationDeliveryService.name);
   constructor(
     private readonly database: DatabaseService,
     private readonly contacts: AuthContactClient,
@@ -30,9 +31,9 @@ export class NotificationDeliveryService implements OnModuleInit, OnModuleDestro
 
   onModuleInit(): void {
     if (this.config.environment === "test") return;
-    this.retryTimer = setInterval(() => void this.retryDue(), this.config.retryIntervalSeconds * 1_000);
+    this.retryTimer = setInterval(() => void this.retryDue().catch(()=>this.logger.warn("Notification retries will resume after the database recovers.")), this.config.retryIntervalSeconds * 1_000);
     this.retryTimer.unref();
-    void this.retryDue();
+    void this.retryDue().catch(()=>this.logger.warn("Initial notification retry will resume."));
   }
 
   onModuleDestroy(): void { if (this.retryTimer) clearInterval(this.retryTimer); }
@@ -74,8 +75,9 @@ export class NotificationDeliveryService implements OnModuleInit, OnModuleDestro
         email = contact.email.trim().toLowerCase();
         await this.database.query("UPDATE notification_deliveries SET email = $2 WHERE id = $1", [record.id, email]);
       }
-      const providerMessageId = await this.email.send({ customerId: record.customerId, email, campaignId: record.campaignId, couponCode: record.couponCode, validUntil: record.validUntil, notificationId: record.id });
-      await this.finish(record, "SENT", providerMessageId);
+      if (Date.parse(record.validUntil) <= Date.now()) { await this.finish(record, "UNDELIVERABLE", null, "COUPON_EXPIRED"); return; }
+      const result = await this.email.send({ customerId: record.customerId, email, campaignId: record.campaignId, couponCode: record.couponCode, validUntil: record.validUntil, notificationId: record.id });
+      await this.finish(record, result.simulated ? "SIMULATED" : "SENT", result.messageId);
     } catch {
       await this.finish(record, "FAILED");
     }
@@ -88,7 +90,7 @@ export class NotificationDeliveryService implements OnModuleInit, OnModuleDestro
         "FROM notification_deliveries WHERE id = $1 FOR UPDATE",
       ].join("\n"), [deliveryId]);
       const current = result.rows[0];
-      if (!current || current.status === "SENT" || current.status === "UNDELIVERABLE") return null;
+      if (!current || current.status === "SENT" || current.status === "SIMULATED" || current.status === "UNDELIVERABLE" || (current.status === "FAILED" && Number(current.attempts) >= this.config.retryLimit)) return null;
       const lockedUntil = current.locked_until ? new Date(current.locked_until).getTime() : 0;
       if (current.status === "PROCESSING" && lockedUntil > Date.now()) return null;
       if (current.status === "FAILED" && current.next_retry_at && new Date(current.next_retry_at).getTime() > Date.now()) return null;
@@ -102,13 +104,13 @@ export class NotificationDeliveryService implements OnModuleInit, OnModuleDestro
     });
   }
 
-  private async finish(record: DeliveryRecord, outcome: "SENT" | "FAILED" | "UNDELIVERABLE", providerMessageId: string | null = null): Promise<void> {
+  private async finish(record: DeliveryRecord, outcome: "SENT" | "SIMULATED" | "FAILED" | "UNDELIVERABLE", providerMessageId: string | null = null, reason?: NotificationFailureCode): Promise<void> {
     await this.database.withTransaction(async (client) => {
       const current = await client.query<DeliveryRow>("SELECT id, campaign_id, customer_id, coupon_code, coupon_valid_until, correlation_id, email, status, attempts, next_retry_at, locked_until FROM notification_deliveries WHERE id = $1 FOR UPDATE", [record.id]);
       const delivery = current.rows[0];
-      if (!delivery || delivery.status === "SENT" || delivery.status === "UNDELIVERABLE") return;
+      if (!delivery || delivery.status !== "PROCESSING" || Number(delivery.attempts) !== record.attempts) return;
       const attempts = this.number(delivery.attempts);
-      const failureCode: NotificationFailureCode | null = outcome === "UNDELIVERABLE" ? "UNDELIVERABLE" : outcome === "FAILED" ? "DELIVERY_FAILED" : null;
+      const failureCode: NotificationFailureCode | null = reason ?? (outcome === "UNDELIVERABLE" ? "UNDELIVERABLE" : outcome === "FAILED" ? "DELIVERY_FAILED" : null);
       const nextRetry = outcome === "FAILED" && attempts < this.config.retryLimit ? new Date(Date.now() + this.config.retryIntervalSeconds * 1_000) : null;
       const status = outcome;
       await client.query([
@@ -116,12 +118,12 @@ export class NotificationDeliveryService implements OnModuleInit, OnModuleDestro
         "SET status = $2, provider_message_id = COALESCE($3, provider_message_id), failure_code = $4, next_retry_at = $5, locked_until = NULL",
         "WHERE id = $1",
       ].join("\n"), [record.id, status, providerMessageId, failureCode, nextRetry]);
-      const eventType = outcome === "SENT" ? "notification.sent.v1" : "notification.failed.v1";
-      const payload = JSON.stringify({ notificationId: record.id, campaignId: record.campaignId, customerId: record.customerId, ...(failureCode ? { failureCode } : {}) });
+      const eventType = outcome === "SENT" ? "notification.sent.v1" : outcome === "SIMULATED" ? "notification.simulated.v1" : "notification.failed.v1";
+      const payload = JSON.stringify({ notificationId: record.id, campaignId: record.campaignId, customerId: record.customerId,attempt:record.attempts, deliveryMode: outcome === "SENT" ? "smtp" : "log", willRetry:Boolean(nextRetry), ...(failureCode ? { failureCode } : {}) });
       await client.query([
         "INSERT INTO notification_outbox_events (notification_id, event_type, correlation_id, payload)",
         "VALUES ($1, $2, $3, $4::jsonb)",
-        "ON CONFLICT (notification_id, event_type) DO NOTHING",
+        "ON CONFLICT (notification_id, event_type) DO UPDATE SET id=gen_random_uuid(),payload=EXCLUDED.payload,occurred_at=NOW(),available_at=NOW(),published_at=NULL,locked_by=NULL,locked_until=NULL",
       ].join("\n"), [record.id, eventType, record.correlationId, payload]);
     });
   }

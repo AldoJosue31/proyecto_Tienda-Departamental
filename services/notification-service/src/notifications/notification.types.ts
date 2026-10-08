@@ -9,8 +9,8 @@ export interface CouponEmailRequestedEvent {
   validUntil: string;
 }
 
-export type DeliveryStatus = "PENDING" | "PROCESSING" | "SENT" | "FAILED" | "UNDELIVERABLE";
-export type NotificationFailureCode = "DELIVERY_FAILED" | "UNDELIVERABLE";
+export type DeliveryStatus = "PENDING" | "PROCESSING" | "SENT" | "SIMULATED" | "FAILED" | "UNDELIVERABLE";
+export type NotificationFailureCode = "DELIVERY_FAILED" | "UNDELIVERABLE" | "COUPON_EXPIRED";
 
 export interface NotificationContact { customerId: string; email: string; }
 export interface EmailRequest { customerId: string; email: string; campaignId: string; couponCode: string; validUntil: string; notificationId: string; }

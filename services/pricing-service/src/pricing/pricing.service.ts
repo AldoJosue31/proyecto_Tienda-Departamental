@@ -347,6 +347,9 @@ export class PricingService implements OnModuleInit, OnModuleDestroy {
     timezone: string,
     targets: PromotionTargetDto[] | PromotionTarget[],
   ): void {
+    if (![startsAt, endsAt].every((value) => /(?:Z|[+-]\d{2}:\d{2})$/.test(value))) {
+      throw new ApiException(400, "AMBIGUOUS_PROMOTION_DATE", "Las fechas deben incluir UTC o un desfase explícito");
+    }
     const start = new Date(startsAt);
     const end = new Date(endsAt);
     if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start >= end) {

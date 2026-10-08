@@ -21,6 +21,7 @@ const stockSchema = z.object({
   available: z.number().int().nonnegative(),
   reorderPoint: z.number().int().nonnegative().nullable(),
   lastUpdatedAt: z.string().datetime(),
+  revision: z.number().int().positive().optional(),
 });
 
 const listSchema = z.object({ items: z.array(stockSchema) });

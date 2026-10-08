@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 export const AUTH_JWT_ISSUER = "departamental-auth-service";
 export const ROLES = ["ADMIN", "EMPLOYEE", "CUSTOMER"] as const;
@@ -11,6 +11,9 @@ export interface AnalyticsRuntimeConfig {
   environment: string;
   rabbitmqUrl: string;
   timezone: string;
+  inventoryServiceUrl: string;
+  inventoryServiceKey: string;
+  inventorySyncIntervalSeconds: number;
 }
 
 function requiredValue(env: NodeJS.ProcessEnv, name: string): string {
@@ -53,7 +56,14 @@ export function loadAnalyticsRuntimeConfig(env: NodeJS.ProcessEnv = process.env)
   const environment = env.NODE_ENV?.trim() || "development";
   const timezone = env.ANALYTICS_TIMEZONE?.trim() || "America/Mexico_City";
   try { Intl.DateTimeFormat("en-US", { timeZone: timezone }); } catch { throw new Error("ANALYTICS_TIMEZONE must be an IANA timezone."); }
-  return { accessSecret: base64UrlSecret(requiredValue(env, "JWT_ACCESS_SECRET")), corsOrigins: origins(env, environment), environment, rabbitmqUrl: amqp(requiredValue(env, "RABBITMQ_URL")), timezone };
+  const inventoryServiceUrl = env.INVENTORY_SERVICE_URL?.trim() || "http://servicio-inventario:3003";
+  const inventoryUrl = new URL(inventoryServiceUrl);
+  if (!["http:", "https:"].includes(inventoryUrl.protocol)) throw new Error("Invalid Inventory URL");
+  const inventoryServiceKey = env.ANALYTICS_INVENTORY_SERVICE_KEY?.trim() || createHmac("sha256", requiredValue(env, "JWT_ACCESS_SECRET")).update("analytics-inventory-snapshot").digest("base64url");
+  base64UrlSecret(inventoryServiceKey);
+  const inventorySyncIntervalSeconds = Number(env.ANALYTICS_INVENTORY_SYNC_SECONDS || 30);
+  if (!Number.isSafeInteger(inventorySyncIntervalSeconds) || inventorySyncIntervalSeconds < 1 || inventorySyncIntervalSeconds > 3600) throw new Error("Invalid inventory sync interval");
+  return { inventoryServiceUrl, inventoryServiceKey, inventorySyncIntervalSeconds, accessSecret: base64UrlSecret(requiredValue(env, "JWT_ACCESS_SECRET")), corsOrigins: origins(env, environment), environment, rabbitmqUrl: amqp(requiredValue(env, "RABBITMQ_URL")), timezone };
 }
 
 export function isRole(value: unknown): value is Role { return typeof value === "string" && ROLES.includes(value as Role); }

@@ -237,6 +237,12 @@ services:
         methods:
           - GET
         strip_path: false
+      - name: pricing-coupon-quote
+        paths:
+          - /pricing/coupons/quote
+        methods:
+          - POST
+        strip_path: false
       - name: pricing-promotions
         paths:
           - "~/promotions(?:/[^/]+)?$"

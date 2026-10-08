@@ -12,17 +12,20 @@ import { DATABASE_CONFIG, DatabaseService } from "./database/database.service";
 import { PricingOutboxService } from "./events/outbox.service";
 import { HealthController } from "./health/health.controller";
 import { PricingController } from "./pricing/pricing.controller";
+import { CouponsService } from "./coupons/coupons.service";
+import { CouponsController } from "./coupons/coupons.controller";
+import { InternalCouponGuard } from "./coupons/internal-coupon.guard";
 import { PricingService } from "./pricing/pricing.service";
 
 @Module({
-  controllers: [PricingController, HealthController],
+  controllers: [PricingController, CouponsController, HealthController],
   providers: [
     { provide: DATABASE_CONFIG, useFactory: loadDatabaseConfig },
     { provide: PRICING_RUNTIME_CONFIG, useFactory: loadPricingRuntimeConfig },
     DatabaseService,
     PricingOutboxService,
     TokenService,
-    PricingService,
+    PricingService, CouponsService, InternalCouponGuard,
     JwtAuthGuard,
     RolesGuard,
     CorrelationIdMiddleware,

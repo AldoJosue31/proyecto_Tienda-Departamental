@@ -1,0 +1,11 @@
+{
+  "completedAt": "2026-10-08T15:22:43.233Z",
+  "project": "departamental-five-phases",
+  "checks": [
+    {
+      "name": "migrations preserve historical inventory and CRM campaigns",
+      "passed": true,
+      "milliseconds": 30
+    }
+  ]
+}

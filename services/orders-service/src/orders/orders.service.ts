@@ -50,7 +50,7 @@ export class OrdersService {
     this.assertChannelAccess(channel, body.customerId, actor);
     const customerId = actor.role === "CUSTOMER" ? actor.id : body.customerId ?? actor.id;
     const requestedItems = this.mergeRequestedItems(body);
-    const requestHash = this.requestHash(customerId, body.branchId, channel, requestedItems);
+    const requestHash = this.requestHash(customerId, body.branchId, channel, requestedItems, body.couponCode);
     const lock = "orders:create:" + actor.id + ":" + key;
 
     return this.database.withAdvisoryLock(lock, async (client) => {
@@ -82,6 +82,8 @@ export class OrdersService {
           }),
         );
       }
+
+      if (!prior && body.couponCode) { await client.query("UPDATE orders SET coupon_code=$2 WHERE id=$1",[order.id,body.couponCode.trim().toUpperCase()]); order = await this.requireOrder(client,order.id); }
 
       if (order.status === "CONFIRMED" || order.status === "CANCELLATION_PENDING" || order.status === "CANCELLED") {
         return { order: this.publicOrder(order) };
@@ -124,7 +126,9 @@ export class OrdersService {
       // only after Logistics has atomically accepted the pre-dispatch request.
       if (existing.status === "PENDING" || existing.status === "RESERVED") {
         await this.releaseReservations(existing, "cancel", actor.correlationId);
-        return this.finalizeCancellation(client, normalizedId, actor, reason, false);
+        const cancelled = await this.finalizeCancellation(client, normalizedId, actor, reason, false);
+        if (existing.couponCode) await this.pricing.settleCoupon(normalizedId,"release").catch(() => undefined);
+        return cancelled;
       }
 
       const pending = await this.stageConfirmedCancellation(client, normalizedId, actor);
@@ -138,7 +142,9 @@ export class OrdersService {
           throw error;
         }
       }
-      return this.finalizeCancellation(client, normalizedId, actor, reason, true);
+      const cancelled = await this.finalizeCancellation(client, normalizedId, actor, reason, true);
+      if (existing.couponCode) await this.pricing.settleCoupon(normalizedId,"restore").catch(() => undefined);
+      return cancelled;
     });
   }
 
@@ -214,7 +220,7 @@ export class OrdersService {
   ): Promise<OrderResponse> {
     let current = order;
     if (current.items.length === 0) {
-      const snapshots = await this.createSnapshots(current.id, current.branchId, requestedItems, actor.correlationId);
+      const snapshots = await this.createSnapshots(current.id, current.branchId, requestedItems, actor.correlationId, current.couponCode, current.customerId);
       await this.database.withTransactionOnClient(client, async (transaction) => {
         await this.repository.replaceItems(transaction, current.id, snapshots);
         await this.repository.audit(transaction, current.id, actor, "ORDER_PRICE_SNAPSHOTTED");
@@ -271,6 +277,7 @@ export class OrdersService {
           data,
         });
       });
+      if (current.couponCode) await this.pricing.settleCoupon(current.id,"commit").catch(() => undefined);
       return { order: this.publicOrder(await this.requireOrder(client, current.id)) };
     } catch (error) {
       if (error instanceof ApiException && error.code === "OUT_OF_STOCK") {
@@ -285,6 +292,7 @@ export class OrdersService {
           ),
         );
       }
+      if (error instanceof ApiException && error.code === "OUT_OF_STOCK" && current.couponCode) await this.pricing.settleCoupon(current.id,"release").catch(() => undefined);
       throw error;
     }
   }
@@ -294,6 +302,7 @@ export class OrdersService {
     branchId: string,
     requestedItems: RequestedItem[],
     correlationId: string | null,
+    couponCode?: string | null, customerId?: string,
   ): Promise<CreateOrderSnapshot[]> {
     const snapshots: CreateOrderSnapshot[] = [];
     let currency: string | null = null;
@@ -332,6 +341,10 @@ export class OrdersService {
         lineTotal: this.money(unitPrice * requested.quantity),
         currency: quote.currency,
       });
+    }
+    if (couponCode && customerId) {
+      const result = await this.pricing.reserveCoupon({code:couponCode,customerId,orderId,lines:snapshots.map(item=>({variantId:item.variantId,productId:item.productId,categoryId:item.categoryId,basePrice:item.listUnitPrice,currency:item.currency,quantity:item.quantity}))});
+      for (const item of snapshots) { const price = result.prices.find(price=>price.variantId === item.variantId); if (!price) throw new ApiException(503,"PRICING_UNAVAILABLE","Falta el precio definitivo del cupón."); item.listUnitPrice = price.basePrice ?? item.listUnitPrice; item.unitPrice = price.unitPrice; item.lineTotal = this.money(item.unitPrice*item.quantity); item.lineDiscountTotal = this.money((item.listUnitPrice-item.unitPrice)*item.quantity); }
     }
     if (snapshots.length === 0) throw new Error("Order requires at least one item.");
     // The parameter proves snapshots are tied to a durable order ID before a
@@ -401,13 +414,14 @@ export class OrdersService {
     branchId: string,
     channel: OrderChannel,
     items: RequestedItem[],
+    couponCode?: string,
   ): string {
     // Keep ONLINE hashes compatible with orders created before channels were
     // introduced; physical sales deliberately form a distinct request.
     const payload = channel === "PHYSICAL"
       ? { customerId, branchId, channel, items }
       : { customerId, branchId, items };
-    return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+    return createHash("sha256").update(JSON.stringify(couponCode ? {...payload,couponCode:couponCode.trim().toUpperCase()} : payload)).digest("hex");
   }
 
   private assertChannelAccess(
@@ -470,6 +484,7 @@ export class OrdersService {
       subtotal: order.subtotal,
       discountTotal: order.discountTotal,
       total: order.total,
+      couponCode: order.couponCode ?? null,
       cancellationReason: order.cancellationReason,
       cancelledAt: order.cancelledAt,
       version: order.version,

@@ -71,13 +71,17 @@ export interface InactiveSegmentResponse {
   lastUpdatedAt: string | null;
 }
 
-export type CampaignRecipientStatus = "PENDING" | "SENT" | "FAILED" | "UNDELIVERABLE";
+export type CampaignRecipientStatus = "PENDING" | "SENT" | "SIMULATED" | "UNKNOWN" | "FAILED" | "UNDELIVERABLE";
 export type CampaignStatus = "QUEUED" | "PROCESSING" | "COMPLETED" | "PARTIAL";
 
 export interface CouponCampaignInput {
   months?: unknown;
   couponCode?: unknown;
   validUntil?: unknown;
+  discountType?: unknown;
+  discountValue?: unknown;
+  targetScope?: unknown;
+  targetId?: unknown;
 }
 
 export interface CouponCampaign {
@@ -88,6 +92,8 @@ export interface CouponCampaign {
   targetCount: number;
   pendingCount: number;
   sentCount: number;
+  simulatedCount: number;
+  unknownCount: number;
   failedCount: number;
   undeliverableCount: number;
   status: CampaignStatus;
@@ -100,11 +106,14 @@ export interface CampaignResponse { campaign: CouponCampaign; }
 
 export interface NotificationDeliveryEvent {
   eventId: string;
-  eventType: "notification.sent.v1" | "notification.failed.v1";
+  eventType: "notification.sent.v1" | "notification.simulated.v1" | "notification.failed.v1";
   occurredAt: string;
   correlationId: string | null;
   campaignId: string;
   customerId: string;
   notificationId: string;
-  failureCode?: "DELIVERY_FAILED" | "UNDELIVERABLE";
+  failureCode?: "DELIVERY_FAILED" | "UNDELIVERABLE" | "COUPON_EXPIRED";
+  deliveryMode?: "smtp" | "log";
+  willRetry?: boolean;
+  attempt?:number;
 }

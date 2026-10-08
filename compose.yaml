@@ -6,7 +6,7 @@ services:
     environment:
       NODE_ENV: production
       GATEWAY_INTERNAL_URL: http://pasarela-api:8000
-      NEXT_PUBLIC_GATEWAY_URL: ${NEXT_PUBLIC_GATEWAY_URL:-http://localhost:8000}
+      PUBLIC_GATEWAY_URL: ${PUBLIC_GATEWAY_URL:-${NEXT_PUBLIC_GATEWAY_URL:-http://localhost:8000}}
       DATABASE_URL: postgresql://departamental:departamental@postgres:5432/departamental
       REDIS_URL: redis://redis:6379
       USE_POSTGRES_PERSISTENCE: "${USE_POSTGRES_PERSISTENCE:-false}"
@@ -182,6 +182,8 @@ services:
       DATABASE_URL: "postgresql://inventory_service:${INVENTORY_DB_PASSWORD:?Define INVENTORY_DB_PASSWORD in .env before starting Compose}@inventory-postgres:5432/inventory_service"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
       INVENTORY_INTERNAL_SERVICE_KEY: "${INVENTORY_INTERNAL_SERVICE_KEY:?Define INVENTORY_INTERNAL_SERVICE_KEY in .env before starting Compose}"
+      ANALYTICS_INVENTORY_SERVICE_KEY: "${ANALYTICS_INVENTORY_SERVICE_KEY:-}"
+      INVENTORY_RESERVATION_SWEEP_SECONDS: "${INVENTORY_RESERVATION_SWEEP_SECONDS:-10}"
       INVENTORY_RESERVATION_TTL_SECONDS: "900"
       RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
       OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "1000"
@@ -232,6 +234,7 @@ services:
       DATABASE_URL: "postgresql://pricing_service:${PRICING_DB_PASSWORD:?Define PRICING_DB_PASSWORD in .env before starting Compose}@pricing-postgres:5432/pricing_service"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
       PRICING_SCHEDULER_INTERVAL_SECONDS: "30"
+      ORDERS_SERVICE_URL: "http://servicio-pedidos:3005"
       RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
       OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "1000"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
@@ -253,6 +256,7 @@ services:
     networks:
       - pricing-internal
       - events-internal
+      - orders-internal
 
   pricing-postgres:
     image: postgres:16-alpine
@@ -366,6 +370,9 @@ services:
       DATABASE_URL: "postgresql://analytics_service:${ANALYTICS_DB_PASSWORD:?Define ANALYTICS_DB_PASSWORD in .env before starting Compose}@analytics-postgres:5432/analytics_service"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
       RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
+      INVENTORY_SERVICE_URL: "http://servicio-inventario:3003"
+      ANALYTICS_INVENTORY_SERVICE_KEY: "${ANALYTICS_INVENTORY_SERVICE_KEY:-}"
+      ANALYTICS_INVENTORY_SYNC_SECONDS: "${ANALYTICS_INVENTORY_SYNC_SECONDS:-30}"
       ANALYTICS_TIMEZONE: "${ANALYTICS_TIMEZONE:-America/Mexico_City}"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
@@ -384,6 +391,7 @@ services:
       start_period: 20s
     networks:
       - analytics-internal
+      - inventory-internal
       - events-internal
 
   analytics-postgres:
@@ -478,6 +486,7 @@ services:
     networks:
       - crm-internal
       - events-internal
+      - pricing-internal
 
   crm-postgres:
     image: postgres:16-alpine
@@ -531,6 +540,7 @@ services:
       start_period: 20s
     networks:
       - notification-internal
+      - notification-egress
       - auth-internal
       - events-internal
 
@@ -640,6 +650,7 @@ networks:
     internal: true
   crm-internal:
     internal: true
+  notification-egress:
   notification-internal:
     internal: true
   events-internal:

@@ -50,6 +50,11 @@ export class CreateOrderDto {
   @IsUUID()
   customerId?: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  couponCode?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(20)

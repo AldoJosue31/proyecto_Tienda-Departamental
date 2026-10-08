@@ -11,6 +11,6 @@ describe("EmailProvider", () => {
       email: "cliente@example.test",
       couponCode: "REGRESA10",
       validUntil: "2026-10-04T18:00:00.000Z",
-    })).resolves.toMatch(/^local-/);
+    })).resolves.toEqual({ messageId: expect.stringMatching(/^local-/), simulated: true });
   });
 });

@@ -1,0 +1,17 @@
+{
+  "completedAt": "2026-10-08T16:02:34.645Z",
+  "project": "web",
+  "healthyContainers": 25,
+  "stockUnchanged": true,
+  "inventoryRows": 14,
+  "inventoryUnits": 114,
+  "analyticsRows": 14,
+  "analyticsUnits": 114,
+  "versionsMatch": true,
+  "synchronization": {
+    "completed_at": "2026-10-08T16:02:10.081055+00:00",
+    "imported_rows": 14,
+    "expected_rows": 14,
+    "last_error": null
+  }
+}

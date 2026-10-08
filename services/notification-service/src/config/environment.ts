@@ -24,6 +24,7 @@ export function loadNotificationRuntimeConfig(env: NodeJS.ProcessEnv = process.e
   const deliveryMode = env.NOTIFICATION_DELIVERY_MODE?.trim().toLowerCase() || "log";
   if (deliveryMode !== "log" && deliveryMode !== "smtp") throw new Error("NOTIFICATION_DELIVERY_MODE must be log or smtp.");
   const smtpUrl = deliveryMode === "smtp" ? url(required(env, "SMTP_URL"), "SMTP_URL", ["smtp:", "smtps:"]) : null;
+  if (deliveryMode === "smtp" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(required(env, "NOTIFICATION_FROM_EMAIL"))) throw new Error("NOTIFICATION_FROM_EMAIL must be a valid sender.");
   return { environment, rabbitmqUrl: url(required(env, "RABBITMQ_URL"), "RABBITMQ_URL", ["amqp:", "amqps:"]), authServiceUrl: url(required(env, "AUTH_SERVICE_URL"), "AUTH_SERVICE_URL", ["http:", "https:"]), internalServiceKey: base64url(required(env, "NOTIFICATION_INTERNAL_SERVICE_KEY"), "NOTIFICATION_INTERNAL_SERVICE_KEY"), deliveryMode, smtpUrl, fromEmail: env.NOTIFICATION_FROM_EMAIL?.trim() || "promociones@departamental.local", outboxPublishIntervalMilliseconds: positive(env, "OUTBOX_PUBLISH_INTERVAL_MILLISECONDS", 1_000, 60_000), retryIntervalSeconds: positive(env, "NOTIFICATION_RETRY_INTERVAL_SECONDS", 10, 3_600), retryLimit: positive(env, "NOTIFICATION_RETRY_LIMIT", 3, 10) };
 }
 export function loadCorsOrigins(env: NodeJS.ProcessEnv = process.env): string[] { return origins(env, env.NODE_ENV?.trim() || "development"); }

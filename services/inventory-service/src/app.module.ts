@@ -17,10 +17,13 @@ import { OrderCancelledConsumer } from "./events/order-cancelled.consumer";
 import { InventoryOutboxService } from "./events/outbox.service";
 import { HealthController } from "./health/health.controller";
 import { InventoryController } from "./inventory/inventory.controller";
+import { InternalAnalyticsGuard } from "./common/internal-analytics.guard";
+import { InventorySnapshotController } from "./inventory/inventory-snapshot.controller";
+import { ReservationExpiryService } from "./inventory/reservation-expiry.service";
 import { InventoryService } from "./inventory/inventory.service";
 
 @Module({
-  controllers: [InventoryController, HealthController],
+  controllers: [InventoryController, InventorySnapshotController, HealthController],
   providers: [
     {
       provide: DATABASE_CONFIG,
@@ -37,6 +40,8 @@ import { InventoryService } from "./inventory/inventory.service";
     OrderCancelledConsumer,
     JwtAuthGuard,
     InternalOrdersGuard,
+    InternalAnalyticsGuard,
+    ReservationExpiryService,
     RolesGuard,
     CorrelationIdMiddleware,
     {

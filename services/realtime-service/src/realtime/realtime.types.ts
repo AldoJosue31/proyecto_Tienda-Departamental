@@ -9,6 +9,7 @@ export interface StockUpdatedEvent {
   available: number;
   reorderPoint: number | null;
   lastUpdatedAt: string;
+  revision?: number;
 }
 
 export interface RealtimeEventEnvelope {

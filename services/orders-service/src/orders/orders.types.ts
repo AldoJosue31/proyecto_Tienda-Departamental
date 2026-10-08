@@ -45,6 +45,7 @@ export interface Order {
   subtotal: number;
   discountTotal: number;
   total: number;
+  couponCode?: string | null;
   cancellationReason: string | null;
   cancelledAt: string | null;
   version: number;

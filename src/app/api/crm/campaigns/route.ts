@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     if (!user) return Response.json({ code: "UNAUTHENTICATED", message: "Debes iniciar sesión para continuar.", correlationId }, { status: 401, headers: { "X-Correlation-Id": correlationId } });
     if (user.role !== "ADMIN") return Response.json({ code: "FORBIDDEN", message: "No tienes permisos para crear campañas.", correlationId }, { status: 403, headers: { "X-Correlation-Id": correlationId } });
     const input = await request.json().catch(() => null) as CreateCampaignInput | null;
-    if (!input || !Number.isInteger(input.months) || typeof input.couponCode !== "string" || typeof input.validUntil !== "string") {
+    if (!input || !Number.isInteger(input.months) || input.months < 3 || input.months > 60 || typeof input.couponCode !== "string" || typeof input.validUntil !== "string") {
       return Response.json({ code: "INVALID_REQUEST", message: "La campaña debe incluir segmento, cupón y vigencia.", correlationId }, { status: 400, headers: { "X-Correlation-Id": correlationId } });
     }
     const idempotencyKey = request.headers.get("Idempotency-Key")?.trim() || crypto.randomUUID();

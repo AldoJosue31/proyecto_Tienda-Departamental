@@ -5,7 +5,7 @@ import { isActiveDestination, navigationForRole } from "../src/lib/auth/navigati
 
 describe("Navegación global por rol", () => {
   it.each([
-    ["ADMIN", ["/", "/catalog/manage", "/dashboard", "/operations/sales", "/operations/inventory", "/operations", "/crm"]],
+    ["ADMIN", ["/", "/catalog/manage", "/promotions", "/dashboard", "/operations/sales", "/operations/inventory", "/operations", "/crm"]],
     ["EMPLOYEE", ["/", "/operations/sales", "/operations/inventory", "/operations"]],
     ["CUSTOMER", ["/", "/orders"]],
     [null, ["/"]],

@@ -15,7 +15,8 @@ export type CatalogVariant = {
   label: string;
   listPrice: number;
   currency: string;
-  status: CatalogStatus;
+  // Public catalog responses contain active variants and omit this admin field.
+  status?: CatalogStatus;
 };
 
 export type CatalogProductSummary = {

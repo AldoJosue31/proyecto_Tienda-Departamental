@@ -38,6 +38,7 @@ interface StockRow extends QueryResultRow {
   reserved: number;
   reorder_point: number | null;
   updated_at: Date | string;
+  revision: string | number;
 }
 
 interface ReservationRow extends StockRow {
@@ -115,6 +116,18 @@ export class InventoryService {
     private readonly config: Pick<InventoryRuntimeConfig, "reservationTtlSeconds">,
   ) {}
 
+  async snapshot(cursor?: string) {
+    if (cursor && !this.isUuid(cursor)) throw new ApiException(400, "INVALID_CURSOR", "Cursor inválido");
+    const result = await this.database.query<StockRow>(this.stockSelect("WHERE ($1::uuid IS NULL OR s.id > $1::uuid) ORDER BY s.id LIMIT 501"), [cursor ?? null]);
+    const count = await this.database.query<{ count: string }>("SELECT COUNT(*) AS count FROM inventory_stock");
+    return { items: result.rows.slice(0, 500).map((row) => this.toStock(row)), branches: (await this.listCheckoutBranches()).branches,
+      nextCursor: result.rows.length > 500 ? result.rows[499]?.id : null, total: Number(count.rows[0]?.count ?? 0) };
+  }
+
+  async expireReservations(): Promise<void> {
+    await this.database.withTransaction((client) => this.releaseExpiredReservations(client, "reservation-expiry"));
+  }
+
   async listInventory(): Promise<InventoryListResponse> {
     const result = await this.database.query<StockRow>(this.stockSelect(
       "ORDER BY b.name ASC, v.product_name ASC NULLS LAST, v.sku ASC NULLS LAST, s.id ASC",
@@ -183,7 +196,7 @@ export class InventoryService {
         "  AND s.branch_id = $3",
         "  AND (s.on_hand - s.reserved) >= $1",
         "RETURNING s.id, s.variant_id, s.branch_id,",
-        "  s.on_hand, s.reserved, s.reorder_point, s.updated_at",
+        "  s.on_hand, s.reserved, s.reorder_point, s.updated_at, s.revision",
       ].join("\n"), [body.quantity, body.variantId, body.branchId]);
 
       const changed = stock.rows[0];
@@ -569,7 +582,7 @@ export class InventoryService {
       "SELECT id, stock_id, quantity",
       "FROM inventory_reservations",
       "WHERE status = 'RESERVED' AND expires_at <= NOW()",
-      "FOR UPDATE",
+      "ORDER BY expires_at, id LIMIT 100 FOR UPDATE SKIP LOCKED",
     ].join("\n"));
     for (const reservation of expired.rows) {
       await this.releaseReservationStock(client, reservation, correlationId, "EXPIRED");
@@ -681,7 +694,7 @@ export class InventoryService {
       "  r.expires_at, r.committed_at, r.released_at,",
       "  s.id, s.variant_id, s.branch_id, b.name AS branch_name,",
       "  v.product_name, v.sku, v.variant_label,",
-      "  s.on_hand, s.reserved, s.reorder_point, s.updated_at",
+      "  s.on_hand, s.reserved, s.reorder_point, s.updated_at, s.revision",
       "FROM inventory_reservations AS r",
       "JOIN inventory_stock AS s ON s.id = r.stock_id",
       "JOIN inventory_branches AS b ON b.id = s.branch_id",
@@ -763,6 +776,7 @@ export class InventoryService {
       available: stock.available,
       reorderPoint: stock.reorderPoint,
       lastUpdatedAt: stock.lastUpdatedAt,
+      revision: stock.revision,
     };
     await this.outbox.enqueue(client, {
       eventType: "inventory.stock.changed.v1",
@@ -820,7 +834,7 @@ export class InventoryService {
     return [
       "SELECT s.id, s.variant_id, s.branch_id, b.name AS branch_name,",
       "  v.product_name, v.sku, v.variant_label,",
-      "  s.on_hand, s.reserved, s.reorder_point, s.updated_at",
+      "  s.on_hand, s.reserved, s.reorder_point, s.updated_at, s.revision",
       "FROM inventory_stock AS s",
       "JOIN inventory_branches AS b ON b.id = s.branch_id",
       "LEFT JOIN inventory_variant_snapshots AS v ON v.variant_id = s.variant_id",
@@ -847,6 +861,7 @@ export class InventoryService {
       available: row.on_hand - row.reserved,
       reorderPoint: row.reorder_point,
       lastUpdatedAt: this.toIso(row.updated_at),
+      revision: Number(row.revision),
     };
   }
 

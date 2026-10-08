@@ -18,9 +18,10 @@ import { OrdersController } from "./orders/orders.controller";
 import { OrdersRepository } from "./orders/orders.repository";
 import { OrdersService } from "./orders/orders.service";
 import { PricingClient } from "./orders/pricing.client";
+import { CouponStateController, CouponStateGuard } from "./orders/coupon-state.controller";
 
 @Module({
-  controllers: [OrdersController, HealthController],
+  controllers: [OrdersController, CouponStateController, HealthController],
   providers: [
     { provide: DATABASE_CONFIG, useFactory: loadDatabaseConfig },
     { provide: ORDERS_RUNTIME_CONFIG, useFactory: loadOrdersRuntimeConfig },
@@ -33,6 +34,7 @@ import { PricingClient } from "./orders/pricing.client";
     InventoryClient,
     LogisticsClient,
     OrdersService,
+    CouponStateGuard,
     JwtAuthGuard,
     RolesGuard,
     CorrelationIdMiddleware,

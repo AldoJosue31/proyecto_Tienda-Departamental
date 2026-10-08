@@ -10,7 +10,7 @@ import type {
 interface UpdatedRow extends QueryResultRow { last_updated_at: Date | string | null; }
 interface SalesRow extends QueryResultRow { branch_id: string; branch_name: string; sales: string | number; completed_orders: string | number; }
 interface SummaryRow extends QueryResultRow { sales: string | number; completed_orders: string | number; }
-interface ProductRow extends QueryResultRow { product_id: string; variant_id: string; product_name: string; units_sold: string | number; sales: string | number; }
+interface ProductRow extends QueryResultRow { product_id: string; product_name: string; units_sold: string | number; sales: string | number; }
 interface InventoryRow extends QueryResultRow { branch_id: string; branch_name: string; on_hand: string | number; reserved: string | number; available: string | number; }
 
 const DEFAULT_CURRENCY = "MXN";
@@ -32,6 +32,13 @@ export class AnalyticsService {
         case "order.cancelled.v1": await this.projectCancelledOrder(client, event); break;
         case "inventory.stock.changed.v1": await this.projectStock(client, event); break;
       }
+    });
+  }
+
+  async importInventory(branches: Array<{ id: string; name: string }>, items: Array<Pick<import("./analytics.types").StockChangedEvent, "branchId" | "branchName" | "variantId" | "onHand" | "reserved" | "available" | "lastUpdatedAt" | "revision">>): Promise<void> {
+    await this.database.withTransaction(async (client) => {
+      for (const branch of branches) await this.upsertBranch(client, branch.id, branch.name);
+      for (const item of items) await this.projectStock(client, item);
     });
   }
 
@@ -61,12 +68,12 @@ export class AnalyticsService {
     const period = this.period(periodValue); const limit = this.limit(limitValue); const currency = this.currency(currencyValue); const days = PERIOD_DAYS[period];
     const result = await this.database.query<ProductRow>([
       "WITH report_window AS (SELECT (date_trunc('day', NOW() AT TIME ZONE $2) - make_interval(days => $3)) AT TIME ZONE $2 AS starts_at, (date_trunc('day', NOW() AT TIME ZONE $2) + INTERVAL '1 day') AT TIME ZONE $2 AS ends_at)",
-      "SELECT i.product_id, i.variant_id, i.product_name, SUM(i.quantity) AS units_sold, SUM(i.line_total) AS sales",
+      "SELECT i.product_id, (ARRAY_AGG(i.product_name ORDER BY o.completed_at DESC, o.order_id DESC, i.variant_id))[1] AS product_name, SUM(i.quantity) AS units_sold, SUM(i.line_total) AS sales",
       "FROM analytics_order_item_projection AS i JOIN analytics_order_projection AS o ON o.order_id = i.order_id CROSS JOIN report_window AS w",
       "WHERE o.status = 'COMPLETED' AND o.currency = $1 AND o.completed_at >= w.starts_at AND o.completed_at < w.ends_at",
-      "GROUP BY i.product_id, i.variant_id, i.product_name ORDER BY units_sold DESC, sales DESC, i.product_name ASC LIMIT $4",
+      "GROUP BY i.product_id ORDER BY units_sold DESC, sales DESC, product_name ASC, i.product_id ASC LIMIT $4",
     ].join("\n"), [currency, this.timezone(), days, limit]);
-    return { period: this.periodResponse(period), currency, limit, products: result.rows.map((row) => ({ productId: row.product_id, variantId: row.variant_id, productName: row.product_name, unitsSold: this.number(row.units_sold), sales: this.number(row.sales) })), lastUpdatedAt: await this.lastUpdatedAt() };
+    return { period: this.periodResponse(period), currency, limit, products: result.rows.map((row) => ({ productId: row.product_id, productName: row.product_name, unitsSold: this.number(row.units_sold), sales: this.number(row.sales) })), lastUpdatedAt: await this.lastUpdatedAt() };
   }
 
   async inventoryByBranch(): Promise<InventoryByBranchResponse> {
@@ -75,7 +82,9 @@ export class AnalyticsService {
       "FROM analytics_branches AS b LEFT JOIN analytics_inventory_projection AS i ON i.branch_id = b.branch_id",
       "GROUP BY b.branch_id, b.branch_name ORDER BY available DESC, b.branch_name ASC",
     ].join("\n"));
-    return { branches: result.rows.map((row) => ({ branchId: row.branch_id, branchName: row.branch_name, onHand: this.number(row.on_hand), reserved: this.number(row.reserved), available: this.number(row.available) })), lastUpdatedAt: await this.lastUpdatedAt() };
+    const sync = await this.database.query<{ completed_at: Date | null; imported_rows: number; expected_rows: number; last_error: string | null }>("SELECT completed_at, imported_rows, expected_rows, last_error FROM analytics_inventory_sync WHERE id = TRUE");
+    const state = sync.rows[0];
+    return { synchronization: { complete: Boolean(state?.completed_at), completedAt: state?.completed_at?.toISOString() ?? null, importedRows: state?.imported_rows ?? 0, expectedRows: state?.expected_rows ?? 0, retryPending: Boolean(state?.last_error) }, branches: result.rows.map((row) => ({ branchId: row.branch_id, branchName: row.branch_name, onHand: this.number(row.on_hand), reserved: this.number(row.reserved), available: this.number(row.available) })), lastUpdatedAt: await this.lastUpdatedAt() };
   }
 
   private async projectCompletedOrder(client: PoolClient, event: Extract<AnalyticsEvent, { eventType: "order.completed.v1" }>): Promise<void> {
@@ -100,19 +109,19 @@ export class AnalyticsService {
     await client.query("UPDATE analytics_order_projection SET status = 'CANCELLED', cancelled_at = $2 WHERE order_id = $1", [event.orderId, event.occurredAt]);
   }
 
-  private async projectStock(client: PoolClient, event: Extract<AnalyticsEvent, { eventType: "inventory.stock.changed.v1" }>): Promise<void> {
+  private async projectStock(client: PoolClient, event: Pick<Extract<AnalyticsEvent, { eventType: "inventory.stock.changed.v1" }>, "branchId" | "branchName" | "variantId" | "onHand" | "reserved" | "available" | "lastUpdatedAt" | "revision">): Promise<void> {
     await this.upsertBranch(client, event.branchId, event.branchName);
     await client.query([
-      "INSERT INTO analytics_inventory_projection (variant_id, branch_id, on_hand, reserved, available, last_updated_at)",
-      "VALUES ($1, $2, $3, $4, $5, $6)",
-      "ON CONFLICT (variant_id, branch_id) DO UPDATE SET on_hand = EXCLUDED.on_hand, reserved = EXCLUDED.reserved, available = EXCLUDED.available, last_updated_at = EXCLUDED.last_updated_at",
-      "WHERE analytics_inventory_projection.last_updated_at <= EXCLUDED.last_updated_at",
-    ].join("\n"), [event.variantId, event.branchId, event.onHand, event.reserved, event.available, event.lastUpdatedAt]);
+      "INSERT INTO analytics_inventory_projection (variant_id, branch_id, on_hand, reserved, available, last_updated_at, revision)",
+      "VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      "ON CONFLICT (variant_id, branch_id) DO UPDATE SET on_hand = EXCLUDED.on_hand, reserved = EXCLUDED.reserved, available = EXCLUDED.available, last_updated_at = EXCLUDED.last_updated_at, revision = EXCLUDED.revision",
+      "WHERE analytics_inventory_projection.revision < EXCLUDED.revision OR (EXCLUDED.revision = 0 AND analytics_inventory_projection.revision = 0 AND analytics_inventory_projection.last_updated_at < EXCLUDED.last_updated_at)",
+    ].join("\n"), [event.variantId, event.branchId, event.onHand, event.reserved, event.available, event.lastUpdatedAt, event.revision ?? 0]);
   }
 
   private async upsertBranch(client: PoolClient, branchId: string, name?: string): Promise<void> {
     const label = name?.trim() || "Sucursal " + branchId.slice(0, 8);
-    await client.query("INSERT INTO analytics_branches (branch_id, branch_name) VALUES ($1, $2) ON CONFLICT (branch_id) DO UPDATE SET branch_name = EXCLUDED.branch_name WHERE analytics_branches.branch_name LIKE 'Sucursal %' AND EXCLUDED.branch_name NOT LIKE 'Sucursal %'", [branchId, label]);
+    await client.query("INSERT INTO analytics_branches (branch_id, branch_name) VALUES ($1, $2) ON CONFLICT (branch_id) DO UPDATE SET branch_name = EXCLUDED.branch_name WHERE $3::boolean", [branchId, label, Boolean(name?.trim())]);
   }
 
   private async salesSummary(period: AnalyticsPeriod, currency: string): Promise<{ currency: string; sales: number; completedOrders: number }> {
@@ -126,7 +135,7 @@ export class AnalyticsService {
   }
 
   private async lastUpdatedAt(): Promise<string | null> {
-    const result = await this.database.query<UpdatedRow>("SELECT MAX(projected_at) AS last_updated_at FROM analytics_processed_events");
+    const result = await this.database.query<UpdatedRow>("SELECT GREATEST((SELECT MAX(projected_at) FROM analytics_processed_events), (SELECT completed_at FROM analytics_inventory_sync WHERE id = TRUE)) AS last_updated_at");
     const value = result.rows[0]?.last_updated_at;
     return value ? new Date(value).toISOString() : null;
   }

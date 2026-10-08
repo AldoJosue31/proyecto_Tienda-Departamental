@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 export const AUTH_JWT_ISSUER = "departamental-auth-service";
 export const ROLES = ["ADMIN", "EMPLOYEE", "CUSTOMER"] as const;
@@ -19,6 +19,8 @@ export interface InventoryRuntimeConfig {
   rabbitmqUrl: string;
   outboxPublishIntervalMilliseconds: number;
   consumerRetryLimit: number;
+  analyticsServiceSecret: Buffer;
+  reservationSweepIntervalSeconds: number;
 }
 
 function requiredValue(env: NodeJS.ProcessEnv, name: string): string {
@@ -132,6 +134,8 @@ export function loadInventoryRuntimeConfig(
       60_000,
     ),
     consumerRetryLimit: parsePositiveInteger(env, "EVENT_CONSUMER_RETRY_LIMIT", 5, 100),
+    analyticsServiceSecret: parseBase64UrlSecret(env.ANALYTICS_INVENTORY_SERVICE_KEY?.trim() || createHmac("sha256", requiredValue(env, "JWT_ACCESS_SECRET")).update("analytics-inventory-snapshot").digest("base64url"), "ANALYTICS_INVENTORY_SERVICE_KEY"),
+    reservationSweepIntervalSeconds: parsePositiveInteger(env, "INVENTORY_RESERVATION_SWEEP_SECONDS", 10, 300),
   };
 }
 
