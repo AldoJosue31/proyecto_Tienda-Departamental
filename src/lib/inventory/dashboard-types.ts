@@ -15,6 +15,7 @@ export type InventoryDashboardItem = {
   available: number;
   reorderPoint: number | null;
   lastUpdatedAt: string;
+  revision?: number;
 };
 
 export type InventoryDashboard = {
@@ -49,4 +50,5 @@ export type StockUpdatedEvent = {
   available: number;
   reorderPoint: number | null;
   lastUpdatedAt: string;
+  revision?: number;
 };

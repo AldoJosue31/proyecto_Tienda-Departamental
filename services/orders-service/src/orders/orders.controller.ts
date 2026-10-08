@@ -41,6 +41,12 @@ export class OrdersController {
     return this.orders.list(this.actor(request));
   }
 
+  @Get("mine")
+  @Roles("CUSTOMER")
+  mine(@Req() request: AuthenticatedRequest): Promise<{ orders: Order[] }> {
+    return this.orders.listMine(this.actor(request));
+  }
+
   @Get(":id")
   @Roles("ADMIN", "EMPLOYEE", "CUSTOMER")
   get(@Param("id") id: string, @Req() request: AuthenticatedRequest): Promise<OrderResponse> {

@@ -62,9 +62,11 @@ export class CreatePromotionDto {
   @Max(1000)
   priority?: number;
 
+  @Matches(/(?:Z|[+-]\d{2}:\d{2})$/)
   @IsISO8601({ strict: true })
   startsAt!: string;
 
+  @Matches(/(?:Z|[+-]\d{2}:\d{2})$/)
   @IsISO8601({ strict: true })
   endsAt!: string;
 
@@ -109,10 +111,12 @@ export class UpdatePromotionDto {
   priority?: number;
 
   @IsOptional()
+  @Matches(/(?:Z|[+-]\d{2}:\d{2})$/)
   @IsISO8601({ strict: true })
   startsAt?: string;
 
   @IsOptional()
+  @Matches(/(?:Z|[+-]\d{2}:\d{2})$/)
   @IsISO8601({ strict: true })
   endsAt?: string;
 

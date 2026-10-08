@@ -13,7 +13,7 @@ describe("Analytics y Chart.js de la fase 8", () => {
     const service = read("services/analytics-service/src/analytics/analytics.service.ts");
     const migration = read("services/analytics-service/migrations/001_analytics_projections.sql");
 
-    expect(compose).toContain("analytics-service:");
+    expect(compose).toContain("servicio-analitica:");
     expect(compose).toContain("analytics-postgres:");
     expect(compose).toContain("analytics-internal:");
     expect(consumer).toContain('"order.completed.v1"');
@@ -28,7 +28,7 @@ describe("Analytics y Chart.js de la fase 8", () => {
     const kong = read("infra/kong/kong.yml.template");
     const controller = read("services/analytics-service/src/analytics/analytics.controller.ts");
 
-    expect(kong).toContain("analytics-service");
+    expect(kong).toContain("servicio-analitica");
     expect(kong).toContain("/analytics/");
     expect(controller).toContain('@Roles("ADMIN")');
     expect(controller).toContain('"sales/by-branch"');

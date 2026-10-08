@@ -96,6 +96,94 @@ const stocks: SeedStock[] = [
     onHand: 9,
     reorderPoint: null,
   },
+  {
+    variant: {
+      id: "a2000000-0000-4000-8000-000000000007",
+      productName: "Cafetera Bruma Espresso",
+      sku: "BRU-ESP-01",
+      variantLabel: "Marfil · Acero",
+    },
+    branchId: branchIds.centro,
+    onHand: 7,
+    reorderPoint: 2,
+  },
+  {
+    variant: {
+      id: "a2000000-0000-4000-8000-000000000008",
+      productName: "Licuadora Nara Personal",
+      sku: "NAR-BLD-01",
+      variantLabel: "Verde salvia",
+    },
+    branchId: branchIds.centro,
+    onHand: 10,
+    reorderPoint: 3,
+  },
+  {
+    variant: {
+      id: "a2000000-0000-4000-8000-000000000009",
+      productName: "Mochila Vento Urbana",
+      sku: "VEN-BAG-01",
+      variantLabel: "Grafito · Textil",
+    },
+    branchId: branchIds.centro,
+    onHand: 12,
+    reorderPoint: 3,
+  },
+  {
+    variant: {
+      id: "a2000000-0000-4000-8000-000000000010",
+      productName: "Maleta Nomad de cabina",
+      sku: "NOM-CAB-01",
+      variantLabel: "Cabina · Terracota · Policarbonato",
+    },
+    branchId: branchIds.centro,
+    onHand: 6,
+    reorderPoint: 2,
+  },
+  {
+    variant: {
+      id: "a2000000-0000-4000-8000-000000000011",
+      productName: "Sérum Clara hidratante",
+      sku: "CLA-SER-30",
+      variantLabel: "30 ml · Vidrio",
+    },
+    branchId: branchIds.centro,
+    onHand: 18,
+    reorderPoint: 5,
+  },
+  {
+    variant: {
+      id: "a2000000-0000-4000-8000-000000000012",
+      productName: "Escritorio Luma compacto",
+      sku: "LUM-DESK-120",
+      variantLabel: "120 cm · Roble claro · Madera",
+    },
+    branchId: branchIds.centro,
+    onHand: 4,
+    reorderPoint: 1,
+  },
+  {
+    variant: {
+      id: "a2000000-0000-4000-8000-000000000013",
+      productName: "Cámara Prisma instantánea",
+      sku: "PRI-CAM-01",
+      variantLabel: "Azul cielo",
+    },
+    branchId: branchIds.centro,
+    onHand: 8,
+    reorderPoint: 2,
+  },
+  {
+    variant: {
+      id: "a2000000-0000-4000-8000-000000000014",
+      productName: "Bloques Tilo de madera",
+      sku: "TIL-BLK-01",
+      variantLabel: "Multicolor · Madera",
+    },
+    branchId: branchIds.centro,
+    onHand: 14,
+    reorderPoint: 4,
+  },
 ];
 
 async function seedBranch(client: PoolClient, branch: { id: string; name: string }): Promise<void> {

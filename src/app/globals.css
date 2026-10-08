@@ -69,6 +69,37 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+.platform-frame,
+.platform-page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 90rem;
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+.platform-page {
+  padding-block: 2.25rem;
+}
+
+@media (min-width: 40rem) {
+  .platform-frame,
+  .platform-page {
+    padding-inline: 1.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .platform-frame,
+  .platform-page {
+    padding-inline: 2rem;
+  }
+
+  .platform-page {
+    padding-block: 3rem;
+  }
+}
+
 * { border-color: var(--line); }
 
 a:focus-visible,

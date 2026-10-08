@@ -18,4 +18,4 @@ export interface PickPackShipmentDetail { shipment: PickPackShipment; transition
 export interface PickPackStatusInput { status: "PACKING" | "SHIPPED" | "DELIVERED"; version: number; }
 export interface PickPackTrackingInput { courierId: string; courierName: string; deliveryAddress: string; version: number; }
 export interface CourierTrackingUpdate { eventId: string; shipmentId: string; courierId: string; location: { latitude: number; longitude: number; recordedAt: string }; }
-export interface CourierRoute { available: boolean; reason?: string; durationSeconds?: number; distanceMeters?: number; encodedPolyline?: string; }
+export interface CourierRoute { available: boolean; reason?: string; durationSeconds?: number; distanceMeters?: number; encodedPolyline?: string; destination?: {latitude:number;longitude:number}; }

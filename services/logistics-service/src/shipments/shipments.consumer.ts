@@ -3,7 +3,7 @@ import { connect, type Channel, type ChannelModel, type ConsumeMessage } from "a
 import { LOGISTICS_RUNTIME_CONFIG } from "../auth/token.service";
 import type { LogisticsRuntimeConfig } from "../config/environment";
 import { ShipmentsService } from "./shipments.service";
-import type { CancelledOrderEvent, CompletedOrderEvent, LogisticsEvent, ShipmentItem } from "./shipments.types";
+import type { CancelledOrderEvent, CompletedOrderEvent, LogisticsEvent, OrderChannel, ShipmentItem } from "./shipments.types";
 
 const EVENTS_EXCHANGE = "departamental.events";
 const DEAD_LETTER_EXCHANGE = "departamental.events.dlx";
@@ -38,15 +38,16 @@ export class ShipmentsConsumer implements OnModuleInit, OnModuleDestroy {
     throw new Error("Unexpected logistics event type.");
   }
   private completed(value: Record<string, unknown>, data: Record<string, unknown>): CompletedOrderEvent {
-    if (!this.uuid(data.orderId) || !this.uuid(data.customerId) || !this.uuid(data.branchId) || typeof data.currency !== "string" || !/^[A-Z]{3}$/.test(data.currency) || !this.money(data.total) || !Array.isArray(data.items) || data.items.length < 1 || data.items.length > 100) throw new Error("Invalid completed order event.");
+    if (!this.uuid(data.orderId) || !this.uuid(data.customerId) || !this.uuid(data.branchId) || !this.orderChannel(data.channel) || typeof data.currency !== "string" || !/^[A-Z]{3}$/.test(data.currency) || !this.money(data.total) || !Array.isArray(data.items) || data.items.length < 1 || data.items.length > 100) throw new Error("Invalid completed order event.");
     const items = data.items.map((item) => this.item(item));
-    return { eventId: value.eventId as string, eventType: "order.completed.v1", occurredAt: value.occurredAt as string, correlationId: value.correlationId as string | null, orderId: data.orderId, customerId: data.customerId, branchId: data.branchId, currency: data.currency, total: data.total, items };
+    return { eventId: value.eventId as string, eventType: "order.completed.v1", occurredAt: value.occurredAt as string, correlationId: value.correlationId as string | null, orderId: data.orderId, customerId: data.customerId, branchId: data.branchId, channel: data.channel, currency: data.currency, total: data.total, items };
   }
   private cancelled(value: Record<string, unknown>, data: Record<string, unknown>): CancelledOrderEvent { if (!this.uuid(data.orderId)) throw new Error("Invalid cancelled order event."); return { eventId: value.eventId as string, eventType: "order.cancelled.v1", occurredAt: value.occurredAt as string, correlationId: value.correlationId as string | null, orderId: data.orderId }; }
   private item(value: unknown): ShipmentItem { if (!this.object(value) || !this.uuid(value.productId) || !this.uuid(value.variantId) || typeof value.productName !== "string" || !value.productName.trim() || typeof value.sku !== "string" || !value.sku.trim() || typeof value.variantLabel !== "string" || !value.variantLabel.trim() || !this.positiveInteger(value.quantity) || !this.money(value.lineTotal)) throw new Error("Invalid completed order item."); return { productId: value.productId, variantId: value.variantId, productName: value.productName.trim(), sku: value.sku.trim(), variantLabel: value.variantLabel.trim(), quantity: value.quantity, lineTotal: value.lineTotal }; }
   private clear(connection: ChannelModel): void { if (this.connection !== connection) return; this.connection = null; this.channel = null; const retry = setTimeout(() => void this.connect(), 1_000); retry.unref(); }
   private object(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }
   private uuid(value: unknown): value is string { return typeof value === "string" && UUID.test(value); }
+  private orderChannel(value: unknown): value is OrderChannel { return value === "ONLINE" || value === "PHYSICAL"; }
   private date(value: unknown): value is string { return typeof value === "string" && !Number.isNaN(Date.parse(value)); }
   private positiveInteger(value: unknown): value is number { return typeof value === "number" && Number.isSafeInteger(value) && value > 0; }
   private money(value: unknown): value is number { return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100_000_000; }

@@ -11,7 +11,7 @@ describe("Realtime e inventario operativo de la fase 7", () => {
     const compose = read("compose.yaml");
     const consumer = read("services/realtime-service/src/realtime/inventory-stock.consumer.ts");
 
-    expect(compose).toContain("realtime-service:");
+    expect(compose).toContain("servicio-tiempo-real:");
     expect(compose).toContain("realtime-internal:");
     expect(consumer).toContain('"inventory.stock.changed.v1"');
     expect(consumer).toContain("realtime.inventory-stock.v1");

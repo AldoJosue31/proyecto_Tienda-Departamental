@@ -357,7 +357,22 @@ export class CatalogService {
       response.page === criteria.page &&
       response.pageSize === criteria.pageSize &&
       Number.isSafeInteger(response.total) &&
-      response.total >= 0
+      response.total >= 0 &&
+      this.isFacetCollection(response.facets)
+    );
+  }
+
+  private isFacetCollection(value: ProductSearchResponse["facets"] | undefined): value is ProductSearchResponse["facets"] {
+    return Boolean(
+      value &&
+      Array.isArray(value.categories) &&
+      Array.isArray(value.brands) &&
+      [...value.categories, ...value.brands].every((facet) => (
+        typeof facet.slug === "string" &&
+        typeof facet.name === "string" &&
+        Number.isSafeInteger(facet.count) &&
+        facet.count >= 0
+      )),
     );
   }
 

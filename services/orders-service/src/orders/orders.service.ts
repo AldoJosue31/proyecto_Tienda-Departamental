@@ -1,10 +1,11 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 
 import { ApiException } from "../common/api-exception";
 import { CatalogClient } from "./catalog.client";
 import { InventoryClient } from "./inventory.client";
+import { LogisticsClient } from "./logistics.client";
 import { OrdersOutboxService } from "../events/outbox.service";
 import { type CreateOrderDto } from "./orders.dto";
 import { OrdersRepository } from "./orders.repository";
@@ -36,6 +37,7 @@ export class OrdersService {
     private readonly pricing: PricingClient,
     private readonly inventory: InventoryClient,
     private readonly outbox: OrdersOutboxService,
+    @Inject(LogisticsClient) private readonly logistics: LogisticsClient | null = null,
   ) {}
 
   async create(
@@ -48,7 +50,7 @@ export class OrdersService {
     this.assertChannelAccess(channel, body.customerId, actor);
     const customerId = actor.role === "CUSTOMER" ? actor.id : body.customerId ?? actor.id;
     const requestedItems = this.mergeRequestedItems(body);
-    const requestHash = this.requestHash(customerId, body.branchId, channel, requestedItems);
+    const requestHash = this.requestHash(customerId, body.branchId, channel, requestedItems, body.couponCode);
     const lock = "orders:create:" + actor.id + ":" + key;
 
     return this.database.withAdvisoryLock(lock, async (client) => {
@@ -81,7 +83,9 @@ export class OrdersService {
         );
       }
 
-      if (order.status === "CONFIRMED" || order.status === "CANCELLED") {
+      if (!prior && body.couponCode) { await client.query("UPDATE orders SET coupon_code=$2 WHERE id=$1",[order.id,body.couponCode.trim().toUpperCase()]); order = await this.requireOrder(client,order.id); }
+
+      if (order.status === "CONFIRMED" || order.status === "CANCELLATION_PENDING" || order.status === "CANCELLED") {
         return { order: this.publicOrder(order) };
       }
       return this.completeCheckout(client, order, requestedItems, actor, key);
@@ -93,6 +97,14 @@ export class OrdersService {
       throw new ApiException(403, "FORBIDDEN", "No tienes permisos para consultar todas las órdenes");
     }
     const orders = await this.repository.listOperations();
+    return { orders: orders.map((order) => this.publicOrder(order)) };
+  }
+
+  async listMine(actor: OrderActor): Promise<{ orders: Order[] }> {
+    if (actor.role !== "CUSTOMER") {
+      throw new ApiException(403, "FORBIDDEN", "Esta consulta está disponible únicamente para clientes");
+    }
+    const orders = await this.repository.listForCustomer(actor.id);
     return { orders: orders.map((order) => this.publicOrder(order)) };
   }
 
@@ -111,35 +123,92 @@ export class OrdersService {
 
       // Only non-consumed reservations can be returned synchronously. A
       // confirmed cancellation is compensated asynchronously by Inventory
-      // after the transactional order.cancelled.v1 Outbox event is published.
+      // only after Logistics has atomically accepted the pre-dispatch request.
       if (existing.status === "PENDING" || existing.status === "RESERVED") {
         await this.releaseReservations(existing, "cancel", actor.correlationId);
+        const cancelled = await this.finalizeCancellation(client, normalizedId, actor, reason, false);
+        if (existing.couponCode) await this.pricing.settleCoupon(normalizedId,"release").catch(() => undefined);
+        return cancelled;
       }
-      const cancelled = await this.database.withTransactionOnClient(client, async (transaction) => {
-        const locked = await this.repository.findByIdForClient(transaction, normalizedId, true);
-        if (!locked) throw new ApiException(404, "ORDER_NOT_FOUND", "Pedido no encontrado");
-        this.assertOwner(locked, actor);
-        if (locked.status !== "CANCELLED") {
-          await this.repository.cancel(transaction, normalizedId, actor, reason);
-          if (locked.status === "CONFIRMED") {
-            await this.outbox.enqueue(transaction, {
-              eventType: "order.cancelled.v1",
-              correlationId: actor.correlationId,
-              data: {
-                ...this.eventData(locked),
-                status: "CANCELLED",
-                cancellationReason: reason,
-                cancelledBy: { id: actor.id, role: actor.role },
-              },
-            });
+
+      const pending = await this.stageConfirmedCancellation(client, normalizedId, actor);
+      if (pending.channel === "ONLINE") {
+        try {
+          await this.requireLogistics().cancelBeforeDispatch(normalizedId, actor.correlationId);
+        } catch (error) {
+          if (error instanceof ApiException && error.code === "ORDER_ALREADY_DISPATCHED") {
+            await this.restoreConfirmed(client, normalizedId, actor);
           }
+          throw error;
         }
-        const result = await this.repository.findByIdForClient(transaction, normalizedId);
-        if (!result) throw new Error("Cancelled order is missing.");
-        return result;
-      });
-      return { order: this.publicOrder(cancelled) };
+      }
+      const cancelled = await this.finalizeCancellation(client, normalizedId, actor, reason, true);
+      if (existing.couponCode) await this.pricing.settleCoupon(normalizedId,"restore").catch(() => undefined);
+      return cancelled;
     });
+  }
+
+  private async stageConfirmedCancellation(client: PoolClient, orderId: string, actor: OrderActor): Promise<StoredOrder> {
+    return this.database.withTransactionOnClient(client, async (transaction) => {
+      const locked = await this.repository.findByIdForClient(transaction, orderId, true);
+      if (!locked) throw new ApiException(404, "ORDER_NOT_FOUND", "Pedido no encontrado");
+      this.assertOwner(locked, actor);
+      if (locked.status === "CONFIRMED") {
+        await this.repository.setStatus(transaction, orderId, "CANCELLATION_PENDING");
+        await this.repository.audit(transaction, orderId, actor, "ORDER_CANCELLATION_REQUESTED");
+      } else if (locked.status !== "CANCELLATION_PENDING") {
+        throw new ApiException(409, "ORDER_NOT_CANCELLABLE", "El pedido no se puede cancelar en su estado actual");
+      }
+      const pending = await this.repository.findByIdForClient(transaction, orderId);
+      if (!pending) throw new Error("Cancellation-pending order is missing.");
+      return pending;
+    });
+  }
+
+  private async restoreConfirmed(client: PoolClient, orderId: string, actor: OrderActor): Promise<void> {
+    await this.database.withTransactionOnClient(client, async (transaction) => {
+      const locked = await this.repository.findByIdForClient(transaction, orderId, true);
+      if (!locked || locked.status !== "CANCELLATION_PENDING") return;
+      await this.repository.setStatus(transaction, orderId, "CONFIRMED");
+      await this.repository.audit(transaction, orderId, actor, "ORDER_CANCELLATION_REJECTED_ALREADY_DISPATCHED");
+    });
+  }
+
+  private async finalizeCancellation(
+    client: PoolClient,
+    orderId: string,
+    actor: OrderActor,
+    reason: string | null,
+    compensateInventory: boolean,
+  ): Promise<OrderResponse> {
+    const cancelled = await this.database.withTransactionOnClient(client, async (transaction) => {
+      const locked = await this.repository.findByIdForClient(transaction, orderId, true);
+      if (!locked) throw new ApiException(404, "ORDER_NOT_FOUND", "Pedido no encontrado");
+      this.assertOwner(locked, actor);
+      if (locked.status === "CANCELLED") return locked;
+      await this.repository.cancel(transaction, orderId, actor, reason);
+      if (compensateInventory) {
+        await this.outbox.enqueue(transaction, {
+          eventType: "order.cancelled.v1",
+          correlationId: actor.correlationId,
+          data: {
+            ...this.eventData(locked),
+            status: "CANCELLED",
+            cancellationReason: reason,
+            cancelledBy: { id: actor.id, role: actor.role },
+          },
+        });
+      }
+      const result = await this.repository.findByIdForClient(transaction, orderId);
+      if (!result) throw new Error("Cancelled order is missing.");
+      return result;
+    });
+    return { order: this.publicOrder(cancelled) };
+  }
+
+  private requireLogistics(): LogisticsClient {
+    if (this.logistics) return this.logistics;
+    throw new ApiException(503, "LOGISTICS_UNAVAILABLE", "No pudimos validar el estado de entrega. Intenta cancelar nuevamente.");
   }
 
   private async completeCheckout(
@@ -151,7 +220,7 @@ export class OrdersService {
   ): Promise<OrderResponse> {
     let current = order;
     if (current.items.length === 0) {
-      const snapshots = await this.createSnapshots(current.id, current.branchId, requestedItems, actor.correlationId);
+      const snapshots = await this.createSnapshots(current.id, current.branchId, requestedItems, actor.correlationId, current.couponCode, current.customerId);
       await this.database.withTransactionOnClient(client, async (transaction) => {
         await this.repository.replaceItems(transaction, current.id, snapshots);
         await this.repository.audit(transaction, current.id, actor, "ORDER_PRICE_SNAPSHOTTED");
@@ -208,6 +277,7 @@ export class OrdersService {
           data,
         });
       });
+      if (current.couponCode) await this.pricing.settleCoupon(current.id,"commit").catch(() => undefined);
       return { order: this.publicOrder(await this.requireOrder(client, current.id)) };
     } catch (error) {
       if (error instanceof ApiException && error.code === "OUT_OF_STOCK") {
@@ -222,6 +292,7 @@ export class OrdersService {
           ),
         );
       }
+      if (error instanceof ApiException && error.code === "OUT_OF_STOCK" && current.couponCode) await this.pricing.settleCoupon(current.id,"release").catch(() => undefined);
       throw error;
     }
   }
@@ -231,6 +302,7 @@ export class OrdersService {
     branchId: string,
     requestedItems: RequestedItem[],
     correlationId: string | null,
+    couponCode?: string | null, customerId?: string,
   ): Promise<CreateOrderSnapshot[]> {
     const snapshots: CreateOrderSnapshot[] = [];
     let currency: string | null = null;
@@ -269,6 +341,10 @@ export class OrdersService {
         lineTotal: this.money(unitPrice * requested.quantity),
         currency: quote.currency,
       });
+    }
+    if (couponCode && customerId) {
+      const result = await this.pricing.reserveCoupon({code:couponCode,customerId,orderId,lines:snapshots.map(item=>({variantId:item.variantId,productId:item.productId,categoryId:item.categoryId,basePrice:item.listUnitPrice,currency:item.currency,quantity:item.quantity}))});
+      for (const item of snapshots) { const price = result.prices.find(price=>price.variantId === item.variantId); if (!price) throw new ApiException(503,"PRICING_UNAVAILABLE","Falta el precio definitivo del cupón."); item.listUnitPrice = price.basePrice ?? item.listUnitPrice; item.unitPrice = price.unitPrice; item.lineTotal = this.money(item.unitPrice*item.quantity); item.lineDiscountTotal = this.money((item.listUnitPrice-item.unitPrice)*item.quantity); }
     }
     if (snapshots.length === 0) throw new Error("Order requires at least one item.");
     // The parameter proves snapshots are tied to a durable order ID before a
@@ -338,13 +414,14 @@ export class OrdersService {
     branchId: string,
     channel: OrderChannel,
     items: RequestedItem[],
+    couponCode?: string,
   ): string {
     // Keep ONLINE hashes compatible with orders created before channels were
     // introduced; physical sales deliberately form a distinct request.
     const payload = channel === "PHYSICAL"
       ? { customerId, branchId, channel, items }
       : { customerId, branchId, items };
-    return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+    return createHash("sha256").update(JSON.stringify(couponCode ? {...payload,couponCode:couponCode.trim().toUpperCase()} : payload)).digest("hex");
   }
 
   private assertChannelAccess(
@@ -407,6 +484,7 @@ export class OrdersService {
       subtotal: order.subtotal,
       discountTotal: order.discountTotal,
       total: order.total,
+      couponCode: order.couponCode ?? null,
       cancellationReason: order.cancellationReason,
       cancelledAt: order.cancelledAt,
       version: order.version,

@@ -12,7 +12,7 @@ export default async function PhysicalSalesPage() {
   ]);
 
   return (
-    <section className="mx-auto max-w-[1440px] px-4 py-9 sm:px-6 lg:px-8 lg:py-12">
+    <section className="platform-page">
       <PhysicalSalesDesk
         initialCatalog={catalog.data}
         initialCatalogFailed={catalog.failed}

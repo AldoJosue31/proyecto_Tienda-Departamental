@@ -18,6 +18,7 @@ export class InventoryStockConsumer implements OnModuleInit, OnModuleDestroy {
   private connection: ChannelModel | null = null;
   private channel: Channel | null = null;
   private readonly processedEventIds = new Set<string>();
+  private readonly stockVersions = new Map<string, { revision?: number; timestamp: number }>();
 
   constructor(
     private readonly realtimeGateway: RealtimeGateway,
@@ -70,7 +71,7 @@ export class InventoryStockConsumer implements OnModuleInit, OnModuleDestroy {
       const update = this.toStockUpdated(JSON.parse(message.content.toString("utf8")) as unknown);
       if (!this.processedEventIds.has(update.eventId)) {
         this.remember(update.eventId);
-        this.realtimeGateway.broadcastStockUpdated(update);
+        if (this.isNewer(update)) this.realtimeGateway.broadcastStockUpdated(update);
       }
       channel.ack(message);
     } catch {
@@ -97,6 +98,7 @@ export class InventoryStockConsumer implements OnModuleInit, OnModuleDestroy {
     ) {
       throw new Error("Invalid inventory event data.");
     }
+    if (data.revision !== undefined && (!this.isNonnegativeInteger(data.revision) || data.revision < 1)) throw new Error("Invalid stock revision.");
     return {
       eventId: value.eventId,
       occurredAt: value.occurredAt,
@@ -108,6 +110,7 @@ export class InventoryStockConsumer implements OnModuleInit, OnModuleDestroy {
       available: data.available,
       reorderPoint,
       lastUpdatedAt: data.lastUpdatedAt,
+      revision: data.revision as number | undefined,
     };
   }
 
@@ -127,6 +130,20 @@ export class InventoryStockConsumer implements OnModuleInit, OnModuleDestroy {
     if (this.processedEventIds.size <= MAX_REMEMBERED_EVENTS) return;
     const oldest = this.processedEventIds.values().next().value;
     if (oldest) this.processedEventIds.delete(oldest);
+  }
+
+  private isNewer(update: StockUpdatedEvent): boolean {
+    const key = update.branchId + ":" + update.variantId;
+    const timestamp = Date.parse(update.lastUpdatedAt);
+    const previous = this.stockVersions.get(key);
+    if (previous?.revision !== undefined && (update.revision === undefined || update.revision <= previous.revision)) return false;
+    if (previous && previous.revision === undefined && update.revision === undefined && timestamp <= previous.timestamp) return false;
+    this.stockVersions.set(key, { revision: update.revision, timestamp });
+    if (this.stockVersions.size > MAX_REMEMBERED_EVENTS) {
+      const oldest = this.stockVersions.keys().next().value;
+      if (oldest) this.stockVersions.delete(oldest);
+    }
+    return true;
   }
 
   private clearConnection(connection: ChannelModel): void {

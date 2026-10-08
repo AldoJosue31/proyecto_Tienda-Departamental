@@ -1,32 +1,36 @@
-import { IconLogout } from "@tabler/icons-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { signOut } from "@/app/login/actions";
+import { AccountMenu } from "@/components/account-menu";
 import { SessionRefresher } from "@/components/auth/session-refresher";
+import { CustomerBagLink, CustomerCartProvider } from "@/components/customer-cart-provider";
+import { HeaderSearch } from "@/components/header-search";
 import { NavigationMenu } from "@/components/navigation-menu";
-import { roleLabel, type SessionUser } from "@/lib/auth/roles";
+import type { SessionUser } from "@/lib/auth/roles";
 
 export function AppShell({ user, children }: { user: SessionUser | null; children: ReactNode }) {
   return (
-    <div className="min-h-[100dvh] bg-[var(--page)] text-[var(--ink)]">
+    <CustomerCartProvider customerId={user?.role === "CUSTOMER" ? user.id : null}>
+      <div className="min-h-[100dvh] bg-[var(--page)] text-[var(--ink)]">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-[var(--surface)] focus:p-3">Saltar al contenido</a>
       {user && <SessionRefresher />}
-      <header className="border-b border-[var(--line)] bg-[var(--surface)]">
-        <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
-          <div className="flex min-h-18 items-center justify-between gap-3 py-3">
-            <Link href="/" aria-label="Departamental, inicio" className="inline-flex min-h-11 shrink-0 items-center text-lg font-semibold tracking-[-0.035em]">departamental<span className="text-[var(--accent)]">.</span></Link>
-            <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+      <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--surface)]">
+        <div className="platform-frame">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 py-3 lg:grid-cols-[auto_minmax(18rem,1fr)_auto] lg:gap-x-6">
+            <Link href="/" aria-label="Departamental, inicio" className="col-start-1 row-start-1 inline-flex min-h-11 items-center text-base font-semibold tracking-[-0.035em] min-[380px]:text-lg lg:text-xl">departamental<span className="text-[var(--accent)]">.</span></Link>
+            <div className="col-span-2 row-start-2 min-w-0 lg:col-span-1 lg:col-start-2 lg:row-start-1"><HeaderSearch /></div>
+            <div className="relative col-start-2 row-start-1 flex min-w-0 items-center justify-end gap-1 lg:col-start-3 lg:gap-2">
               {user ? <>
-                <div className="hidden min-w-0 text-right sm:block"><p className="max-w-56 truncate text-sm font-semibold" title={user.name}>{user.name}</p><p className="text-xs text-[var(--muted)]">{roleLabel[user.role]}</p></div>
-                <form action={signOut} className="shrink-0"><button type="submit" aria-label="Cerrar sesión" className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-[var(--muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"><IconLogout size={18} aria-hidden="true" /><span>Salir</span></button></form>
+                <AccountMenu user={user} />
+                <CustomerBagLink />
               </> : <Link href="/login?next=/" className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)]">Iniciar sesión</Link>}
             </div>
           </div>
-          <NavigationMenu role={user?.role ?? null} />
         </div>
+        <div className="border-t border-[var(--line)] bg-[var(--surface-muted)]"><div className="platform-frame"><NavigationMenu role={user?.role ?? null} /></div></div>
       </header>
       <main id="main-content" tabIndex={-1}>{children}</main>
-    </div>
+      </div>
+    </CustomerCartProvider>
   );
 }

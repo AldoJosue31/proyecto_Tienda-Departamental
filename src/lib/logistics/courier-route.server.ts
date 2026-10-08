@@ -10,6 +10,7 @@ const routeResponseSchema = z.object({
     duration: z.string().regex(/^\d+(?:\.\d+)?s$/),
     distanceMeters: z.number().int().nonnegative(),
     polyline: z.object({ encodedPolyline: z.string().min(1) }),
+    legs: z.array(z.object({endLocation:z.object({latLng:z.object({latitude:z.number().min(-90).max(90),longitude:z.number().min(-180).max(180)})})})).min(1),
   })).min(1),
 });
 
@@ -29,7 +30,7 @@ export async function getCourierRoute(shipmentId: string): Promise<CourierRoute>
       headers: {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": key,
-        "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline",
+        "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.legs.endLocation",
       },
       body: JSON.stringify({
         origin: { location: { latLng: { latitude: tracking.location.latitude, longitude: tracking.location.longitude } } },
@@ -44,7 +45,7 @@ export async function getCourierRoute(shipmentId: string): Promise<CourierRoute>
     const parsed = routeResponseSchema.safeParse(await response.json());
     if (!parsed.success) return { available: false, reason: "La ruta estimada no pudo verificarse." };
     const route = parsed.data.routes[0];
-    return { available: true, durationSeconds: durationSeconds(route.duration), distanceMeters: route.distanceMeters, encodedPolyline: route.polyline.encodedPolyline };
+    return { available: true, durationSeconds: durationSeconds(route.duration), distanceMeters: route.distanceMeters, encodedPolyline: route.polyline.encodedPolyline,destination:route.legs[route.legs.length-1].endLocation.latLng };
   } catch {
     return { available: false, reason: "La ruta estimada no está disponible temporalmente." };
   }

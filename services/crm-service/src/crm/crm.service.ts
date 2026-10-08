@@ -1,5 +1,6 @@
+import { inactiveCutoff } from "./inactive-cutoff";
 import { Injectable } from "@nestjs/common";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { PoolClient, QueryResultRow } from "pg";
 import { ApiException } from "../common/api-exception";
 import { DatabaseService } from "../database/database.service";
@@ -10,7 +11,7 @@ interface PurchaseRow extends QueryResultRow { order_id: string; branch_id: stri
 interface ItemRow extends QueryResultRow { order_id: string; product_id: string; variant_id: string; product_name: string; sku: string; variant_label: string; quantity: number | string; line_total: number | string; }
 interface UpdatedRow extends QueryResultRow { last_updated_at: Date | string | null; }
 interface CampaignRow extends QueryResultRow { id: string; created_by: string; segment_months: number | string; coupon_code: string; valid_until: Date | string; target_count: number | string; created_at: Date | string; updated_at: Date | string; }
-interface CampaignCountsRow extends QueryResultRow { pending_count: number | string; sent_count: number | string; failed_count: number | string; undeliverable_count: number | string; }
+interface CampaignCountsRow extends QueryResultRow { simulated_count: number | string; unknown_count: number | string; pending_count: number | string; sent_count: number | string; failed_count: number | string; undeliverable_count: number | string; }
 interface CampaignRecipientRow extends QueryResultRow { campaign_id: string; customer_id: string; }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -48,14 +49,13 @@ export class CrmService {
   async inactiveSegment(monthsValue?: string, now = new Date()): Promise<InactiveSegmentResponse> {
     const months = this.months(monthsValue);
     const referenceAt = new Date(now);
-    const cutoffAt = new Date(referenceAt);
-    cutoffAt.setUTCMonth(cutoffAt.getUTCMonth() - months);
+    const cutoffAt = inactiveCutoff(referenceAt, months);
     const result = await this.database.query<CustomerRow>(this.customerSelect("WHERE last_purchase_at < $1 ORDER BY last_purchase_at ASC, customer_id ASC LIMIT 50"), [cutoffAt]);
     const count = await this.database.query<{ count: string | number }>("SELECT COUNT(*) AS count FROM crm_customers WHERE last_purchase_at < $1", [cutoffAt]);
     return {
       segment: {
         code: "INACTIVE_PURCHASERS", months, referenceAt: referenceAt.toISOString(), cutoffAt: cutoffAt.toISOString(), includesNeverPurchased: false,
-        rule: "Incluye clientes con compras proyectadas cuya última compra es anterior al corte; excluye identidades sin compras proyectadas.",
+        rule: "Incluye clientes con compras proyectadas cuya última compra es anterior al corte; excluye identidades sin compras proyectadas. Corte de meses calendario en America/Mexico_City.",
       },
       count: this.number(count.rows[0]?.count ?? 0), customers: result.rows.map((row) => this.customer(row)), lastUpdatedAt: await this.lastUpdatedAt(),
     };
@@ -66,23 +66,31 @@ export class CrmService {
     const creator = this.customerId(createdBy);
     const requestKey = rawIdempotencyKey?.trim() || randomUUID();
     if (requestKey.length > 200) throw new ApiException(400, "VALIDATION_ERROR", "Idempotency-Key no puede exceder 200 caracteres");
-    const cutoffAt = new Date();
-    cutoffAt.setUTCMonth(cutoffAt.getUTCMonth() - input.months);
+    const referenceAt = new Date();
+    const cutoffAt = inactiveCutoff(referenceAt, input.months);
     return this.database.withTransaction(async (client) => {
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [creator + ":" + requestKey]);
       const prior = await client.query<CampaignRow>("SELECT id, created_by, segment_months, coupon_code, valid_until, target_count, created_at, updated_at FROM crm_campaigns WHERE created_by = $1 AND request_key = $2", [creator, requestKey]);
-      if (prior.rows[0]) return this.campaignForClient(client, prior.rows[0].id);
-      const recipients = await client.query<{ customer_id: string }>("SELECT customer_id FROM crm_customers WHERE last_purchase_at < $1 ORDER BY last_purchase_at ASC, customer_id ASC", [cutoffAt]);
+      if (prior.rows[0]) {
+        const stored = await client.query<{ request_hash: string | null }>("SELECT request_hash FROM crm_campaigns WHERE id=$1", [prior.rows[0].id]);
+        if (stored.rows[0]?.request_hash && stored.rows[0].request_hash !== this.campaignHash(input)) throw new ApiException(409,"IDEMPOTENCY_KEY_REUSED","La llave pertenece a una campaña diferente.");
+        return this.campaignForClient(client, prior.rows[0].id);
+      }
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",["coupon-code:"+input.couponCode]);
+      const code = await client.query("SELECT id FROM crm_campaigns WHERE coupon_code=$1 AND discount_type IS NOT NULL",[input.couponCode]);
+      if (code.rows.length) throw new ApiException(409,"COUPON_CODE_CONFLICT","Usa un código diferente para esta campaña.");
+      const recipients = await client.query<{ customer_id: string }>("SELECT customer_id FROM crm_customers WHERE last_purchase_at < $1 ORDER BY last_purchase_at ASC, customer_id ASC FOR UPDATE", [cutoffAt]);
       if (!recipients.rows.length) throw new ApiException(422, "EMPTY_SEGMENT", "No hay clientes elegibles para crear esta campaña");
       const created = await client.query<CampaignRow>([
-        "INSERT INTO crm_campaigns (created_by, request_key, segment_months, coupon_code, valid_until, target_count)",
-        "VALUES ($1, $2, $3, $4, $5, $6)",
+        "INSERT INTO crm_campaigns (created_by, request_key, segment_months, coupon_code, valid_until, target_count, reference_at, cutoff_at,discount_type,discount_value,target_scope,target_id,request_hash)",
+        "VALUES ($1, $2, $3, $4, $5, $6, $7, $8,$9,$10,$11,$12,$13)",
         "RETURNING id, created_by, segment_months, coupon_code, valid_until, target_count, created_at, updated_at",
-      ].join("\n"), [creator, requestKey, input.months, input.couponCode, input.validUntil, recipients.rows.length]);
+      ].join("\n"), [creator, requestKey, input.months, input.couponCode, input.validUntil, recipients.rows.length, referenceAt, cutoffAt,input.discountType,input.discountValue,input.targetScope,input.targetId,this.campaignHash(input)]);
       const campaign = created.rows[0];
       if (!campaign) throw new Error("Campaign creation failed.");
       for (const recipient of recipients.rows) {
         await client.query("INSERT INTO crm_campaign_recipients (campaign_id, customer_id) VALUES ($1, $2)", [campaign.id, recipient.customer_id]);
-        const payload = JSON.stringify({ campaignId: campaign.id, customerId: recipient.customer_id, coupon: { code: input.couponCode, validUntil: input.validUntil.toISOString() } });
+        const payload = JSON.stringify({ campaignId: campaign.id, customerId: recipient.customer_id, coupon: { code: input.couponCode, validUntil: input.validUntil.toISOString(),discountType:input.discountType,discountValue:input.discountValue,targetScope:input.targetScope,targetId:input.targetId } });
         await client.query([
           "INSERT INTO crm_campaign_outbox_events (campaign_id, customer_id, event_type, correlation_id, payload)",
           "VALUES ($1, $2, 'coupon.email.requested.v1', $3, $4::jsonb)",
@@ -103,19 +111,12 @@ export class CrmService {
       if (!claimed.rows[0]) return;
       const recipient = await client.query<CampaignRecipientRow>("SELECT campaign_id, customer_id FROM crm_campaign_recipients WHERE campaign_id = $1 AND customer_id = $2 FOR UPDATE", [event.campaignId, event.customerId]);
       if (!recipient.rows[0]) throw new Error("Notification event references an unknown campaign recipient.");
-      if (event.eventType === "notification.sent.v1") {
-        await client.query([
-          "UPDATE crm_campaign_recipients",
-          "SET status = 'SENT', notification_id = $3, failure_code = NULL, sent_at = $4, attempts = GREATEST(attempts, 1)",
-          "WHERE campaign_id = $1 AND customer_id = $2 AND status <> 'SENT'",
-        ].join("\n"), [event.campaignId, event.customerId, event.notificationId, event.occurredAt]);
+      if (event.eventType === "notification.sent.v1" || event.eventType === "notification.simulated.v1") {
+        const status = event.eventType === "notification.simulated.v1" ? "SIMULATED" : event.deliveryMode === "smtp" ? "SENT" : "UNKNOWN";
+        await client.query("UPDATE crm_campaign_recipients SET status=$3,notification_id=$4,failure_code=NULL,sent_at=$5,attempts=GREATEST(attempts,$6) WHERE campaign_id=$1 AND customer_id=$2 AND (status NOT IN ('SENT','SIMULATED') OR (notification_id=$4 AND $3='SIMULATED')) AND attempts <= $6",[event.campaignId,event.customerId,status,event.notificationId,event.occurredAt,event.attempt ?? 1]);
       } else {
-        const status = event.failureCode === "UNDELIVERABLE" ? "UNDELIVERABLE" : "FAILED";
-        await client.query([
-          "UPDATE crm_campaign_recipients",
-          "SET status = $3, notification_id = $4, failure_code = $5, attempts = GREATEST(attempts, 1)",
-          "WHERE campaign_id = $1 AND customer_id = $2 AND status <> 'SENT'",
-        ].join("\n"), [event.campaignId, event.customerId, status, event.notificationId, event.failureCode ?? "DELIVERY_FAILED"]);
+        const status = event.failureCode === "UNDELIVERABLE" || event.failureCode === "COUPON_EXPIRED" ? "UNDELIVERABLE" : event.willRetry ? "PENDING" : "FAILED";
+        await client.query("UPDATE crm_campaign_recipients SET status=$3,notification_id=$4,failure_code=$5,attempts=GREATEST(attempts,$6) WHERE campaign_id=$1 AND customer_id=$2 AND status NOT IN ('SENT','SIMULATED') AND attempts <= $6",[event.campaignId,event.customerId,status,event.notificationId,event.failureCode ?? "DELIVERY_FAILED",event.attempt ?? 1]);
       }
       await client.query("UPDATE crm_campaigns SET updated_at = NOW() WHERE id = $1", [recipient.rows[0].campaign_id]);
     });
@@ -182,39 +183,48 @@ export class CrmService {
     const campaign = campaignResult.rows[0];
     if (!campaign) throw new ApiException(404, "CAMPAIGN_NOT_FOUND", "Campaña no encontrada");
     const counts = await client.query<CampaignCountsRow>([
-      "SELECT COUNT(*) FILTER (WHERE status = 'PENDING') AS pending_count,",
+      "SELECT COUNT(*) FILTER (WHERE status = 'SIMULATED') AS simulated_count, COUNT(*) FILTER (WHERE status = 'UNKNOWN') AS unknown_count, COUNT(*) FILTER (WHERE status = 'PENDING') AS pending_count,",
       "COUNT(*) FILTER (WHERE status = 'SENT') AS sent_count,",
       "COUNT(*) FILTER (WHERE status = 'FAILED') AS failed_count,",
       "COUNT(*) FILTER (WHERE status = 'UNDELIVERABLE') AS undeliverable_count",
       "FROM crm_campaign_recipients WHERE campaign_id = $1",
     ].join("\n"), [campaignId]);
-    const progress = counts.rows[0] ?? { pending_count: 0, sent_count: 0, failed_count: 0, undeliverable_count: 0 };
+    const progress = counts.rows[0] ?? { pending_count: 0, sent_count: 0, failed_count: 0, undeliverable_count: 0, simulated_count:0,unknown_count:0 };
+    const simulatedCount = this.number(progress.simulated_count ?? 0);
+    const unknownCount = this.number(progress.unknown_count ?? 0);
     const pendingCount = this.number(progress.pending_count);
     const sentCount = this.number(progress.sent_count);
     const failedCount = this.number(progress.failed_count);
     const undeliverableCount = this.number(progress.undeliverable_count);
-    const status = pendingCount > 0 ? (sentCount + failedCount + undeliverableCount > 0 ? "PROCESSING" : "QUEUED") : (failedCount + undeliverableCount > 0 ? "PARTIAL" : "COMPLETED");
+    const status = pendingCount > 0 ? (sentCount + simulatedCount + unknownCount + failedCount + undeliverableCount > 0 ? "PROCESSING" : "QUEUED") : (failedCount + undeliverableCount > 0 ? "PARTIAL" : "COMPLETED");
     const response: CouponCampaign = {
-      id: campaign.id, segmentMonths: this.number(campaign.segment_months), couponCode: campaign.coupon_code, validUntil: this.iso(campaign.valid_until), targetCount: this.number(campaign.target_count), pendingCount, sentCount, failedCount, undeliverableCount, status, createdBy: campaign.created_by, createdAt: this.iso(campaign.created_at), updatedAt: this.iso(campaign.updated_at),
+      id: campaign.id, segmentMonths: this.number(campaign.segment_months), couponCode: campaign.coupon_code, validUntil: this.iso(campaign.valid_until), targetCount: this.number(campaign.target_count), pendingCount, sentCount, simulatedCount, unknownCount, failedCount, undeliverableCount, status, createdBy: campaign.created_by, createdAt: this.iso(campaign.created_at), updatedAt: this.iso(campaign.updated_at),
     };
     return { campaign: response };
   }
 
-  private campaignInput(value: CouponCampaignInput): { months: number; couponCode: string; validUntil: Date } {
+  private campaignInput(value: CouponCampaignInput): { months: number; couponCode: string; validUntil: Date;discountType:"PERCENTAGE"|"FIXED";discountValue:number;targetScope:"ALL"|"CATEGORY"|"PRODUCT"|"VARIANT";targetId:string|null } {
     const raw = value as Record<string, unknown>;
     const months = this.months(raw.months === undefined ? undefined : String(raw.months));
     const couponCode = typeof raw.couponCode === "string" ? raw.couponCode.trim().toUpperCase() : "";
     if (!/^[A-Z0-9][A-Z0-9_-]{2,63}$/.test(couponCode)) throw new ApiException(400, "VALIDATION_ERROR", "couponCode debe tener entre 3 y 64 caracteres alfanuméricos, guiones o guiones bajos");
     const validUntil = typeof raw.validUntil === "string" ? new Date(raw.validUntil) : new Date("");
     if (Number.isNaN(validUntil.getTime()) || validUntil.getTime() <= Date.now()) throw new ApiException(422, "VALIDATION_ERROR", "validUntil debe ser una fecha futura válida");
-    return { months, couponCode, validUntil };
+    const discountType = raw.discountType;
+    const discountValue = raw.discountValue;
+    const targetScope = raw.targetScope;
+    if ((discountType !== "PERCENTAGE" && discountType !== "FIXED") || typeof discountValue !== "number" || !Number.isFinite(discountValue) || discountValue <= 0 || Math.abs(discountValue * 100 - Math.round(discountValue * 100)) > 0.000001 || discountValue > (discountType === "PERCENTAGE" ? 100 : 9999999.99) || !["ALL","CATEGORY","PRODUCT","VARIANT"].includes(String(targetScope)) || (targetScope !== "ALL" && (typeof raw.targetId !== "string" || !UUID.test(raw.targetId)))) throw new ApiException(400,"VALIDATION_ERROR","Define tipo, valor y alcance del descuento.");
+    if (!/(?:Z|[+-]\d{2}:\d{2})$/.test(String(raw.validUntil))) throw new ApiException(400,"VALIDATION_ERROR","La vigencia requiere UTC o un desfase explícito.");
+    return { months,couponCode,validUntil,discountType,discountValue,targetScope:targetScope as "ALL"|"CATEGORY"|"PRODUCT"|"VARIANT",targetId:targetScope === "ALL" ? null : raw.targetId as string };
+
   }
 
+  private campaignHash(input: unknown): string { return createHash("sha256").update(JSON.stringify(input)).digest("hex"); }
   private customerSelect(suffix: string): string { return ["SELECT customer_id, first_purchase_at, last_purchase_at, completed_orders, lifetime_total, currency, updated_at", "FROM crm_customers", suffix].join("\n"); }
   private async lastUpdatedAt(): Promise<string | null> { const result = await this.database.query<UpdatedRow>("SELECT MAX(projected_at) AS last_updated_at FROM crm_processed_events"); const value = result.rows[0]?.last_updated_at; return value ? this.iso(value) : null; }
   private customer(row: CustomerRow): CustomerSummary { return { customerId: row.customer_id, firstPurchaseAt: this.iso(row.first_purchase_at), lastPurchaseAt: this.iso(row.last_purchase_at), completedOrders: this.number(row.completed_orders), lifetimeTotal: this.number(row.lifetime_total), currency: row.currency, updatedAt: this.iso(row.updated_at) }; }
   private customerId(value: string): string { const id = value.trim(); if (!UUID.test(id)) throw new ApiException(404, "CUSTOMER_NOT_FOUND", "Cliente no encontrado en la proyección CRM"); return id; }
-  private months(value?: string): number { if (value === undefined || value === "") return 3; const months = Number(value); if (!Number.isSafeInteger(months) || months < 1 || months > 60) throw new ApiException(400, "VALIDATION_ERROR", "months debe ser un entero entre 1 y 60"); return months; }
+  private months(value?: string): number { if (value === undefined || value === "") return 3; const months = Number(value); if (!Number.isSafeInteger(months) || months < 3 || months > 60) throw new ApiException(400, "VALIDATION_ERROR", "months debe ser un entero entre 3 y 60"); return months; }
   private number(value: string | number): number { const result = Number(value); return Number.isFinite(result) ? result : 0; }
   private iso(value: Date | string): string { return new Date(value).toISOString(); }
 }

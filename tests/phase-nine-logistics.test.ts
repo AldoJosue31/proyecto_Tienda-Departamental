@@ -13,7 +13,7 @@ describe("Pick & Pack y Logistics de la fase 9", () => {
     const service = read("services/logistics-service/src/shipments/shipments.service.ts");
     const outbox = read("services/logistics-service/src/events/outbox.service.ts");
 
-    expect(compose).toContain("logistics-service:");
+    expect(compose).toContain("servicio-logistica:");
     expect(compose).toContain("logistics-postgres:");
     expect(compose).toContain("logistics-internal:");
     expect(migration).toContain("logistics_processed_events");
@@ -31,7 +31,7 @@ describe("Pick & Pack y Logistics de la fase 9", () => {
     const listRoute = read("src/app/api/operations/shipments/route.ts");
     const statusRoute = read("src/app/api/operations/shipments/[id]/status/route.ts");
 
-    expect(kong).toContain("logistics-service");
+    expect(kong).toContain("servicio-logistica");
     expect(kong).toContain("/shipments");
     expect(controller).toContain('@Roles("ADMIN", "EMPLOYEE")');
     expect(listRoute).toContain('user.role !== "ADMIN" && user.role !== "EMPLOYEE"');

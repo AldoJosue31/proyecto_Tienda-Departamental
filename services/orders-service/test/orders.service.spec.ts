@@ -145,6 +145,38 @@ describe("OrdersService idempotency and ownership", () => {
     );
   });
 
+  it("lista únicamente los pedidos que pertenecen al CUSTOMER autenticado", async () => {
+    const repository = { listForCustomer: vi.fn().mockResolvedValue([order("CONFIRMED")]) };
+    const service = new OrdersService(
+      database(),
+      repository as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { enqueue: vi.fn() } as never,
+    );
+
+    const result = await service.listMine(actor);
+
+    expect(repository.listForCustomer).toHaveBeenCalledWith(actor.id);
+    expect(result.orders).toEqual([expect.objectContaining({ id: orderId })]);
+  });
+
+  it("no permite reutilizar la consulta propia para una cuenta operativa", async () => {
+    const service = new OrdersService(
+      database(),
+      { listForCustomer: vi.fn() } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { enqueue: vi.fn() } as never,
+    );
+
+    await expect(service.listMine({ ...actor, role: "EMPLOYEE" })).rejects.toMatchObject(
+      { code: "FORBIDDEN" } satisfies Partial<ApiException>,
+    );
+  });
+
   it("persiste el rechazo cuando Inventory informa OUT_OF_STOCK", async () => {
     const pending = order();
     const repository = {
@@ -226,6 +258,10 @@ describe("OrdersService idempotency and ownership", () => {
     };
     const repository = {
       findByIdForClient: vi.fn().mockImplementation(async () => current),
+      setStatus: vi.fn(async (_client, _id, status) => {
+        current = { ...current, status };
+      }),
+      audit: vi.fn(),
       cancel: vi.fn(async () => {
         current = { ...current, status: "CANCELLED" };
       }),
@@ -238,6 +274,7 @@ describe("OrdersService idempotency and ownership", () => {
       {} as never,
       { release: vi.fn() } as never,
       outbox as never,
+      { cancelBeforeDispatch: vi.fn().mockResolvedValue("CANCELLED") } as never,
     );
 
     const result = await service.cancel(orderId, actor, "Cambio de decisión");
@@ -250,5 +287,63 @@ describe("OrdersService idempotency and ownership", () => {
         data: expect.objectContaining({ orderId, status: "CANCELLED" }),
       }),
     );
+  });
+
+  it("restaura la orden confirmada cuando Logistics informa que ya fue despachada", async () => {
+    let current: StoredOrder = { ...order("CONFIRMED"), items: [] };
+    const repository = {
+      findByIdForClient: vi.fn().mockImplementation(async () => current),
+      setStatus: vi.fn(async (_client, _id, status) => {
+        current = { ...current, status };
+      }),
+      audit: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const logistics = {
+      cancelBeforeDispatch: vi.fn().mockRejectedValue(new ApiException(409, "ORDER_ALREADY_DISPATCHED", "Ya fue despachado")),
+    };
+    const service = new OrdersService(
+      database(),
+      repository as never,
+      {} as never,
+      {} as never,
+      { release: vi.fn() } as never,
+      { enqueue: vi.fn() } as never,
+      logistics as never,
+    );
+
+    await expect(service.cancel(orderId, actor, "Cambio de decisión")).rejects.toMatchObject(
+      { code: "ORDER_ALREADY_DISPATCHED" } satisfies Partial<ApiException>,
+    );
+    expect(current.status).toBe("CONFIRMED");
+    expect(repository.cancel).not.toHaveBeenCalled();
+    expect(repository.audit).toHaveBeenCalledWith(undefined, orderId, actor, "ORDER_CANCELLATION_REJECTED_ALREADY_DISPATCHED");
+  });
+
+  it("conserva la solicitud pendiente para reintento si Logistics no responde", async () => {
+    let current: StoredOrder = { ...order("CONFIRMED"), items: [] };
+    const repository = {
+      findByIdForClient: vi.fn().mockImplementation(async () => current),
+      setStatus: vi.fn(async (_client, _id, status) => {
+        current = { ...current, status };
+      }),
+      audit: vi.fn(),
+      cancel: vi.fn(),
+    };
+    const service = new OrdersService(
+      database(),
+      repository as never,
+      {} as never,
+      {} as never,
+      { release: vi.fn() } as never,
+      { enqueue: vi.fn() } as never,
+      { cancelBeforeDispatch: vi.fn().mockRejectedValue(new ApiException(503, "LOGISTICS_UNAVAILABLE", "No disponible")) } as never,
+    );
+
+    await expect(service.cancel(orderId, actor, "Cambio de decisión")).rejects.toMatchObject(
+      { code: "LOGISTICS_UNAVAILABLE" } satisfies Partial<ApiException>,
+    );
+    expect(current.status).toBe("CANCELLATION_PENDING");
+    expect(repository.cancel).not.toHaveBeenCalled();
   });
 });

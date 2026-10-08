@@ -23,7 +23,7 @@ export function CatalogManagement({ products }: { products: CatalogProductSummar
   const selected = variants.find(({ variant }) => variant.id === selectedVariantId) ?? variants[0] ?? null;
 
   useEffect(() => { if (productState.status === "success" || variantState.status === "success") router.refresh(); }, [productState.status, router, variantState.status]);
-  return <section className="mx-auto max-w-[1280px] px-4 py-9 sm:px-6 lg:px-8 lg:py-12">
+  return <section className="platform-page">
     <p className="text-sm font-semibold text-[var(--accent-strong)]">Administración de catálogo</p>
     <h1 className="mt-3 max-w-2xl text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Productos y variantes con atributos reales.</h1>
     <p className="mt-3 max-w-2xl text-pretty leading-7 text-[var(--muted)]">Catalog es la fuente de SKU, talla, color y material. Inventory usa el identificador de la variante y conserva sólo el snapshot necesario para operar por sucursal.</p>

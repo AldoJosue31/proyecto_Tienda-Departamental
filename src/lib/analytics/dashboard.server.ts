@@ -8,14 +8,14 @@ import type { AnalyticsDashboard, AnalyticsPeriod } from "./dashboard-types";
 
 const periodSchema = z.enum(["today", "7d", "30d"]);
 const branchSchema = z.object({ branchId: z.string().uuid(), branchName: z.string().min(1), sales: z.number().nonnegative(), completedOrders: z.number().int().nonnegative() });
-const productSchema = z.object({ productId: z.string().uuid(), variantId: z.string().uuid(), productName: z.string().min(1), unitsSold: z.number().int().positive(), sales: z.number().nonnegative() });
+const productSchema = z.object({ productId: z.string().uuid(), productName: z.string().min(1), unitsSold: z.number().int().positive(), sales: z.number().nonnegative() });
 const inventorySchema = z.object({ branchId: z.string().uuid(), branchName: z.string().min(1), onHand: z.number().int().nonnegative(), reserved: z.number().int().nonnegative(), available: z.number().int().nonnegative() });
 const syncedSchema = z.object({ lastUpdatedAt: z.string().datetime().nullable() });
 const salesTodaySchema = syncedSchema.extend({ currency: z.string().length(3), sales: z.number().nonnegative(), completedOrders: z.number().int().nonnegative() });
 const ticketAverageSchema = syncedSchema.extend({ currency: z.string().length(3), ticketAverage: z.number().nonnegative(), completedOrders: z.number().int().nonnegative(), formula: z.string().min(1), period: z.object({ code: periodSchema }) });
 const salesByBranchSchema = syncedSchema.extend({ currency: z.string().length(3), period: z.object({ code: periodSchema }), branches: z.array(branchSchema) });
 const topProductsSchema = syncedSchema.extend({ currency: z.string().length(3), period: z.object({ code: periodSchema }), limit: z.union([z.literal(5), z.literal(10), z.literal(20)]), products: z.array(productSchema) });
-const inventoryByBranchSchema = syncedSchema.extend({ branches: z.array(inventorySchema) });
+const inventoryByBranchSchema = syncedSchema.extend({ branches: z.array(inventorySchema), synchronization: z.object({ complete: z.boolean(), completedAt: z.string().datetime().nullable(), importedRows: z.number().int().nonnegative(), expectedRows: z.number().int().nonnegative(), retryPending: z.boolean() }) });
 
 export class AnalyticsDashboardRequestError extends Error {
   constructor(message: string, readonly status: number, readonly correlationId: string) { super(message); this.name = "AnalyticsDashboardRequestError"; }

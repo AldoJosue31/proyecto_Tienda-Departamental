@@ -21,17 +21,17 @@ import type {
 } from "@/lib/inventory/dashboard-types";
 import {
   mergeStockUpdated,
+  mergeInventorySnapshot,
+  isNewerStockState,
   recordRealtimeLatency,
   type RealtimeLatency,
 } from "@/lib/inventory/realtime";
 
 type RealtimeStatus = "connecting" | "connected" | "fallback";
 
-const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8000";
-
-async function requestDashboard(branchId: string): Promise<InventoryDashboard> {
+async function requestDashboard(branchId: string, signal?: AbortSignal): Promise<InventoryDashboard> {
   const response = await fetch(`/api/dashboard/inventory?branchId=${encodeURIComponent(branchId)}`, {
-    cache: "no-store",
+    cache: "no-store", signal,
   });
   const body = await response.json().catch(() => null) as { message?: unknown } | null;
   if (!response.ok) {
@@ -58,7 +58,7 @@ function statusCopy(status: RealtimeStatus) {
   return "Conexión interrumpida; usamos recarga de respaldo";
 }
 
-export function InventoryDashboardView({ initialDashboard, initialAnalytics }: { initialDashboard: InventoryDashboard; initialAnalytics: AnalyticsDashboard | null }) {
+export function InventoryDashboardView({ initialDashboard, initialAnalytics, gatewayUrl }: { initialDashboard: InventoryDashboard; initialAnalytics: AnalyticsDashboard | null; gatewayUrl: string }) {
   const [dashboard, setDashboard] = useState(initialDashboard);
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
@@ -68,11 +68,20 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics }: {
   const activeBranchId = useRef(initialDashboard.branch.id);
   const knownVariantIds = useRef(new Set(initialDashboard.items.map((item) => item.variantId)));
   const latencySamples = useRef<number[]>([]);
+  const pendingRequest = useRef<AbortController | null>(null);
+  const requestSequence = useRef(0);
+  const pendingStockEvents = useRef(new Map<string, StockUpdatedEvent>());
 
   const updateDashboard = useCallback(async (branchId: string, announce = false) => {
+    if (activeBranchId.current !== branchId) pendingStockEvents.current.clear();
+    activeBranchId.current = branchId;
+    const sequence = ++requestSequence.current;
+    pendingRequest.current?.abort();
+    const controller = new AbortController();
+    pendingRequest.current = controller;
     setIsDashboardLoading(true);
     setDashboardError(null);
-    const request = requestDashboard(branchId);
+    const request = requestDashboard(branchId, controller.signal);
     try {
       const nextDashboard = announce
         ? await sileo.promise(request, {
@@ -81,15 +90,17 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics }: {
           error: { title: "No se pudo actualizar", description: "Conservamos la última información disponible." },
         })
         : await request;
+      if (sequence !== requestSequence.current || controller.signal.aborted) return;
       activeBranchId.current = nextDashboard.branch.id;
       knownVariantIds.current = new Set(nextDashboard.items.map((item) => item.variantId));
-      setDashboard(nextDashboard);
+      setDashboard((current) => mergeInventorySnapshot(current, nextDashboard, pendingStockEvents.current.values()));
     } catch (error) {
+      if (sequence !== requestSequence.current || controller.signal.aborted) return;
       const message = error instanceof Error ? error.message : "No se pudo cargar el inventario.";
       setDashboardError(`${message} Conservamos la última información disponible.`);
       if (!announce) sileo.error({ title: "Inventario sin actualizar", description: message });
     } finally {
-      setIsDashboardLoading(false);
+      if (sequence === requestSequence.current) setIsDashboardLoading(false);
     }
   }, []);
 
@@ -102,6 +113,12 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics }: {
 
     const refreshCurrentBranch = (event: StockUpdatedEvent) => {
       if (event.branchId !== activeBranchId.current) return;
+      const remembered = pendingStockEvents.current.get(event.variantId);
+      if (!remembered || isNewerStockState(remembered, event)) pendingStockEvents.current.set(event.variantId, event);
+      if (pendingStockEvents.current.size > 5000) {
+        const oldest = pendingStockEvents.current.keys().next().value;
+        if (oldest) pendingStockEvents.current.delete(oldest);
+      }
       const delivery = recordRealtimeLatency(latencySamples.current, event.occurredAt);
       latencySamples.current = delivery.samples;
       if (delivery.latency) setRealtimeLatency(delivery.latency);
@@ -120,7 +137,7 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics }: {
       void updateDashboard(activeBranchId.current);
     };
 
-    socket.on("connect", () => setRealtimeStatus("connected"));
+    socket.on("connect", () => { setRealtimeStatus("connected"); void updateDashboard(activeBranchId.current); });
     socket.on("disconnect", useFallback);
     socket.on("connect_error", useFallback);
     socket.on("stock.updated", refreshCurrentBranch);
@@ -131,7 +148,15 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics }: {
       socket.off("stock.updated", refreshCurrentBranch);
       socket.disconnect();
     };
-  }, [updateDashboard]);
+  }, [gatewayUrl, updateDashboard]);
+
+  useEffect(() => {
+    if (realtimeStatus === "connected") return;
+    const timer = setInterval(() => void updateDashboard(activeBranchId.current), 5000);
+    return () => clearInterval(timer);
+  }, [realtimeStatus, updateDashboard]);
+
+  useEffect(() => () => { pendingRequest.current?.abort(); }, []);
 
   const lastUpdate = lastRealtimeAt ?? dashboard.generatedAt;
   const statusIcon = realtimeStatus === "fallback"
@@ -141,7 +166,7 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics }: {
   return (
     <>
 
-      <section className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10" aria-busy={isDashboardLoading}>
+      <section className="platform-page" aria-busy={isDashboardLoading}>
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div className="max-w-2xl">
             <div className="flex flex-wrap items-center gap-2 text-sm">

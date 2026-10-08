@@ -1,3 +1,4 @@
+import { publicGatewayUrl } from "@/lib/auth/public-gateway.server";
 import { InventoryDashboardView } from "@/components/inventory-dashboard";
 import { getAnalyticsDashboard } from "@/lib/analytics/dashboard.server";
 import { requireRole } from "@/lib/auth/session.server";
@@ -9,5 +10,5 @@ export default async function DashboardPage() {
     getInventoryDashboard(),
     getAnalyticsDashboard().catch(() => null),
   ]);
-  return <InventoryDashboardView initialDashboard={initialDashboard} initialAnalytics={initialAnalytics} />;
+  return <InventoryDashboardView initialDashboard={initialDashboard} initialAnalytics={initialAnalytics} gatewayUrl={publicGatewayUrl()} />;
 }

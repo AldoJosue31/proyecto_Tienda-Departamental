@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 
 import { ApiException } from "../common/api-exception";
 import type { AuthenticatedRequest } from "../common/authenticated-request";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
+import { InternalOrdersGuard } from "../common/internal-orders.guard";
 import { Roles } from "../common/roles.decorator";
 import { RolesGuard } from "../common/roles.guard";
 import { ShipmentsService } from "./shipments.service";
@@ -12,6 +13,7 @@ import type {
   ShipmentDetailResponse,
   ShipmentListResponse,
   ShipmentActor,
+  ShipmentCancellationResponse,
   ShipmentStatusRequest,
   TrackingAssignmentRequest,
 } from "./shipments.types";
@@ -57,6 +59,20 @@ export class ShipmentsController {
   assignTracking(@Param("id") id: string, @Body() body: TrackingAssignmentRequest, @Req() request: AuthenticatedRequest): Promise<ShipmentDetailResponse> {
     operationalActor(request);
     return this.shipments.assignTracking(id, body);
+  }
+}
+
+// Kong deliberately has no route for this controller. Only Orders, through a
+// private network credential, may ask Logistics to make the dispatch decision.
+@Controller("internal/shipments")
+@UseGuards(InternalOrdersGuard)
+export class InternalShipmentsController {
+  constructor(private readonly shipments: ShipmentsService) {}
+
+  @Post("orders/:orderId/cancel")
+  @HttpCode(HttpStatus.OK)
+  cancelForOrder(@Param("orderId") orderId: string, @Req() request: AuthenticatedRequest): Promise<ShipmentCancellationResponse> {
+    return this.shipments.cancelForOrder(orderId, request.correlationId ?? null);
   }
 }
 

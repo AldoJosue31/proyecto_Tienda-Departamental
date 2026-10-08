@@ -8,20 +8,20 @@ import { sileo } from "sileo";
 
 import type { CourierRoute, CourierTrackingUpdate, PickPackShipment, PickPackShipmentDetail, PickPackTracking } from "@/lib/logistics/pick-pack-types";
 
-type MapConfig = { browserKey: string | null; mapId: string | null };
+type MapConfig = { browserKey: string | null; mapId: string | null; gatewayUrl: string };
 type Position = { lat: number; lng: number };
 type MapInstance = { fitBounds(bounds: { extend(position: Position): void }, padding?: number): void };
 type MapsLibrary = {
   Map: new (element: HTMLElement, options: Record<string, unknown>) => MapInstance;
   Polyline: new (options: { map: MapInstance; path: Position[]; strokeColor: string; strokeOpacity: number; strokeWeight: number }) => unknown;
-  LatLngBounds: new () => { extend(position: Position): void };
 };
-type MarkerLibrary = { AdvancedMarkerElement: new (options: { map: MapInstance; position: Position; title: string }) => unknown };
+type CoreLibrary = { LatLngBounds: new () => { extend(position: Position): void } };
+type MarkerLibrary = { AdvancedMarkerElement: new (options: { map: MapInstance; position: Position; title: string }) => {map:MapInstance|null} };
 type GeometryLibrary = { encoding: { decodePath(encoded: string): Array<{ lat(): number; lng(): number }> } };
 type MapsNamespace = { maps: { importLibrary(name: string): Promise<unknown> } };
-type MapsWindow = Window & { google?: MapsNamespace; __departamentalGoogleMapsLoaded?: () => void };
+type MapsWindow = Window & { google?: MapsNamespace; __departamentalGoogleMapsLoaded?: () => void; gm_authFailure?:()=>void };
 
-const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8000";
+
 
 async function routeEstimate(shipmentId: string): Promise<CourierRoute> {
   const response = await fetch(`/api/operations/shipments/${encodeURIComponent(shipmentId)}/route-estimate`, { cache: "no-store" });
@@ -49,8 +49,10 @@ function loadMaps(browserKey: string): Promise<MapsNamespace> {
   const current = getMaps();
   if (current) return Promise.resolve(current);
   return new Promise((resolve, reject) => {
+    const deadline = setTimeout(()=>reject(new Error("Google Maps no respondió.")),12000);
     const existing = document.getElementById("departamental-google-maps") as HTMLScriptElement | null;
     const finish = () => {
+      clearTimeout(deadline);
       const loaded = getMaps();
       if (loaded) resolve(loaded);
       else reject(new Error("Google Maps no se pudo cargar."));
@@ -62,6 +64,7 @@ function loadMaps(browserKey: string): Promise<MapsNamespace> {
     }
     const script = document.createElement("script");
     const mapsWindow = window as MapsWindow;
+    mapsWindow.gm_authFailure = () => window.dispatchEvent(new Event("departamental.maps.auth-failure"));
     const callback = "__departamentalGoogleMapsLoaded";
     script.id = "departamental-google-maps";
     script.async = true;
@@ -105,30 +108,42 @@ function CourierMap({ tracking, route, maps }: { tracking: PickPackTracking; rou
   useEffect(() => {
     if (!node.current || !location || !maps.browserKey || !maps.mapId) return;
     let active = true;
+    const authFailure = ()=>setError("Google Maps rechazó la configuración. Conservamos la dirección y la última ubicación.");
+    window.addEventListener("departamental.maps.auth-failure",authFailure);
+    const markers:Array<{map:MapInstance|null}> = [];
+    let polyline:{setMap(map:MapInstance|null):void}|null = null;
     void (async () => {
       try {
         const namespace = await loadMaps(maps.browserKey ?? "");
-        const mapsLibrary = await namespace.maps.importLibrary("maps") as MapsLibrary;
-        const markerLibrary = await namespace.maps.importLibrary("marker") as MarkerLibrary;
-        const geometryLibrary = await namespace.maps.importLibrary("geometry") as GeometryLibrary;
+        const [mapsLibrary,coreLibrary,markerLibrary,geometryLibrary] = await Promise.all([
+          namespace.maps.importLibrary("maps") as Promise<MapsLibrary>,
+          namespace.maps.importLibrary("core") as Promise<CoreLibrary>,
+          namespace.maps.importLibrary("marker") as Promise<MarkerLibrary>,
+          namespace.maps.importLibrary("geometry") as Promise<GeometryLibrary>,
+        ]);
         if (!active || !node.current) return;
         const position = { lat: location.latitude, lng: location.longitude };
         const map = new mapsLibrary.Map(node.current, { center: position, zoom: 14, mapId: maps.mapId, disableDefaultUI: true, gestureHandling: "cooperative" });
-        new markerLibrary.AdvancedMarkerElement({ map, position, title: `Repartidor ${tracking.courier.name}` });
-        const bounds = new mapsLibrary.LatLngBounds();
+        markers.push(new markerLibrary.AdvancedMarkerElement({ map, position, title: `Repartidor ${tracking.courier.name}` }));
+        const bounds = new coreLibrary.LatLngBounds();
         bounds.extend(position);
         if (route?.available && route.encodedPolyline) {
           const path = geometryLibrary.encoding.decodePath(route.encodedPolyline).map((point) => ({ lat: point.lat(), lng: point.lng() }));
-          new mapsLibrary.Polyline({ map, path, strokeColor: "#2742c7", strokeOpacity: 0.88, strokeWeight: 5 });
+          polyline = new mapsLibrary.Polyline({ map, path, strokeColor: "#2742c7", strokeOpacity: 0.88, strokeWeight: 5 }) as {setMap(map:MapInstance|null):void};
           path.forEach((point) => bounds.extend(point));
+          if (route.destination) {
+            const destination = {lat:route.destination.latitude,lng:route.destination.longitude};
+            markers.push(new markerLibrary.AdvancedMarkerElement({map,position:destination,title:"Destino: "+tracking.deliveryAddress}));
+            bounds.extend(destination);
+          }
         }
         map.fitBounds(bounds, 34);
       } catch {
         if (active) setError("El mapa no está disponible. Conservamos la dirección y la última ubicación.");
       }
     })();
-    return () => { active = false; };
-  }, [location, maps.browserKey, maps.mapId, route?.available, route?.encodedPolyline, tracking.courier.name]);
+    return () => { active = false; window.removeEventListener("departamental.maps.auth-failure",authFailure); markers.forEach(marker=>{marker.map=null;}); polyline?.setMap(null); };
+  }, [location, maps.browserKey, maps.mapId, route?.available, route?.encodedPolyline,route?.destination, tracking.courier.name,tracking.deliveryAddress]);
 
   if (!location) return null;
   if (!maps.browserKey || !maps.mapId) return <MapFallback message="Google Maps no está configurado. Conservamos la dirección y la última ubicación." />;
@@ -142,9 +157,12 @@ function MapFallback({ message }: { message: string }) {
 
 export function ShipmentTrackingPanel({ shipment, tracking, maps, onUpdated }: { shipment: PickPackShipment; tracking?: PickPackTracking; maps: MapConfig; onUpdated: (detail: PickPackShipmentDetail) => void }) {
   const [liveLocation, setLiveLocation] = useState<{ courierId: string; location: CourierTrackingUpdate["location"] } | null>(null);
+  const [clockAt,setClockAt] = useState(()=>Date.now());
   const [isSaving, setIsSaving] = useState(false);
   const queryClient = useQueryClient();
-  const current = tracking && liveLocation?.courierId === tracking.courier.id ? { ...tracking, location: liveLocation.location, locationFreshness: "RECENT" as const } : tracking;
+  useEffect(()=>{const timer=setInterval(()=>setClockAt(Date.now()),30000);return()=>clearInterval(timer);},[]);
+  const latestLocation = tracking && liveLocation?.courierId === tracking.courier.id && Date.parse(liveLocation.location.recordedAt)>Date.parse(tracking.location?.recordedAt ?? "1970-01-01") ? liveLocation.location : tracking?.location;
+  const current:PickPackTracking|undefined = tracking ? {...tracking,location:latestLocation ?? null,locationFreshness:latestLocation ? (clockAt-Date.parse(latestLocation.recordedAt)>300000 ? "STALE" : "RECENT") : "UNAVAILABLE"} : undefined;
   const route = useQuery({
     queryKey: ["courier-route", shipment.id, current?.location?.recordedAt],
     queryFn: () => routeEstimate(shipment.id),
@@ -153,15 +171,15 @@ export function ShipmentTrackingPanel({ shipment, tracking, maps, onUpdated }: {
   });
 
   useEffect(() => {
-    const socket: Socket = io(gatewayUrl, { path: "/realtime/socket.io", transports: ["websocket", "polling"], withCredentials: true });
+    const socket: Socket = io(maps.gatewayUrl, { path: "/realtime/socket.io", transports: ["websocket", "polling"], withCredentials: true });
     const applyLocation = (event: CourierTrackingUpdate) => {
       if (event.shipmentId !== shipment.id || event.courierId !== tracking?.courier.id) return;
-      setLiveLocation({ courierId: event.courierId, location: event.location });
+      setLiveLocation(previous => !previous || Date.parse(event.location.recordedAt)>Date.parse(previous.location.recordedAt) ? { courierId: event.courierId, location: event.location } : previous);
       void queryClient.invalidateQueries({ queryKey: ["courier-route", shipment.id] });
     };
     socket.on("courier.location.updated", applyLocation);
     return () => { socket.off("courier.location.updated", applyLocation); socket.disconnect(); };
-  }, [queryClient, shipment.id, tracking?.courier.id]);
+  }, [queryClient, shipment.id, tracking?.courier.id, maps.gatewayUrl]);
 
   const onSubmit = async (form: HTMLFormElement) => {
     const values = new FormData(form);

@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { connect, type ChannelModel, type ConfirmChannel } from "amqplib";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import type { QueryResultRow } from "pg";
 
 import { CRM_RUNTIME_CONFIG } from "../auth/token.service";
@@ -17,6 +17,8 @@ interface OutboxRow extends QueryResultRow {
   occurred_at: Date | string;
   correlation_id: string | null;
   payload: Record<string, unknown>;
+  campaign_id: string;
+  customer_id: string;
 }
 
 @Injectable()
@@ -54,13 +56,15 @@ export class CampaignOutboxService implements OnModuleInit, OnModuleDestroy {
     try {
       for (const event of await this.claimPending()) {
         try {
-          await this.publish(event);
+          if (await this.eligible(event) && await this.issueRight(event)) await this.publish(event);
           await this.markPublished(event.id);
         } catch {
           await this.reschedule(event.id);
           this.logger.warn("A CRM campaign event will be retried.");
         }
       }
+    } catch {
+      this.logger.warn("CRM campaign outbox will retry after the database recovers.");
     } finally {
       this.flushing = false;
     }
@@ -76,10 +80,38 @@ export class CampaignOutboxService implements OnModuleInit, OnModuleDestroy {
         ") UPDATE crm_campaign_outbox_events AS event",
         "SET delivery_attempts = event.delivery_attempts + 1, locked_by = $2, locked_until = NOW() + INTERVAL '30 seconds'",
         "FROM candidates WHERE event.id = candidates.id",
-        "RETURNING event.id, event.event_type, event.occurred_at, event.correlation_id, event.payload",
+        "RETURNING event.id, event.event_type, event.occurred_at, event.correlation_id, event.payload, event.campaign_id, event.customer_id",
       ].join("\n"), [BATCH_SIZE, this.workerId]);
       return result.rows;
     });
+  }
+
+  private async eligible(event: OutboxRow): Promise<boolean> {
+    return this.database.withTransaction(async (client) => {
+      const eligibility = await client.query<{ eligible: boolean }>([
+        "SELECT c.last_purchase_at < COALESCE(p.cutoff_at, ((p.created_at AT TIME ZONE 'America/Mexico_City') - make_interval(months => p.segment_months)) AT TIME ZONE 'America/Mexico_City') AND p.valid_until > NOW() AS eligible",
+        "FROM crm_customers c JOIN crm_campaigns p ON p.id = $1 WHERE c.customer_id = $2 FOR UPDATE OF c",
+      ].join("\n"), [event.campaign_id, event.customer_id]);
+      if (eligibility.rows[0]?.eligible) return true;
+      await client.query("UPDATE crm_campaign_recipients SET status = 'UNDELIVERABLE', failure_code = 'NO_LONGER_ELIGIBLE' WHERE campaign_id = $1 AND customer_id = $2 AND status = 'PENDING'", [event.campaign_id, event.customer_id]);
+      return false;
+    });
+  }
+
+  private async issueRight(event: OutboxRow): Promise<boolean> {
+    const coupon = event.payload.coupon as Record<string,unknown> | undefined;
+    if (!coupon?.discountType || !coupon.discountValue || !coupon.targetScope) {
+      await this.database.query("UPDATE crm_campaign_recipients SET status='UNDELIVERABLE',failure_code='LEGACY_COUPON_DEFINITION' WHERE campaign_id=$1 AND customer_id=$2 AND status='PENDING'",[event.campaign_id,event.customer_id]);
+      return false;
+    }
+    const secret = process.env.JWT_ACCESS_SECRET;
+    if (!secret) throw new Error("Coupon service configuration required.");
+    const response = await fetch(new URL("/internal/coupons/issue",process.env.PRICING_SERVICE_URL || "http://servicio-precios:3004"),{method:"POST",headers:{"Content-Type":"application/json","x-internal-service-key":createHmac("sha256",secret).update("departamental:coupons:crm:v1").digest("base64url")},body:JSON.stringify({campaignId:event.campaign_id,customerId:event.customer_id,code:coupon.code,validUntil:coupon.validUntil,discountType:coupon.discountType,discountValue:coupon.discountValue,targetScope:coupon.targetScope,targetId:coupon.targetId}),signal:AbortSignal.timeout(5000)});
+    if (!response.ok) {
+      if (response.status === 409 || response.status === 422) { await this.database.query("UPDATE crm_campaign_recipients SET status='UNDELIVERABLE',failure_code='COUPON_NOT_ISSUED' WHERE campaign_id=$1 AND customer_id=$2 AND status='PENDING'",[event.campaign_id,event.customer_id]); return false; }
+      throw new Error("Pricing will retry coupon issuance.");
+    }
+    return true;
   }
 
   private async publish(event: OutboxRow): Promise<void> {

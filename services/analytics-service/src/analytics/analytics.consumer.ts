@@ -17,6 +17,9 @@ export class AnalyticsConsumer implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AnalyticsConsumer.name);
   private connection: ChannelModel | null = null;
   private channel: Channel | null = null;
+  private readyCallback?: () => void;
+  isReady(): boolean { return this.channel !== null; }
+  whenReady(callback: () => void): void { this.readyCallback = callback; if (this.isReady()) callback(); }
   constructor(private readonly analytics: AnalyticsService, @Inject(ANALYTICS_RUNTIME_CONFIG) private readonly config: Pick<AnalyticsRuntimeConfig, "environment" | "rabbitmqUrl">) {}
   onModuleInit(): void { if (this.config.environment !== "test") void this.connect(); }
   async onModuleDestroy(): Promise<void> { this.channel = null; const connection = this.connection; this.connection = null; if (connection) await connection.close().catch(() => undefined); }
@@ -27,7 +30,7 @@ export class AnalyticsConsumer implements OnModuleInit, OnModuleDestroy {
       await channel.assertExchange(EVENTS_EXCHANGE, "topic", { durable: true }); await channel.assertExchange(DEAD_LETTER_EXCHANGE, "topic", { durable: true });
       await channel.assertQueue(DLQ, { durable: true }); for (const key of ROUTING_KEYS) await channel.bindQueue(DLQ, DEAD_LETTER_EXCHANGE, key);
       await channel.assertQueue(QUEUE, { durable: true, arguments: { "x-dead-letter-exchange": DEAD_LETTER_EXCHANGE } }); for (const key of ROUTING_KEYS) await channel.bindQueue(QUEUE, EVENTS_EXCHANGE, key);
-      this.connection = connection; this.channel = channel; await channel.consume(QUEUE, (message) => void this.consume(channel, message), { noAck: false });
+      this.connection = connection; await channel.consume(QUEUE, (message) => void this.consume(channel, message), { noAck: false }); this.channel = channel; this.readyCallback?.();
     } catch { this.logger.warn("Analytics event consumer is reconnecting after RabbitMQ becomes available."); const retry = setTimeout(() => void this.connect(), 1_000); retry.unref(); }
   }
   private async consume(channel: Channel, message: ConsumeMessage | null): Promise<void> {
@@ -57,7 +60,8 @@ export class AnalyticsConsumer implements OnModuleInit, OnModuleDestroy {
   }
   private stock(value: Record<string, unknown>, data: Record<string, unknown>): StockChangedEvent {
     if (!this.uuid(data.variantId) || !this.uuid(data.branchId) || !this.nonnegativeInteger(data.onHand) || !this.nonnegativeInteger(data.reserved) || !this.nonnegativeInteger(data.available) || data.available !== data.onHand - data.reserved || !this.date(data.lastUpdatedAt) || (data.branchName !== undefined && typeof data.branchName !== "string")) throw new Error("Invalid inventory stock event.");
-    return { eventId: value.eventId as string, eventType: "inventory.stock.changed.v1", occurredAt: value.occurredAt as string, correlationId: value.correlationId as string | null, variantId: data.variantId, branchId: data.branchId, branchName: typeof data.branchName === "string" ? data.branchName.trim() : undefined, onHand: data.onHand, reserved: data.reserved, available: data.available, lastUpdatedAt: data.lastUpdatedAt };
+    if (data.revision !== undefined && (!this.positiveInteger(data.revision))) throw new Error("Invalid stock revision");
+    return { revision: data.revision as number | undefined, eventId: value.eventId as string, eventType: "inventory.stock.changed.v1", occurredAt: value.occurredAt as string, correlationId: value.correlationId as string | null, variantId: data.variantId, branchId: data.branchId, branchName: typeof data.branchName === "string" ? data.branchName.trim() : undefined, onHand: data.onHand, reserved: data.reserved, available: data.available, lastUpdatedAt: data.lastUpdatedAt };
   }
   private clear(connection: ChannelModel): void { if (this.connection !== connection) return; this.connection = null; this.channel = null; const retry = setTimeout(() => void this.connect(), 1_000); retry.unref(); }
   private object(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }

@@ -9,7 +9,7 @@ export interface CompletedOrderEvent extends EventBase {
 export interface CancelledOrderEvent extends EventBase { eventType: "order.cancelled.v1"; orderId: string; }
 export interface StockChangedEvent extends EventBase {
   eventType: "inventory.stock.changed.v1";
-  branchId: string; branchName?: string; variantId: string; onHand: number; reserved: number; available: number; lastUpdatedAt: string;
+  branchId: string; branchName?: string; variantId: string; onHand: number; reserved: number; available: number; lastUpdatedAt: string; revision?: number;
 }
 export type AnalyticsEvent = CompletedOrderEvent | CancelledOrderEvent | StockChangedEvent;
 
@@ -23,10 +23,11 @@ export interface SalesTodayResponse { period: AnalyticsPeriodResponse; currency:
 export interface TicketAverageResponse { period: AnalyticsPeriodResponse; currency: string; ticketAverage: number; completedOrders: number; formula: string; lastUpdatedAt: string | null; }
 export interface TopProductsResponse {
   period: AnalyticsPeriodResponse; currency: string; limit: number;
-  products: Array<{ productId: string; variantId: string; productName: string; unitsSold: number; sales: number }>;
+  products: Array<{ productId: string; productName: string; unitsSold: number; sales: number }>;
   lastUpdatedAt: string | null;
 }
 export interface InventoryByBranchResponse {
+  synchronization: { complete: boolean; completedAt: string | null; importedRows: number; expectedRows: number; retryPending: boolean };
   branches: Array<{ branchId: string; branchName: string; onHand: number; reserved: number; available: number }>;
   lastUpdatedAt: string | null;
 }

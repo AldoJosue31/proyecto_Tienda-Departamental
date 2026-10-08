@@ -43,11 +43,21 @@ export interface PublicCatalogProduct extends Omit<CatalogProduct, "status" | "v
   variants: Array<Omit<CatalogVariant, "status">>;
 }
 
+export interface CatalogFacet {
+  slug: string;
+  name: string;
+  count: number;
+}
+
 export interface ProductSearchResponse {
   items: PublicCatalogProduct[];
   page: number;
   pageSize: number;
   total: number;
+  facets: {
+    categories: CatalogFacet[];
+    brands: CatalogFacet[];
+  };
 }
 
 export interface ProductDetailResponse {

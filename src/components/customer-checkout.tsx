@@ -1,0 +1,175 @@
+"use client";
+
+import {
+  IconAlertTriangle,
+  IconArrowLeft,
+  IconCircleCheck,
+  IconLoader2,
+  IconMinus,
+  IconPlus,
+  IconShoppingBag,
+  IconTrash,
+} from "@tabler/icons-react";
+import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { useCustomerCart } from "@/components/customer-cart-provider";
+import type { CustomerCartLine } from "@/lib/cart/customer-cart";
+import { getCatalogProduct } from "@/lib/catalog/catalog-client";
+import { catalogProductImageStyle } from "@/lib/catalog/product-image";
+import type { CatalogProductSummary, CatalogVariant } from "@/lib/catalog/types";
+
+type CheckoutBranch = { id: string; name: string };
+type CheckoutResult = { order: { id: string; status: string; total: number; currency: string } };
+type CheckoutConfirmation = CheckoutResult & { branchName: string; itemCount: number };
+type CheckoutMutationResult = { result: CheckoutResult; sentLines: CustomerCartLine[]; branchName: string; itemCount: number };
+type ResolvedCartLine = { product: CatalogProductSummary; variant: CatalogVariant; quantity: number };
+
+function money(value: number, currency: string) {
+  try {
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return `${value.toFixed(2)} ${currency}`;
+  }
+}
+
+function messageFrom(response: Response, body: unknown) {
+  if (typeof body === "object" && body !== null && "message" in body && typeof body.message === "string") return body.message;
+  return response.status === 401 ? "Tu sesión ya no está disponible. Inicia sesión nuevamente." : "No fue posible completar la operación.";
+}
+
+async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, { ...init, headers: { "X-Correlation-Id": crypto.randomUUID(), ...init?.headers } });
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(messageFrom(response, body));
+  return body as T;
+}
+
+function reference(orderId: string) {
+  return `PEDIDO-${orderId.slice(0, 8).toUpperCase()}`;
+}
+
+export function CustomerCheckout() {
+  const { lines, itemCount, ready, revise, remove, consume } = useCustomerCart();
+  const [branchId, setBranchId] = useState("");
+  const [couponCode,setCouponCode] = useState("");
+  const [confirmation, setConfirmation] = useState<CheckoutConfirmation | null>(null);
+  const checkoutKey = useRef<string | null>(null);
+  const productIds = useMemo(() => [...new Set(lines.map((line) => line.productId))], [lines]);
+  const productQueries = useQueries({
+    queries: productIds.map((productId) => ({
+      queryKey: ["catalog-product", productId],
+      queryFn: ({ signal }) => getCatalogProduct(productId, signal),
+      enabled: ready,
+      staleTime: 60_000,
+      retry: false,
+    })),
+  });
+  const products = useMemo(() => {
+    const values = new Map<string, CatalogProductSummary>();
+    productQueries.forEach((query, index) => {
+      if (query.data) values.set(productIds[index], query.data);
+    });
+    return values;
+  }, [productIds, productQueries]);
+  const resolvedLines = useMemo<ResolvedCartLine[]>(() => lines.flatMap((line) => {
+    const product = products.get(line.productId);
+    const variant = product?.variants.find((candidate) => candidate.id === line.variantId);
+    return product && variant ? [{ product, variant, quantity: line.quantity }] : [];
+  }), [lines, products]);
+  const unverifiedLines = useMemo(() => lines.filter((line) => !resolvedLines.some((item) => item.product.id === line.productId && item.variant.id === line.variantId)), [lines, resolvedLines]);
+  const productsLoading = !ready || productQueries.some((query) => query.isLoading);
+  const productsFailed = productQueries.some((query) => query.isError);
+  const branchesQuery = useQuery({
+    queryKey: ["checkout", "branches"],
+    queryFn: () => jsonRequest<{ branches: CheckoutBranch[] }>("/api/checkout/branches"),
+    enabled: ready && resolvedLines.length > 0 && unverifiedLines.length === 0 && !confirmation,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const branches = branchesQuery.data?.branches ?? [];
+  const selectedBranch = branches.find((branch) => branch.id === branchId);
+  const cartSignature = lines.map((line) => `${line.productId}:${line.variantId}:${line.quantity}`).join("|");
+  const currencies = useMemo(() => new Set(resolvedLines.map((item) => item.variant.currency)), [resolvedLines]);
+  const hasMixedCurrencies = currencies.size > 1;
+  const total = resolvedLines.reduce((sum, item) => sum + item.variant.listPrice * item.quantity, 0);
+  const currency = resolvedLines[0]?.variant.currency ?? "MXN";
+
+  useEffect(() => { checkoutKey.current = null; }, [branchId, cartSignature,couponCode]);
+  const coupon = useMutation({mutationFn:async()=>({signature:cartSignature+"|"+couponCode,result:await jsonRequest<{discountTotal:number;prices:Array<{variantId:string;unitPrice:number}>}>("/api/checkout/coupon",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:couponCode,items:lines})})})});
+  const couponPreview = coupon.data?.signature === cartSignature+"|"+couponCode ? coupon.data.result : null;
+
+  const checkout = useMutation({
+    mutationFn: async () => {
+      if (!selectedBranch || !resolvedLines.length || unverifiedLines.length > 0 || hasMixedCurrencies) throw new Error("Revisa los artículos y selecciona una sucursal antes de confirmar.");
+      const idempotencyKey = checkoutKey.current ?? (checkoutKey.current = crypto.randomUUID());
+      const sentLines = resolvedLines.map((item) => ({ productId: item.product.id, variantId: item.variant.id, quantity: item.quantity }));
+      const result = await jsonRequest<CheckoutResult>("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify({ branchId: selectedBranch.id, items: sentLines, ...(couponCode.trim() ? {couponCode:couponCode.trim().toUpperCase()} : {}) }),
+      });
+      return { result, sentLines, branchName: selectedBranch.name, itemCount: sentLines.reduce((sum, line) => sum + line.quantity, 0) } satisfies CheckoutMutationResult;
+    },
+    onSuccess: ({ result, sentLines, branchName, itemCount: submittedItemCount }) => {
+      setConfirmation({ ...result, branchName, itemCount: submittedItemCount });
+      consume(sentLines);
+      checkoutKey.current = null;
+    },
+  });
+
+  if (confirmation) return <Confirmation confirmation={confirmation} />;
+
+  return <section className="platform-page">
+    <Link href="/" className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)]"><IconArrowLeft size={18} aria-hidden="true" />Seguir explorando</Link>
+    <div className="mt-4 flex flex-wrap items-end justify-between gap-4"><div><h1 className="text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Revisa y confirma tu compra.</h1><p className="mt-3 max-w-2xl text-pretty leading-7 text-[var(--muted)]">Elige la sucursal que atenderá tu pedido. El precio y la existencia se vuelven a validar de forma segura antes de registrarlo.</p></div><p className="rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-sm font-semibold text-[var(--accent-strong)]">{itemCount} {itemCount === 1 ? "artículo" : "artículos"}</p></div>
+    {!ready || productsLoading ? <CheckoutSkeleton /> : lines.length === 0 ? <EmptyBag /> : <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <section className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)]" aria-labelledby="bag-lines-title">
+        <div className="border-b border-[var(--line)] px-5 py-4 sm:px-6"><h2 id="bag-lines-title" className="font-semibold">Artículos seleccionados</h2><p className="mt-1 text-sm text-[var(--muted)]">Puedes ajustar cantidades o quitar una variante.</p></div>
+        <div className="divide-y divide-[var(--line)]">{resolvedLines.map((item) => <CartLine key={item.variant.id} item={item} disabled={checkout.isPending} onAdjust={(delta) => revise({ productId: item.product.id, variantId: item.variant.id }, delta)} onRemove={() => remove(item.variant.id)} />)}</div>
+        {unverifiedLines.length > 0 ? <div className="border-t border-[var(--line)] bg-[var(--warning-surface)] px-5 py-4 sm:px-6" role="alert"><div className="flex items-start gap-3"><IconAlertTriangle className="mt-0.5 shrink-0 text-[var(--warning)]" size={19} aria-hidden="true" /><div><p className="text-sm font-semibold">Hay artículos que requieren atención</p><p className="mt-1 text-sm leading-6 text-[var(--muted)]">{productsFailed ? "No pudimos verificar uno o más artículos. Reintenta la verificación o quítalos antes de confirmar." : "Una variante ya no está disponible. Quítala antes de confirmar."}</p><div className="mt-3 flex flex-wrap gap-2">{productsFailed ? <button type="button" onClick={() => { productQueries.forEach((query) => { void query.refetch(); }); }} disabled={checkout.isPending} className="inline-flex min-h-11 items-center rounded-lg bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--warning)] transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-45">Reintentar verificación</button> : null}{unverifiedLines.map((line) => <button key={line.variantId} type="button" onClick={() => remove(line.variantId)} disabled={checkout.isPending} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--warning)] transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-45">Quitar artículo no disponible<IconTrash size={16} aria-hidden="true" /></button>)}</div></div></div></div> : null}
+      </section>
+      <aside className="h-fit rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 lg:sticky lg:top-28 sm:p-6" aria-labelledby="checkout-summary-title">
+        <h2 id="checkout-summary-title" className="font-semibold">Confirmar pedido</h2><p className="mt-1 text-sm leading-6 text-[var(--muted)]">Elige la sucursal que atenderá tu pedido.</p>
+        <fieldset disabled={branchesQuery.isLoading || Boolean(branchesQuery.error) || checkout.isPending} className="mt-5"><legend className="text-sm font-semibold">Sucursal que atiende el pedido</legend><p id="checkout-branch-help" className="mt-1 text-xs leading-5 text-[var(--muted)]">Esta selección indica la sucursal que atiende tu pedido; no confirma una modalidad de entrega. La disponibilidad y el precio vigentes se validan al enviarlo.</p>{branchesQuery.isLoading ? <p className="mt-3 flex min-h-11 items-center gap-2 rounded-xl bg-[var(--surface-muted)] px-3 text-sm text-[var(--muted)]"><IconLoader2 size={17} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Cargando sucursales…</p> : branches.length > 0 ? <div className="mt-3 space-y-2">{branches.map((branch) => { const selected = branch.id === branchId; return <label key={branch.id} className={`flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border px-3 py-3 transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 has-[:focus-visible]:outline-[var(--focus)] ${selected ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--line)] bg-[var(--surface-muted)] hover:bg-[var(--surface)]"}`}><input type="radio" name="checkout-branch" value={branch.id} checked={selected} onChange={() => setBranchId(branch.id)} aria-describedby="checkout-branch-help" className="sr-only" /><span className="text-sm font-semibold">{branch.name}</span><span className={`text-xs font-semibold ${selected ? "text-[var(--accent-strong)]" : "text-[var(--muted)]"}`}>{selected ? "Seleccionada" : "Elegir"}</span></label>; })}</div> : !branchesQuery.isError ? <p className="mt-3 rounded-xl border border-dashed border-[var(--line)] px-3 py-3 text-sm leading-6 text-[var(--muted)]" role="status">No hay sucursales de atención disponibles.</p> : null}</fieldset>
+        {branchesQuery.isError ? <div role="alert" className="mt-3 flex flex-wrap items-start gap-2 text-sm leading-5 text-[var(--danger)]"><IconAlertTriangle className="mt-0.5 shrink-0" size={16} aria-hidden="true" /><span>{branchesQuery.error instanceof Error ? branchesQuery.error.message : "No fue posible cargar las sucursales."}</span><button type="button" onClick={() => { void branchesQuery.refetch(); }} disabled={checkout.isPending} className="min-h-10 rounded-lg px-2 font-semibold underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-45">Reintentar</button></div> : null}
+        <div className="mt-5 space-y-2">
+          <label htmlFor="checkout-coupon" className="text-sm font-medium">Código de descuento</label>
+          <div className="flex gap-2"><input id="checkout-coupon" value={couponCode} maxLength={64} disabled={checkout.isPending} onChange={event=>{setCouponCode(event.target.value.toUpperCase());coupon.reset();}} className="min-w-0 flex-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm" placeholder="Código recibido por correo" /><button type="button" disabled={!couponCode.trim() || coupon.isPending || checkout.isPending || !resolvedLines.length} onClick={()=>coupon.mutate()} className="rounded-xl bg-[var(--surface-muted)] px-3 text-sm font-semibold disabled:opacity-50">Validar</button></div>
+          {coupon.isError ? <p role="alert" className="text-sm text-[var(--danger)]">{coupon.error.message}</p> : null}
+          {coupon.isSuccess && couponPreview ? <p role="status" className="text-sm text-[var(--success)]">Cupón válido. Total estimado {money(total-couponPreview.discountTotal,currency)}. Se aplica el mejor beneficio por artículo, sin acumular descuentos.</p> : null}
+        </div>
+        <dl className="mt-6 space-y-2 border-y border-[var(--line)] py-4 text-sm"><div className="flex items-center justify-between gap-4 text-[var(--muted)]"><dt>Artículos</dt><dd>{itemCount}</dd></div><div className="flex items-end justify-between gap-4"><dt className="font-semibold">Total estimado</dt><dd className="text-xl font-semibold tracking-[-0.03em]">{money(couponPreview ? total-couponPreview.discountTotal : total, currency)}</dd></div></dl>
+        <p className="mt-4 text-xs leading-5 text-[var(--muted)]">El total se calcula con el precio publicado. Pricing e Inventory validan el precio vigente y la existencia al confirmar.</p>
+        {hasMixedCurrencies ? <p role="alert" className="mt-4 flex gap-2 text-sm leading-5 text-[var(--danger)]"><IconAlertTriangle className="mt-0.5 shrink-0" size={16} aria-hidden="true" />Tu bolsa contiene precios en distintas monedas. Ajusta los artículos antes de confirmar.</p> : null}
+        {checkout.isError ? <p role="alert" className="mt-4 flex gap-2 text-sm leading-5 text-[var(--danger)]"><IconAlertTriangle className="mt-0.5 shrink-0" size={16} aria-hidden="true" />{checkout.error instanceof Error ? checkout.error.message : "No fue posible confirmar tu pedido."}</p> : null}
+        <button type="button" onClick={() => checkout.mutate()} disabled={!selectedBranch || !resolvedLines.length || unverifiedLines.length > 0 || hasMixedCurrencies || branchesQuery.isLoading || Boolean(branchesQuery.error) || checkout.isPending} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-45">{checkout.isPending ? <><IconLoader2 size={18} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Confirmando pedido</> : <><IconCircleCheck size={18} aria-hidden="true" />Confirmar pedido</>}</button>
+      </aside>
+    </div>}
+  </section>;
+}
+
+function CartLine({ item, onAdjust, onRemove, disabled }: { item: ResolvedCartLine; onAdjust: (delta: number) => void; onRemove: () => void; disabled: boolean }) {
+  return <article className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6"><div className="flex min-w-0 items-center gap-3"><div role="img" aria-label={`Imagen de ${item.product.name}`} className="grid size-14 shrink-0 overflow-hidden rounded-lg bg-[var(--surface-muted)] bg-no-repeat" style={catalogProductImageStyle(item.product)}>{!item.product.imageUrl ? <span aria-hidden="true" className="place-self-center font-semibold text-[var(--accent-strong)]">{item.product.name.slice(0, 1)}</span> : null}</div><div className="min-w-0"><p className="truncate text-sm font-semibold">{item.product.name}</p><p className="mt-1 text-xs text-[var(--muted)]">{item.variant.label} · SKU {item.variant.sku}</p><p className="mt-1 text-sm font-semibold">{money(item.variant.listPrice * item.quantity, item.variant.currency)}</p></div></div><div className="flex items-center gap-2"><div className="flex min-h-11 items-center rounded-lg border border-[var(--line)]"><button type="button" aria-label={`Restar ${item.product.name}`} onClick={() => onAdjust(-1)} disabled={disabled} className="grid size-11 place-items-center text-[var(--muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-45"><IconMinus size={16} aria-hidden="true" /></button><span className="w-8 text-center text-sm font-semibold" aria-label={`${item.quantity} unidades`}>{item.quantity}</span><button type="button" aria-label={`Sumar ${item.product.name}`} onClick={() => onAdjust(1)} disabled={disabled} className="grid size-11 place-items-center text-[var(--muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-45"><IconPlus size={16} aria-hidden="true" /></button></div><button type="button" onClick={onRemove} disabled={disabled} aria-label={`Quitar ${item.product.name}`} className="grid size-11 place-items-center rounded-lg text-[var(--muted)] transition-colors hover:bg-[var(--danger-surface)] hover:text-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-45"><IconTrash size={17} aria-hidden="true" /></button></div></article>;
+}
+
+function EmptyBag() {
+  return <section className="mt-8 grid min-h-72 place-items-center rounded-2xl border border-dashed border-[var(--line)] bg-[var(--surface)] px-6 py-12 text-center"><div><span className="mx-auto grid size-12 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent-strong)]"><IconShoppingBag size={24} aria-hidden="true" /></span><h2 className="mt-5 text-xl font-semibold tracking-[-0.025em]">Tu bolsa está vacía</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--muted)]">Agrega una variante desde el catálogo para revisar tu compra y elegir la sucursal que atenderá tu pedido.</p><Link href="/" className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-strong)]"><IconArrowLeft size={17} aria-hidden="true" />Explorar catálogo</Link></div></section>;
+}
+
+function CheckoutSkeleton() {
+  return <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]" aria-label="Cargando tu bolsa" aria-busy="true"><div className="h-72 rounded-2xl bg-[var(--surface-muted)] animate-pulse motion-reduce:animate-none" /><div className="h-80 rounded-2xl bg-[var(--surface-muted)] animate-pulse motion-reduce:animate-none" /></div>;
+}
+
+function Confirmation({ confirmation }: { confirmation: CheckoutConfirmation }) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { headingRef.current?.focus({ preventScroll: true }); }, []);
+
+  return <section aria-labelledby="confirmation-heading" className="platform-page grid min-h-[calc(100dvh-12rem)] place-items-center"><p className="sr-only" role="status" aria-live="polite" aria-atomic="true">Pedido confirmado. Referencia {reference(confirmation.order.id)}.</p><div className="w-full max-w-[760px] rounded-2xl border border-[var(--success)]/35 bg-[var(--surface)] p-6 sm:p-8"><span className="grid size-12 place-items-center rounded-xl bg-[var(--success-surface)] text-[var(--success)]"><IconCircleCheck size={25} aria-hidden="true" /></span><h1 ref={headingRef} id="confirmation-heading" tabIndex={-1} className="mt-7 text-balance text-3xl font-semibold tracking-[-0.04em]">Tu compra quedó registrada.</h1><p className="mt-3 max-w-xl text-pretty leading-7 text-[var(--muted)]">Confirmamos {confirmation.itemCount} {confirmation.itemCount === 1 ? "artículo" : "artículos"}. La sucursal que atenderá el pedido es <span className="font-semibold text-[var(--ink)]">{confirmation.branchName}</span>.</p><dl className="mt-7 divide-y divide-[var(--line)] border-y border-[var(--line)]"><div className="flex items-center justify-between gap-4 py-3.5"><dt className="text-sm text-[var(--muted)]">Referencia</dt><dd className="font-mono text-xs font-semibold text-[var(--accent-strong)]">{reference(confirmation.order.id)}</dd></div><div className="flex items-center justify-between gap-4 py-3.5"><dt className="text-sm text-[var(--muted)]">Total confirmado</dt><dd className="text-sm font-semibold">{money(confirmation.order.total, confirmation.order.currency)}</dd></div><div className="flex items-center justify-between gap-4 py-3.5"><dt className="text-sm text-[var(--muted)]">Estado</dt><dd className="text-sm font-semibold">Confirmado</dd></div></dl><p className="mt-5 text-sm leading-6 text-[var(--muted)]">Puedes consultar el avance y las entregas de tus compras desde Mis pedidos.</p><div className="mt-7 flex flex-wrap gap-3"><Link href="/orders" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-strong)]"><IconCircleCheck size={17} aria-hidden="true" />Ver mis pedidos</Link><Link href="/" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--line)] px-4 text-sm font-semibold transition-colors hover:bg-[var(--surface-muted)]"><IconShoppingBag size={17} aria-hidden="true" />Seguir comprando</Link></div></div></section>;
+}

@@ -1,0 +1,72 @@
+# Always combine with compose.yaml and use project departamental-five-phases.
+# The integration runner refuses to use a different project or database port.
+name: departamental-five-phases
+services:
+  aplicacion-web:
+    ports: !override ["127.0.0.1:3105:3000"]
+  pasarela-api:
+    ports: !override ["127.0.0.1:8005:8000"]
+  postgres:
+    ports: !reset []
+  auth-postgres:
+    ports: ["127.0.0.1:55431:5432"]
+    networks: [integration-access]
+  redis:
+    ports: !reset []
+  inventory-postgres:
+    ports: ["127.0.0.1:55433:5432"]
+    networks: [integration-access]
+  analytics-postgres:
+    ports: ["127.0.0.1:55437:5432"]
+    networks: [integration-access]
+  pricing-postgres:
+    ports: ["127.0.0.1:55434:5432"]
+    networks: [integration-access]
+  crm-postgres:
+    ports: ["127.0.0.1:55439:5432"]
+    networks: [integration-access]
+  notification-postgres:
+    ports: ["127.0.0.1:55440:5432"]
+    networks: [integration-access]
+  orders-postgres:
+    ports: ["127.0.0.1:55435:5432"]
+    networks: [integration-access]
+  logistics-postgres:
+    ports: ["127.0.0.1:55438:5432"]
+    networks: [integration-access]
+  smtp-capture:
+    image: axllent/mailpit:v1.27.10
+    ports: ["127.0.0.1:18025:8025"]
+    networks: [notification-egress]
+  servicio-notificaciones:
+    environment:
+      NOTIFICATION_DELIVERY_MODE: smtp
+      SMTP_URL: smtp://smtp-capture:1025
+      NOTIFICATION_FROM_EMAIL: promociones@example.test
+      NOTIFICATION_RETRY_INTERVAL_SECONDS: "1"
+    depends_on:
+      smtp-capture:
+        condition: service_started
+  servicio-precios:
+    ports: ["127.0.0.1:3304:3004"]
+    networks: [integration-access]
+  servicio-pedidos:
+    ports: ["127.0.0.1:3305:3005"]
+    networks: [integration-access]
+  rabbitmq:
+    ports: ["127.0.0.1:55672:5672"]
+    networks: [integration-access]
+  servicio-inventario:
+    ports: ["127.0.0.1:3303:3003"]
+    networks: [integration-access]
+    environment:
+      INVENTORY_RESERVATION_SWEEP_SECONDS: "1"
+  servicio-analitica:
+    environment:
+      ANALYTICS_INVENTORY_SYNC_SECONDS: "3"
+  servicio-clientes:
+    environment:
+      # Keep campaign publishing deterministic while the runner checks eligibility.
+      OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "60000"
+networks:
+  integration-access:

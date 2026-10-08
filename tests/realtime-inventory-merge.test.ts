@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { InventoryDashboard, StockUpdatedEvent } from "@/lib/inventory/dashboard-types";
-import { mergeStockUpdated, recordRealtimeLatency } from "@/lib/inventory/realtime";
+import { mergeInventorySnapshot, mergeStockUpdated, recordRealtimeLatency } from "@/lib/inventory/realtime";
 
 const dashboard: InventoryDashboard = {
   branch: { id: "11111111-1111-4111-8111-111111111111", name: "Centro" },
@@ -46,6 +46,34 @@ const stockUpdated: StockUpdatedEvent = {
 };
 
 describe("inventory realtime merge", () => {
+  const versioned = { ...dashboard, items: dashboard.items.map((item) => ({ ...item, revision: 5 })) };
+  it("orders revisions even when timestamps match", () => {
+    const next = mergeStockUpdated(versioned, { ...stockUpdated, revision: 6, lastUpdatedAt: dashboard.items[0]!.lastUpdatedAt });
+    expect(next.applied).toBe(true);
+    expect(next.dashboard.summary.outOfStock).toBe(1);
+    expect(mergeStockUpdated(next.dashboard, { ...stockUpdated, revision: 5 }).applied).toBe(false);
+    expect(mergeStockUpdated(next.dashboard, { ...stockUpdated, revision: 6 }).applied).toBe(false);
+    expect(mergeStockUpdated(next.dashboard, stockUpdated).applied).toBe(false);
+  });
+  it("preserves an event received while an older HTTP snapshot was in flight", () => {
+    const latest = mergeStockUpdated(versioned, { ...stockUpdated, revision: 6 }).dashboard;
+    const merged = mergeInventorySnapshot(latest, versioned);
+    expect(merged.items[0]?.revision).toBe(6);
+    expect(merged.summary.available).toBe(0);
+  });
+  it("never mixes two branches", () => {
+    expect(mergeStockUpdated(versioned, { ...stockUpdated, branchId: "other", revision: 99 }).applied).toBe(false);
+    const other = { ...dashboard, branch: { id: "other", name: "Norte" } };
+    expect(mergeInventorySnapshot(versioned, other)).toBe(other);
+  });
+  it("keeps an event for the newly selected branch while its HTTP request is pending", () => {
+    const other = { ...versioned, branch: { id: "other", name: "Norte" } };
+    const event = { ...stockUpdated, branchId: "other", revision: 6 };
+    const merged = mergeInventorySnapshot(versioned, other, [event]);
+    expect(merged.branch.id).toBe("other");
+    expect(merged.items[0]?.revision).toBe(6);
+    expect(merged.summary.available).toBe(0);
+  });
   it("applies a current stock event and recalculates AGOTADO and low-stock totals", () => {
     const result = mergeStockUpdated(dashboard, stockUpdated, "2026-09-05T12:00:02.000Z");
 

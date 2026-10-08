@@ -1,7 +1,8 @@
 # Plataforma Departamental
 
-Este repositorio se desarrolla tomando como fuente principal de verdad
-`Proyecto_Universitario_Tienda_Departamental_Historias_Detalladas.docx`.
+Este repositorio se desarrolla tomando como referencia vigente
+[Proyecto Universitario Tienda Departamental v2.4](docs/Proyecto_Universitario_Tienda_Departamental_v2.4.docx),
+actualizada contra el código el 6 de octubre de 2026.
 La meta es una plataforma omnicanal de microservicios, no convertir el MVP
 existente de Next.js en un monolito mayor.
 
@@ -125,6 +126,7 @@ Kong publica estos contratos con JWT:
 | --- | --- |
 | `POST /orders` | `ADMIN`, `EMPLOYEE`, `CUSTOMER`; requiere `Idempotency-Key`. |
 | `GET /orders` | `ADMIN`, `EMPLOYEE`. |
+| `GET /orders/mine` | Solo `CUSTOMER`; devuelve únicamente los pedidos de su identidad autenticada. |
 | `GET /orders/:id` | Operación o el `CUSTOMER` propietario. |
 | `POST /orders/:id/cancel` | Operación o el `CUSTOMER` propietario. |
 
@@ -132,9 +134,13 @@ Orders toma el precio efectivo desde Pricing, conserva el snapshot de producto
 y precio en sus propias líneas, reserva y confirma stock mediante la API
 privada de Inventory y nunca lee tablas ajenas. Repetir el mismo checkout con
 la misma clave devuelve el mismo pedido sin volver a consumir existencias; un
-pedido que no alcanza stock devuelve `409 OUT_OF_STOCK`. La cancelación de una
-orden ya confirmada se compensa mediante `order.cancelled.v1`, sin acoplar
-Orders a la base de Inventory.
+pedido que no alcanza stock devuelve `409 OUT_OF_STOCK`. Para una orden online
+confirmada, Orders pide a Logistics una decisión interna y autenticada antes de
+cancelarla: `PENDING` o `PACKING` se cancelan atómicamente, mientras que
+`SHIPPED` o `DELIVERED` responden `409 ORDER_ALREADY_DISPATCHED`. La orden usa
+el estado reintentable `CANCELLATION_PENDING` si Logistics está temporalmente
+indisponible; solo al aceptar la decisión se publica `order.cancelled.v1` para
+compensar Inventory. No se declara ni procesa un reembolso.
 
 ## Fase 6: RabbitMQ y Outbox transaccional
 
@@ -213,9 +219,14 @@ inventario sigan funcionando.
 ## Fase 9: Pick & Pack y Logistics
 
 `logistics-service` es dueño de su PostgreSQL y no consulta la base de Orders.
-Su consumidor durable `logistics.order-events.v1` proyecta
-`order.completed.v1` en un envío con snapshot de artículos y procesa
-`order.cancelled.v1` para retirar pedidos cancelados de preparación. El
+Su consumidor durable `logistics.order-events.v1` valida y conserva el canal
+del evento: proyecta únicamente `order.completed.v1` con `channel: ONLINE` en
+un envío con snapshot de artículos; una venta `PHYSICAL` queda procesada y
+deduplicada, pero no inicia preparación ni entrega. También procesa
+`order.cancelled.v1` para retirar pedidos cancelados de preparación. Antes de
+publicar esa compensación, Orders usa la ruta interna no expuesta por Kong
+`POST /internal/shipments/orders/:orderId/cancel`, protegida con una llave de
+servicio, para impedir cancelar un envío ya despachado. El
 `eventId` se registra transaccionalmente, de modo que una reentrega no crea un
 segundo envío. Cada transición y su actor quedan en
 `logistics_shipment_transitions`; su outbox publica
@@ -307,12 +318,12 @@ docker compose config
 docker compose up --build
 ```
 
-La aplicación web queda en `http://localhost:3000` y el Gateway en
-`http://localhost:8000`. En desarrollo local se pueden crear los tres usuarios
-semilla de Auth y los seis productos de Catalog; consulta
-[Auth Service](services/auth-service/README.md) y
-[Catalog Service](services/catalog-service/README.md) para sus contratos y
-configuración aislada.
+La aplicación web queda en `http://localhost:3000` (o el puerto configurado en
+`WEB_HOST_PORT`) y el Gateway en `http://localhost:8000`. Para las cuentas
+locales de demostración de los tres roles, consulta [Acceso local](ACCESO_LOCAL.md).
+En desarrollo también se pueden crear los catorce productos semilla de Catalog;
+consulta [Catalog Service](services/catalog-service/README.md) para sus
+contratos y configuración.
 
 El Compose mantiene `postgres` y `redis` del MVP únicamente para no romper el
 trabajo existente. Auth, Catalog, Inventory, Pricing, Orders, Logistics, CRM y

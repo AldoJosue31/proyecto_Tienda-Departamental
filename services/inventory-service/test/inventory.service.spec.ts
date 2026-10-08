@@ -19,6 +19,7 @@ const stock = {
   variant_label: "55 pulgadas",
   on_hand: 1,
   reserved: 0,
+  revision: "1",
   reorder_point: 1,
   updated_at: new Date("2026-09-01T12:00:00.000Z"),
 };

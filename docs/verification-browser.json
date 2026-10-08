@@ -1,0 +1,52 @@
+{
+  "completedAt": "2026-10-08T16:06:14.440Z",
+  "project": "departamental-five-phases",
+  "origin": "http://localhost:3105",
+  "checks": [
+    {
+      "name": "Admin and customer login",
+      "passed": true
+    },
+    {
+      "name": "Campaign accepted by captured SMTP and counters visible",
+      "passed": true,
+      "screenshot": "screenshots/crm-smtp.jpg"
+    },
+    {
+      "name": "Online coupon checkout",
+      "passed": true,
+      "basePrice": 2899,
+      "confirmedTotal": 2319.2,
+      "screenshot": "screenshots/checkout-confirmed.jpg"
+    },
+    {
+      "name": "Packing, courier assignment, dispatch and delivered via UI",
+      "passed": true
+    },
+    {
+      "name": "Google Maps courier, route and destination",
+      "passed": true,
+      "screenshot": "screenshots/tracking-map.jpg"
+    },
+    {
+      "name": "Stale and recent courier location, real Socket.IO update",
+      "passed": true,
+      "screenshot": "screenshots/tracking-map-stale.jpg"
+    },
+    {
+      "name": "Physical sale of last unit shows AGOTADO",
+      "passed": true,
+      "screenshot": "screenshots/physical-sale-exhausted.jpg"
+    },
+    {
+      "name": "Stock bar, doughnut and sales graphs visible",
+      "passed": true,
+      "screenshot": "screenshots/dashboard-verified.jpg"
+    },
+    {
+      "name": "CRM shows online and physical purchase snapshots",
+      "passed": true,
+      "screenshot": "screenshots/crm-history.jpg"
+    }
+  ]
+}

@@ -56,6 +56,8 @@ export interface CouponCampaign {
   targetCount: number;
   pendingCount: number;
   sentCount: number;
+  simulatedCount: number;
+  unknownCount: number;
   failedCount: number;
   undeliverableCount: number;
   status: CampaignStatus;
@@ -72,4 +74,8 @@ export interface CreateCampaignInput {
   months: number;
   couponCode: string;
   validUntil: string;
+  discountType: "PERCENTAGE" | "FIXED";
+  discountValue: number;
+  targetScope: "ALL" | "CATEGORY" | "PRODUCT" | "VARIANT";
+  targetId?: string;
 }

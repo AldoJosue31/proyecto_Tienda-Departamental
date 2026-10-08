@@ -17,6 +17,8 @@ export interface OrdersRuntimeConfig {
   pricingServiceUrl: string;
   inventoryServiceUrl: string;
   inventoryInternalServiceKey: string;
+  logisticsServiceUrl: string;
+  logisticsInternalServiceKey: string;
   upstreamTimeoutMilliseconds: number;
   rabbitmqUrl: string;
   outboxPublishIntervalMilliseconds: number;
@@ -105,6 +107,8 @@ export function loadOrdersRuntimeConfig(env: NodeJS.ProcessEnv = process.env): O
   const environment = env.NODE_ENV?.trim() || "development";
   const inventoryInternalServiceKey = required(env, "INVENTORY_INTERNAL_SERVICE_KEY");
   base64urlSecret(inventoryInternalServiceKey, "INVENTORY_INTERNAL_SERVICE_KEY");
+  const logisticsInternalServiceKey = required(env, "LOGISTICS_INTERNAL_SERVICE_KEY");
+  base64urlSecret(logisticsInternalServiceKey, "LOGISTICS_INTERNAL_SERVICE_KEY");
   return {
     accessSecret: base64urlSecret(required(env, "JWT_ACCESS_SECRET"), "JWT_ACCESS_SECRET"),
     corsOrigins: origins(env, environment),
@@ -113,6 +117,8 @@ export function loadOrdersRuntimeConfig(env: NodeJS.ProcessEnv = process.env): O
     pricingServiceUrl: serviceUrl(required(env, "PRICING_SERVICE_URL"), "PRICING_SERVICE_URL"),
     inventoryServiceUrl: serviceUrl(required(env, "INVENTORY_SERVICE_URL"), "INVENTORY_SERVICE_URL"),
     inventoryInternalServiceKey,
+    logisticsServiceUrl: serviceUrl(required(env, "LOGISTICS_SERVICE_URL"), "LOGISTICS_SERVICE_URL"),
+    logisticsInternalServiceKey,
     upstreamTimeoutMilliseconds: positive(env, "UPSTREAM_TIMEOUT_MILLISECONDS", 5_000, 30_000),
     rabbitmqUrl: amqpUrl(required(env, "RABBITMQ_URL"), "RABBITMQ_URL"),
     outboxPublishIntervalMilliseconds: positive(

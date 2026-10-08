@@ -6,6 +6,11 @@ import type {
 
 const MAX_LATENCY_SAMPLES = 50;
 
+export function isNewerStockState(current: Pick<InventoryDashboardItem, "revision" | "lastUpdatedAt">, incoming: Pick<StockUpdatedEvent, "revision" | "lastUpdatedAt">): boolean {
+  if (current.revision !== undefined) return incoming.revision !== undefined && incoming.revision > current.revision;
+  return incoming.revision !== undefined || Date.parse(incoming.lastUpdatedAt) > Date.parse(current.lastUpdatedAt);
+}
+
 export type RealtimeLatency = {
   lastMilliseconds: number;
   p95Milliseconds: number;
@@ -52,7 +57,7 @@ export function mergeStockUpdated(
   }
 
   const current = dashboard.items.find((item) => item.variantId === event.variantId);
-  if (!current || Date.parse(event.lastUpdatedAt) < Date.parse(current.lastUpdatedAt)) {
+  if (!current || !isNewerStockState(current, event)) {
     return { dashboard, applied: false };
   }
 
@@ -63,6 +68,7 @@ export function mergeStockUpdated(
     available: event.available,
     reorderPoint: event.reorderPoint,
     lastUpdatedAt: event.lastUpdatedAt,
+    revision: event.revision,
   };
   const items = dashboard.items.map((item) => item.variantId === event.variantId ? updated : item);
   const lowStock = lowStockItems(items);
@@ -77,6 +83,27 @@ export function mergeStockUpdated(
       summary: summary(items),
     },
   };
+}
+
+export function mergeInventorySnapshot(current: InventoryDashboard, snapshot: InventoryDashboard, pendingEvents: Iterable<StockUpdatedEvent> = []): InventoryDashboard {
+  if (current.branch.id !== snapshot.branch.id) return applyPendingEvents(snapshot, pendingEvents);
+  const incoming = new Set(snapshot.items.map((item) => item.variantId));
+  const known = new Map(current.items.map((item) => [item.variantId, item]));
+  const items = snapshot.items.map((item) => {
+    const previous = known.get(item.variantId);
+    if (!previous) return item;
+    if (previous.revision !== undefined && (item.revision === undefined || previous.revision > item.revision)) return previous;
+    if (previous.revision === undefined && item.revision === undefined && Date.parse(previous.lastUpdatedAt) > Date.parse(item.lastUpdatedAt)) return previous;
+    return item;
+  });
+  items.push(...current.items.filter((item) => !incoming.has(item.variantId)));
+  return applyPendingEvents({ ...snapshot, items, lowStock: lowStockItems(items), summary: summary(items) }, pendingEvents);
+}
+
+function applyPendingEvents(snapshot: InventoryDashboard, events: Iterable<StockUpdatedEvent>): InventoryDashboard {
+  let dashboard = snapshot;
+  for (const event of events) dashboard = mergeStockUpdated(dashboard, event).dashboard;
+  return dashboard;
 }
 
 export function recordRealtimeLatency(

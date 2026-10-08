@@ -43,6 +43,7 @@ export function AnalyticsDashboardView({ initialAnalytics }: { initialAnalytics:
     queryFn: () => requestDashboard(period, limit),
     initialData: initialAnalytics && period === initialAnalytics.ticketAverage.period && limit === initialAnalytics.topProducts.limit ? initialAnalytics : undefined,
     staleTime: 15_000,
+    refetchInterval: 15_000,
   });
   const data = analytics.data;
 
@@ -78,6 +79,7 @@ function AnalyticsContent({ data }: { data: AnalyticsDashboard }) {
   const inventoryHasData = data.inventoryByBranch.branches.some((branch) => branch.onHand > 0 || branch.reserved > 0);
   return <>
     <p className="mt-4 text-sm text-[var(--muted)]" aria-live="polite">Última proyección: {formatDate(lastUpdatedAt)} · Zona horaria: America/Mexico_City</p>
+    {!data.inventoryByBranch.synchronization.complete || data.inventoryByBranch.synchronization.retryPending ? <p role="status" className="mt-3 rounded-xl bg-[var(--warning-surface)] p-3 text-sm text-[var(--warning)]">{data.inventoryByBranch.synchronization.complete ? "La reconciliación del inventario se está reintentando; mostramos la última lectura." : `Carga inicial de inventario en curso: ${data.inventoryByBranch.synchronization.importedRows} de ${data.inventoryByBranch.synchronization.expectedRows} registros.`}</p> : null}
     <dl className="mt-5 grid overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] divide-y divide-[var(--line)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
       <Metric label="Ventas hoy" value={formatCurrency(data.salesToday.sales, data.salesToday.currency)} detail={`${data.salesToday.completedOrders} tickets completados`} icon={<IconTrendingUp size={18} aria-hidden="true" />} />
       <Metric label="Ticket promedio" value={formatCurrency(data.ticketAverage.ticketAverage, data.ticketAverage.currency)} detail={data.ticketAverage.formula} icon={<IconReceipt2 size={18} aria-hidden="true" />} />
@@ -86,6 +88,9 @@ function AnalyticsContent({ data }: { data: AnalyticsDashboard }) {
     <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
       <ChartPanel title="Ventas por sucursal" description="Importe de ventas completadas por tienda durante el periodo visible.">
         {branchesHaveSales ? <Bar aria-label="Gráfica de barras de ventas por sucursal" role="img" data={{ labels: data.salesByBranch.branches.map((item) => item.branchName), datasets: [{ label: "Ventas", data: data.salesByBranch.branches.map((item) => item.sales), backgroundColor: "#2563eb", borderRadius: 7, maxBarThickness: 56 }] }} options={barOptions(data.salesByBranch.currency)} /> : <EmptyChart icon={<IconChartBar size={28} aria-hidden="true" />} title="Aún no hay ventas en este periodo" detail="Las sucursales aparecerán con sus importes cuando Analytics procese pedidos completados." />}
+      </ChartPanel>
+      <ChartPanel title="Existencias por sucursal" description="Unidades físicas, reservadas y disponibles por tienda.">
+        {inventoryHasData ? <Bar aria-label="Gráfica de barras de stock por sucursal" role="img" data={{ labels: data.inventoryByBranch.branches.map((item) => item.branchName), datasets: [{ label: "Físico", data: data.inventoryByBranch.branches.map((item) => item.onHand), backgroundColor: "#2563eb" }, { label: "Reservado", data: data.inventoryByBranch.branches.map((item) => item.reserved), backgroundColor: "#c2410c" }, { label: "Disponible", data: data.inventoryByBranch.branches.map((item) => item.available), backgroundColor: "#0f766e" }] }} options={{ responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }} /> : <EmptyChart icon={<IconDatabaseOff size={28} aria-hidden="true" />} title="Inventario sin proyección" detail="La carga inicial del inventario se procesa automáticamente." />}
       </ChartPanel>
       <ChartPanel title="Stock por sucursal" description="Distribución actual de unidades físicas por sucursal.">
         {inventoryHasData ? <Doughnut aria-label="Gráfica de distribución de inventario por sucursal" role="img" data={{ labels: data.inventoryByBranch.branches.map((item) => item.branchName), datasets: [{ label: "Existencia física", data: data.inventoryByBranch.branches.map((item) => item.onHand), backgroundColor: data.inventoryByBranch.branches.map((_, index) => chartPalette[index % chartPalette.length]), borderWidth: 0, hoverOffset: 5 }] }} options={doughnutOptions} /> : <EmptyChart icon={<IconDatabaseOff size={28} aria-hidden="true" />} title="Inventario sin proyección" detail="Los gráficos se poblarán con los siguientes movimientos de stock publicados por Inventory." />}
