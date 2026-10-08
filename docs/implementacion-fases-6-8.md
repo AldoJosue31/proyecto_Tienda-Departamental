@@ -40,6 +40,7 @@ La comprobación en navegador acreditó Google Maps desde `http://localhost:3105
 - Las nueve comprobaciones de navegador están registradas en [resultados del navegador](verification-browser.json), con evidencia del [dashboard](screenshots/dashboard-verified.jpg) y del [historial CRM](screenshots/crm-history.jpg).
 - La actualización del entorno local conservó sus 114 unidades en 14 registros, con Analytics y sus revisiones coincidentes y 25 contenedores saludables. [Verificación local](verification-local-five-phases.json). Los respaldos previos de Orders, Pricing, CRM y Notification están fuera del repositorio en `.codex-backups/2026-10-08-phases-6-8`.
 - GitHub Actions ejecuta lint, TypeScript, pruebas y build de la web, además de TypeScript, pruebas y build de los diez servicios en las ramas `develop`, `main` y los PR dirigidos a `main`.
+- La validación de TypeScript genera primero los tipos de rutas con `next typegen`, por lo que funciona también en un checkout limpio sin archivos `.next` previos.
 
 Para reproducir las integraciones desde `web`, preparar `.env.integration` con `node scripts/setup-integration.mjs`, compilar los servicios localmente y ejecutar:
 
