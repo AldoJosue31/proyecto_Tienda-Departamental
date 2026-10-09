@@ -1,0 +1,35 @@
+{
+  "completedAt": "2026-10-09T08:02:09.6789303Z",
+  "nextVersion": "16.3.8",
+  "productionVulnerabilities": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "toolingVulnerabilities": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 5,
+    "critical": 0,
+    "total": 5
+  },
+  "toolingAffectedPackages": [
+    "@next/eslint-plugin-next",
+    "braces",
+    "eslint-config-next",
+    "fast-glob",
+    "micromatch"
+  ],
+  "remainingAdvisory": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+  "remainingPatchAvailable": false,
+  "runtimeImageOmitsDevelopmentDependencies": true,
+  "runtimeChecks": {
+    "nextVersion": "16.3.8",
+    "eslintInstalled": false,
+    "bracesInstalled": false
+  }
+}

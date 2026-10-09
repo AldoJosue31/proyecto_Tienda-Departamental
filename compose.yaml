@@ -16,6 +16,9 @@ services:
       GOOGLE_MAPS_BROWSER_KEY: "${GOOGLE_MAPS_BROWSER_KEY:-}"
       GOOGLE_MAPS_MAP_ID: "${GOOGLE_MAPS_MAP_ID:-}"
       GOOGLE_MAPS_ROUTES_API_KEY: "${GOOGLE_MAPS_ROUTES_API_KEY:-}"
+      APP_PUBLIC_ORIGIN: "${APP_PUBLIC_ORIGIN:-http://localhost:3000}"
+      TRUSTED_BFF_IP_KEY: "${TRUSTED_BFF_IP_KEY:?Define TRUSTED_BFF_IP_KEY in .env before starting Compose}"
+      BFF_TRUSTED_PROXY_CIDRS: "${BFF_TRUSTED_PROXY_CIDRS:-}"
     ports:
       - "${WEB_HOST_PORT:-3000}:3000"
     depends_on:
@@ -34,6 +37,7 @@ services:
       context: ./infra/kong
     environment:
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
+      TRUSTED_BFF_IP_KEY: "${TRUSTED_BFF_IP_KEY:?Define TRUSTED_BFF_IP_KEY in .env before starting Compose}"
       CORS_ALLOWED_ORIGIN: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
     ports:
       - "8000:8000"
@@ -90,6 +94,18 @@ services:
       SEED_ADMIN_PASSWORD: "${SEED_ADMIN_PASSWORD:-AdminLocal!2026}"
       SEED_EMPLOYEE_PASSWORD: "${SEED_EMPLOYEE_PASSWORD:-EmployeeLocal!2026}"
       SEED_CUSTOMER_PASSWORD: "${SEED_CUSTOMER_PASSWORD:-CustomerLocal!2026}"
+      APP_PUBLIC_ORIGIN: "${APP_PUBLIC_ORIGIN:-http://localhost:3000}"
+      RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
+      ONBOARDING_EMAIL_KEY: "${ONBOARDING_EMAIL_KEY:?Define ONBOARDING_EMAIL_KEY in .env before starting Compose}"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
+      AUTH_ONBOARDING_INTERNAL_SERVICE_KEY: "${AUTH_ONBOARDING_INTERNAL_SERVICE_KEY:?Define AUTH_ONBOARDING_INTERNAL_SERVICE_KEY in .env before starting Compose}"
+      TRUSTED_BFF_IP_KEY: "${TRUSTED_BFF_IP_KEY:?Define TRUSTED_BFF_IP_KEY in .env before starting Compose}"
+      AUTH_EMAIL_VERIFICATION_TTL_SECONDS: "${AUTH_EMAIL_VERIFICATION_TTL_SECONDS:-3600}"
+      AUTH_EMPLOYEE_INVITATION_TTL_SECONDS: "${AUTH_EMPLOYEE_INVITATION_TTL_SECONDS:-86400}"
+      AUTH_ONBOARDING_RESEND_COOLDOWN_SECONDS: "${AUTH_ONBOARDING_RESEND_COOLDOWN_SECONDS:-60}"
+      AUTH_ONBOARDING_RESEND_HOURLY_LIMIT: "${AUTH_ONBOARDING_RESEND_HOURLY_LIMIT:-3}"
+      AUTH_ONBOARDING_IP_WINDOW_SECONDS: "${AUTH_ONBOARDING_IP_WINDOW_SECONDS:-900}"
+      AUTH_ONBOARDING_IP_LIMIT: "${AUTH_ONBOARDING_IP_LIMIT:-10}"
     expose:
       - "3001"
     depends_on:
@@ -97,6 +113,7 @@ services:
         condition: service_healthy
     networks:
       - auth-internal
+      - events-internal
 
   auth-postgres:
     image: postgres:16-alpine
@@ -127,6 +144,8 @@ services:
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
       RUN_SEED: "${CATALOG_RUN_SEED:-false}"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3002"
     depends_on:
@@ -141,6 +160,7 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - auth-internal
       - catalog-internal
 
   catalog-postgres:
@@ -191,6 +211,8 @@ services:
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
       RUN_SEED: "${INVENTORY_RUN_SEED:-false}"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3003"
     depends_on:
@@ -205,6 +227,7 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - auth-internal
       - inventory-internal
       - events-internal
 
@@ -240,6 +263,8 @@ services:
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
       RUN_SEED: "false"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3004"
     depends_on:
@@ -254,6 +279,7 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - auth-internal
       - pricing-internal
       - events-internal
       - orders-internal
@@ -294,6 +320,8 @@ services:
       OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "1000"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3005"
     depends_on:
@@ -314,6 +342,7 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - auth-internal
       - orders-internal
       - catalog-internal
       - pricing-internal
@@ -347,6 +376,8 @@ services:
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
       RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3006"
     depends_on:
@@ -359,6 +390,7 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - auth-internal
       - realtime-internal
       - events-internal
 
@@ -376,6 +408,8 @@ services:
       ANALYTICS_TIMEZONE: "${ANALYTICS_TIMEZONE:-America/Mexico_City}"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3007"
     depends_on:
@@ -390,6 +424,7 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - auth-internal
       - analytics-internal
       - inventory-internal
       - events-internal
@@ -424,6 +459,8 @@ services:
       OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "1000"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3008"
     depends_on:
@@ -438,6 +475,7 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - auth-internal
       - logistics-internal
       - events-internal
 
@@ -470,6 +508,8 @@ services:
       OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "${OUTBOX_PUBLISH_INTERVAL_MILLISECONDS:-1000}"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3009"
     depends_on:
@@ -484,6 +524,7 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - auth-internal
       - crm-internal
       - events-internal
       - pricing-internal
@@ -523,6 +564,8 @@ services:
       OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "${OUTBOX_PUBLISH_INTERVAL_MILLISECONDS:-1000}"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
+      ONBOARDING_EMAIL_KEY: "${ONBOARDING_EMAIL_KEY:?Define ONBOARDING_EMAIL_KEY in .env before starting Compose}"
+      AUTH_ONBOARDING_INTERNAL_SERVICE_KEY: "${AUTH_ONBOARDING_INTERNAL_SERVICE_KEY:?Define AUTH_ONBOARDING_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3010"
     depends_on:

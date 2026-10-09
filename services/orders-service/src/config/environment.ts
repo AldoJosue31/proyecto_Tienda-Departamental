@@ -1,3 +1,4 @@
+import { loadAuthStatusConfig, type AuthStatusConfig } from "./auth-status";
 import { randomBytes } from "node:crypto";
 
 export const AUTH_JWT_ISSUER = "departamental-auth-service";
@@ -9,7 +10,7 @@ export interface DatabaseConfig {
   databaseSsl: boolean;
 }
 
-export interface OrdersRuntimeConfig {
+export interface OrdersRuntimeConfig extends AuthStatusConfig {
   accessSecret: Buffer;
   corsOrigins: string[];
   environment: string;
@@ -109,7 +110,7 @@ export function loadOrdersRuntimeConfig(env: NodeJS.ProcessEnv = process.env): O
   base64urlSecret(inventoryInternalServiceKey, "INVENTORY_INTERNAL_SERVICE_KEY");
   const logisticsInternalServiceKey = required(env, "LOGISTICS_INTERNAL_SERVICE_KEY");
   base64urlSecret(logisticsInternalServiceKey, "LOGISTICS_INTERNAL_SERVICE_KEY");
-  return {
+  return { ...loadAuthStatusConfig(env),
     accessSecret: base64urlSecret(required(env, "JWT_ACCESS_SECRET"), "JWT_ACCESS_SECRET"),
     corsOrigins: origins(env, environment),
     environment,

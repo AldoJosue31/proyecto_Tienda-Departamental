@@ -1,3 +1,4 @@
+import { AuthStatusClient } from "./auth/auth-status.client";
 import type { MiddlewareConsumer } from "@nestjs/common";
 import { Module, type NestModule } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
@@ -16,7 +17,7 @@ import { HealthController } from "./health/health.controller";
 
 @Module({ controllers: [AnalyticsController, HealthController], providers: [
   { provide: DATABASE_CONFIG, useFactory: loadDatabaseConfig }, { provide: ANALYTICS_RUNTIME_CONFIG, useFactory: loadAnalyticsRuntimeConfig },
-  DatabaseService, TokenService, AnalyticsService, AnalyticsConsumer, InventoryReconciliationService, JwtAuthGuard, RolesGuard, CorrelationIdMiddleware,
+  DatabaseService, TokenService, AuthStatusClient, AnalyticsService, AnalyticsConsumer, InventoryReconciliationService, JwtAuthGuard, RolesGuard, CorrelationIdMiddleware,
   { provide: APP_FILTER, useClass: HttpExceptionFilter },
 ] })
 export class AppModule implements NestModule { configure(consumer: MiddlewareConsumer): void { consumer.apply(CorrelationIdMiddleware).forRoutes("*"); } }

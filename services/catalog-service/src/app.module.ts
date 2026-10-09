@@ -1,3 +1,4 @@
+import { AuthStatusClient } from "./auth/auth-status.client";
 import type { MiddlewareConsumer } from "@nestjs/common";
 import { Module, type NestModule } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
@@ -37,6 +38,7 @@ import { HealthController } from "./health/health.controller";
     DatabaseService,
     CacheService,
     TokenService,
+    AuthStatusClient,
     CatalogRepository,
     CatalogService,
     JwtAuthGuard,

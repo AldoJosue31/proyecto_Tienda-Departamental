@@ -1,3 +1,4 @@
+import { AuthStatusClient } from "./auth/auth-status.client";
 import type { MiddlewareConsumer } from "@nestjs/common";
 import { Module, type NestModule } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
@@ -28,6 +29,7 @@ import { CouponStateController, CouponStateGuard } from "./orders/coupon-state.c
     DatabaseService,
     OrdersOutboxService,
     TokenService,
+    AuthStatusClient,
     OrdersRepository,
     CatalogClient,
     PricingClient,

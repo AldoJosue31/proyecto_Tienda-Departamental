@@ -1,3 +1,4 @@
+import { AuthStatusClient } from "./auth/auth-status.client";
 import type { MiddlewareConsumer } from "@nestjs/common";
 import { Module, type NestModule } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
@@ -36,6 +37,7 @@ import { InventoryService } from "./inventory/inventory.service";
     DatabaseService,
     InventoryOutboxService,
     TokenService,
+    AuthStatusClient,
     InventoryService,
     OrderCancelledConsumer,
     JwtAuthGuard,

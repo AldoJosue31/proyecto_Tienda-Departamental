@@ -1,0 +1,133 @@
+{
+  "startedAt": "2026-10-09T06:33:34.898Z",
+  "completedAt": "2026-10-09T06:35:47.390Z",
+  "project": "departamental-five-phases",
+  "runId": "1acc7625-4a33-4978-b274-c7b39c649954",
+  "passed": true,
+  "checks": [
+    {
+      "name": "integration isolation and loopback database bindings",
+      "passed": true,
+      "milliseconds": 1567,
+      "existingAccounts": 15,
+      "existingRefreshRecords": 36,
+      "migrationSnapshotCompared": true
+    },
+    {
+      "name": "existing accounts, refresh rotation and legacy JWT version zero remain valid",
+      "passed": true,
+      "milliseconds": 5714
+    },
+    {
+      "name": "BFF requires origin and CSRF and rejects caller-assigned role",
+      "passed": true,
+      "milliseconds": 90
+    },
+    {
+      "name": "BFF customer registration stays pending until same-browser explicit confirmation",
+      "passed": true,
+      "milliseconds": 5222
+    },
+    {
+      "name": "cross-browser confirmation requires a new password and sanitizes administrative return destinations",
+      "passed": true,
+      "milliseconds": 1910
+    },
+    {
+      "name": "untrusted browser and Gateway IP headers cannot create forged rate-limit identities",
+      "passed": true,
+      "milliseconds": 106,
+      "forgedRateIdentities": 0
+    },
+    {
+      "name": "duplicate email and concurrent registration cannot replace credentials or create two identities",
+      "passed": true,
+      "milliseconds": 2059
+    },
+    {
+      "name": "resend cooldown persists and new generation invalidates the previous link",
+      "passed": true,
+      "milliseconds": 2234
+    },
+    {
+      "name": "ADMIN employee invitation is idempotent and preserves role and null password until acceptance",
+      "passed": true,
+      "milliseconds": 2746
+    },
+    {
+      "name": "EMPLOYEE and CUSTOMER cannot list invite resend or modify employee state directly or through BFF",
+      "passed": true,
+      "milliseconds": 2100
+    },
+    {
+      "name": "employee chooses a password with one-use concurrent acceptance and cannot use the verification endpoint",
+      "passed": true,
+      "milliseconds": 1455
+    },
+    {
+      "name": "private identity and email authorization APIs require purpose credentials and are absent from Kong",
+      "passed": true,
+      "milliseconds": 77
+    },
+    {
+      "name": "deactivation revokes refresh and every protected business API and open socket within 35 seconds",
+      "passed": true,
+      "milliseconds": 46734,
+      "protectedServices": 7,
+      "apiBlockedAfterMilliseconds": 30093,
+      "socketBlockedAfterMilliseconds": 30037
+    },
+    {
+      "name": "reactivation requires new login and keeps previous access and refresh tokens revoked",
+      "passed": true,
+      "milliseconds": 7269
+    },
+    {
+      "name": "employee resend retires old invitation and disabling then enabling does not revive it",
+      "passed": true,
+      "milliseconds": 2289
+    },
+    {
+      "name": "expired verification cannot activate an account",
+      "passed": true,
+      "milliseconds": 1452
+    },
+    {
+      "name": "Rabbit outage preserves encrypted outbox atomically with pending identities",
+      "passed": true,
+      "milliseconds": 9684
+    },
+    {
+      "name": "simulation remains unverified and SMTP retry attempts are bounded in isolated delivery workers",
+      "passed": true,
+      "milliseconds": 1380,
+      "simulatedAccountsActivated": 0,
+      "failedProviderAttempts": 2
+    },
+    {
+      "name": "outbox and SMTP recover after Rabbit and Notification restart without duplicate messages",
+      "passed": true,
+      "milliseconds": 27190,
+      "recoveredMessages": 1,
+      "duplicateMessages": 0,
+      "expiredOrRevokedMessages": 0
+    },
+    {
+      "name": "public request limits remain atomic and survive Auth service restart",
+      "passed": true,
+      "milliseconds": 10317,
+      "configuredLimit": 10
+    },
+    {
+      "name": "terminal ciphertext is removed, audit and service logs exclude secrets, and previous identities remain intact",
+      "passed": true,
+      "milliseconds": 775,
+      "previousIdentitiesPreserved": 15,
+      "sensitiveValuesWrittenToReport": 0
+    }
+  ],
+  "privacy": {
+    "tokensLinksPasswordsExcluded": true
+  },
+  "scope": "Account onboarding phases 1-5; interface phase 6 is pending."
+}

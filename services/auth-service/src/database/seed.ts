@@ -55,8 +55,8 @@ async function run(): Promise<void> {
       const passwordHash = await passwordService.hash(user.password);
       await pool.query(
         `
-          INSERT INTO auth_users (email, name, password_hash, role)
-          VALUES ($1, $2, $3, $4)
+          INSERT INTO auth_users (email, name, password_hash, role, email_verified_at, verification_source)
+          VALUES ($1, $2, $3, $4, NOW(), 'LOCAL_SEED')
           ON CONFLICT ((lower(email))) DO NOTHING
         `,
         [user.email, user.name, passwordHash, user.role],

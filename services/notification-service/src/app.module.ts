@@ -12,11 +12,16 @@ import { NotificationConsumer } from "./notifications/notification.consumer";
 import { NOTIFICATION_RUNTIME_CONFIG } from "./notifications/notification.config";
 import { NotificationDeliveryService } from "./notifications/notification-delivery.service";
 import { NotificationOutboxService } from "./notifications/notification-outbox.service";
+import { AuthOnboardingClient } from "./onboarding/auth-onboarding.client";
+import { OnboardingConsumer } from "./onboarding/onboarding.consumer";
+import { OnboardingDeliveryService } from "./onboarding/onboarding-delivery.service";
+import { OnboardingOutboxService } from "./onboarding/onboarding-outbox.service";
 
 @Module({ controllers: [HealthController], providers: [
   { provide: DATABASE_CONFIG, useFactory: loadDatabaseConfig },
   { provide: NOTIFICATION_RUNTIME_CONFIG, useFactory: loadNotificationRuntimeConfig },
   DatabaseService, CorrelationIdMiddleware, AuthContactClient, EmailProvider, NotificationDeliveryService, NotificationConsumer, NotificationOutboxService,
+  AuthOnboardingClient, OnboardingConsumer, OnboardingDeliveryService, OnboardingOutboxService,
   { provide: APP_FILTER, useClass: HttpExceptionFilter },
 ] })
 export class AppModule implements NestModule { configure(consumer: MiddlewareConsumer): void { consumer.apply(CorrelationIdMiddleware).forRoutes("*"); } }

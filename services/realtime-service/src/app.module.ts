@@ -1,3 +1,4 @@
+import { AuthStatusClient } from "./auth/auth-status.client";
 import { Module } from "@nestjs/common";
 
 import { REALTIME_RUNTIME_CONFIG, TokenService } from "./auth/token.service";
@@ -15,6 +16,7 @@ import { RealtimeGateway } from "./realtime/realtime.gateway";
       useFactory: loadRealtimeRuntimeConfig,
     },
     TokenService,
+    AuthStatusClient,
     RealtimeGateway,
     InventoryStockConsumer,
     CourierTrackingConsumer,

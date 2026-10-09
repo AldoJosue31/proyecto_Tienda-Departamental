@@ -1,0 +1,34 @@
+{
+  "completedAt": "2026-10-09T08:15:52.833Z",
+  "passed": true,
+  "project": "departamental-five-phases",
+  "checks": [
+    {
+      "name": "customer registers from checkout, confirms by SMTP, signs in and buys without losing the guest bag",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 11000
+    },
+    {
+      "name": "ADMIN invites with safe retry, resends, and disables then enables an employee who chose a password",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 9153
+    },
+    {
+      "name": "confirmation in another browser requires a new password and reused links show recovery",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 3540
+    },
+    {
+      "name": "mobile forms handle missing links, keyboard validation, offline retry and generic resends",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 949
+    }
+  ],
+  "privacy": {
+    "tracesVideosPasswordsTokensExcluded": true
+  }
+}

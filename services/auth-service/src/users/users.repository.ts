@@ -9,9 +9,12 @@ interface UserRow {
   id: string;
   email: string;
   name: string;
-  password_hash: string;
+  password_hash: string | null;
   role: string;
   is_active: boolean;
+  onboarding_status: AuthUserRecord['onboardingStatus'];
+  email_verified_at: Date | null;
+  auth_version: number;
 }
 
 interface PublicUserRow {
@@ -19,6 +22,7 @@ interface PublicUserRow {
   email: string;
   name: string;
   role: string;
+  auth_version: number;
 }
 
 interface AdminUserRow extends PublicUserRow {
@@ -32,7 +36,7 @@ export class UsersRepository {
   async findByEmail(email: string): Promise<AuthUserRecord | null> {
     const result = await this.database.query<UserRow>(
       `
-        SELECT id, email, name, password_hash, role, is_active
+        SELECT id, email, name, password_hash, role, is_active, onboarding_status, email_verified_at, auth_version
         FROM auth_users
         WHERE lower(email) = lower($1)
         LIMIT 1
@@ -46,9 +50,9 @@ export class UsersRepository {
   async findActiveById(id: string): Promise<PublicUser | null> {
     const result = await this.database.query<PublicUserRow>(
       `
-        SELECT id, email, name, role
+        SELECT id, email, name, role, auth_version
         FROM auth_users
-        WHERE id = $1 AND is_active = TRUE
+        WHERE id = $1 AND is_active = TRUE AND onboarding_status = 'READY' AND email_verified_at IS NOT NULL AND password_hash IS NOT NULL
         LIMIT 1
       `,
       [id],
@@ -67,9 +71,9 @@ export class UsersRepository {
   ): Promise<PublicUser | null> {
     const result = await client.query<PublicUserRow>(
       `
-        SELECT id, email, name, role
+        SELECT id, email, name, role, auth_version
         FROM auth_users
-        WHERE id = $1 AND is_active = TRUE
+        WHERE id = $1 AND is_active = TRUE AND onboarding_status = 'READY' AND email_verified_at IS NOT NULL AND password_hash IS NOT NULL
         LIMIT 1
         FOR SHARE
       `,
@@ -81,7 +85,7 @@ export class UsersRepository {
   async listUsers(): Promise<AdminUser[]> {
     const result = await this.database.query<AdminUserRow>(
       `
-        SELECT id, email, name, role, is_active
+        SELECT id, email, name, role, is_active, auth_version
         FROM auth_users
         ORDER BY lower(email) ASC
       `,
@@ -103,6 +107,9 @@ export class UsersRepository {
       passwordHash: row.password_hash,
       role: row.role,
       isActive: row.is_active,
+      onboardingStatus: row.onboarding_status,
+      emailVerifiedAt: row.email_verified_at,
+      authVersion: row.auth_version,
     };
   }
 
@@ -110,6 +117,6 @@ export class UsersRepository {
     if (!row || !isRole(row.role)) {
       return null;
     }
-    return { id: row.id, email: row.email, name: row.name, role: row.role };
+    return { id: row.id, email: row.email, name: row.name, role: row.role, authVersion: row.auth_version };
   }
 }

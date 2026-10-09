@@ -8,6 +8,9 @@ services:
     ports: !override ["127.0.0.1:8005:8000"]
   postgres:
     ports: !reset []
+  servicio-autenticacion:
+    ports: ["127.0.0.1:3301:3001"]
+    networks: [integration-access]
   auth-postgres:
     ports: ["127.0.0.1:55431:5432"]
     networks: [integration-access]

@@ -27,10 +27,10 @@ export class OptionalJwtAuthGuard implements CanActivate {
       return true;
     }
 
-    let userId: string;
+    let claims;
     try {
       const rawToken = extractBearerToken(authorization);
-      userId = this.tokenService.verifyAccessToken(rawToken).sub;
+      claims = this.tokenService.verifyAccessToken(rawToken);
     } catch (error) {
       // Only expected authentication failures are optional. Infrastructure
       // failures still propagate rather than being disguised as an anonymous request.
@@ -40,8 +40,8 @@ export class OptionalJwtAuthGuard implements CanActivate {
       throw error;
     }
 
-    const user = await this.usersRepository.findActiveById(userId);
-    if (user) {
+    const user = await this.usersRepository.findActiveById(claims.sub);
+    if (user && user.role === claims.role && (user.authVersion ?? 0) === (claims.uv ?? 0)) {
       request.authUser = user;
     }
 

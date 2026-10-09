@@ -9,7 +9,8 @@ import {
   consumeCustomerCart,
   customerCartItemCount,
   customerCartStorageKey,
-  normalizeCustomerCart,
+  GUEST_CART_KEY,
+  loadShoppingCart,
   removeCustomerCartLine,
   reviseCustomerCart,
   type CustomerCartLine,
@@ -17,6 +18,7 @@ import {
 
 type CustomerCartContextValue = {
   customerId: string | null;
+  available: boolean;
   lines: CustomerCartLine[];
   itemCount: number;
   ready: boolean;
@@ -29,7 +31,8 @@ type CustomerCartContextValue = {
 
 const CustomerCartContext = createContext<CustomerCartContextValue | null>(null);
 
-export function CustomerCartProvider({ customerId, children }: { customerId: string | null; children: ReactNode }) {
+export function CustomerCartProvider({ customerId, guestEnabled = false, children }: { customerId: string | null; guestEnabled?: boolean; children: ReactNode }) {
+  const cartOwner = customerId ?? (guestEnabled ? "guest" : null);
   const [lines, setLines] = useState<CustomerCartLine[]>([]);
   const [readyForCustomer, setReadyForCustomer] = useState<string | null>(null);
 
@@ -37,43 +40,42 @@ export function CustomerCartProvider({ customerId, children }: { customerId: str
     let active = true;
     queueMicrotask(() => {
       if (!active) return;
-      if (!customerId) {
+      if (!cartOwner) {
         setLines([]);
         setReadyForCustomer(null);
         return;
       }
       try {
-        const stored = window.localStorage.getItem(customerCartStorageKey(customerId));
-        setLines(normalizeCustomerCart(stored ? JSON.parse(stored) : []));
+        setLines(loadShoppingCart(window.localStorage, customerId, guestEnabled));
       } catch {
         setLines([]);
       }
-      setReadyForCustomer(customerId);
+      setReadyForCustomer(cartOwner);
     });
     return () => { active = false; };
-  }, [customerId]);
+  }, [cartOwner, customerId, guestEnabled]);
 
   useEffect(() => {
-    if (!customerId || readyForCustomer !== customerId) return;
+    if (!cartOwner || readyForCustomer !== cartOwner) return;
     try {
-      window.localStorage.setItem(customerCartStorageKey(customerId), JSON.stringify(lines));
+      window.localStorage.setItem(customerId ? customerCartStorageKey(customerId) : GUEST_CART_KEY, JSON.stringify(lines));
     } catch {
       // Storage can be unavailable in privacy-restricted browsers. The in-memory
       // cart remains usable and server-side validation still protects checkout.
     }
-  }, [customerId, lines, readyForCustomer]);
+  }, [cartOwner, customerId, lines, readyForCustomer]);
 
   const add = useCallback((input: Pick<CustomerCartLine, "productId" | "variantId">) => {
-    if (!customerId || readyForCustomer !== customerId) return false;
+    if (!cartOwner || readyForCustomer !== cartOwner) return false;
     const next = reviseCustomerCart(lines, input, 1);
     if (next === lines) return false;
     setLines(next);
     return true;
-  }, [customerId, lines, readyForCustomer]);
+  }, [cartOwner, lines, readyForCustomer]);
   const revise = useCallback((input: Pick<CustomerCartLine, "productId" | "variantId">, delta: number) => {
-    if (!customerId) return;
+    if (!cartOwner) return;
     setLines((current) => reviseCustomerCart(current, input, delta));
-  }, [customerId]);
+  }, [cartOwner]);
   const remove = useCallback((variantId: string) => setLines((current) => removeCustomerCartLine(current, variantId)), []);
   const consume = useCallback((sentLines: CustomerCartLine[]) => {
     setLines((current) => consumeCustomerCart(current, sentLines));
@@ -81,15 +83,16 @@ export function CustomerCartProvider({ customerId, children }: { customerId: str
   const clear = useCallback(() => setLines([]), []);
   const value = useMemo<CustomerCartContextValue>(() => ({
     customerId,
+    available: cartOwner !== null,
     lines,
     itemCount: customerCartItemCount(lines),
-    ready: customerId === null || readyForCustomer === customerId,
+    ready: cartOwner === null || readyForCustomer === cartOwner,
     add,
     revise,
     remove,
     consume,
     clear,
-  }), [add, clear, consume, customerId, lines, readyForCustomer, remove, revise]);
+  }), [add, cartOwner, clear, consume, customerId, lines, readyForCustomer, remove, revise]);
 
   return <CustomerCartContext.Provider value={value}>{children}</CustomerCartContext.Provider>;
 }
@@ -102,8 +105,8 @@ export function useCustomerCart() {
 
 export function CustomerBagLink() {
   const pathname = usePathname();
-  const { customerId, itemCount, ready } = useCustomerCart();
-  if (!customerId) return null;
+  const { available, itemCount, ready } = useCustomerCart();
+  if (!available) return null;
 
   const label = ready && itemCount > 0 ? `Bolsa, ${itemCount} artículos` : "Bolsa";
   return <Link href="/checkout" aria-current={pathname === "/checkout" ? "page" : undefined} aria-label={label} className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-2.5 text-sm font-semibold transition-colors sm:px-3 ${pathname === "/checkout" ? "bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "text-[var(--ink)] hover:bg-[var(--surface-muted)]"}`}>

@@ -27,6 +27,7 @@ plugins:
         - Content-Type
         - Idempotency-Key
         - X-Correlation-Id
+        - X-CSRF-Token
       exposed_headers:
         - X-Correlation-Id
       credentials: true
@@ -61,6 +62,126 @@ services:
               policy: local
               limit_by: ip
               hide_client_headers: false
+      - name: auth-register
+        paths:
+          - "~/auth/register$"
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: onboarding-client-ip
+            config:
+              secret: __TRUSTED_BFF_IP_KEY__
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
+              limit_by: header
+              header_name: x-onboarding-limit-ip
+              hide_client_headers: false
+      - name: auth-verification-resend
+        paths:
+          - "~/auth/email-verification/resend$"
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: onboarding-client-ip
+            config:
+              secret: __TRUSTED_BFF_IP_KEY__
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
+              limit_by: header
+              header_name: x-onboarding-limit-ip
+              hide_client_headers: false
+      - name: auth-verification-confirm
+        paths:
+          - "~/auth/email-verification/confirm$"
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: onboarding-client-ip
+            config:
+              secret: __TRUSTED_BFF_IP_KEY__
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
+              limit_by: header
+              header_name: x-onboarding-limit-ip
+              hide_client_headers: false
+      - name: auth-invitation-accept
+        paths:
+          - "~/auth/employee-invitations/accept$"
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: onboarding-client-ip
+            config:
+              secret: __TRUSTED_BFF_IP_KEY__
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
+              limit_by: header
+              header_name: x-onboarding-limit-ip
+              hide_client_headers: false
+      - name: auth-employees
+        paths:
+          - "~/auth/employees$"
+        methods:
+          - GET
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: auth-employees-invite
+        paths:
+          - "~/auth/employees/invitations$"
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: auth-employees-resend
+        paths:
+          - "~/auth/employees/[0-9a-fA-F-]{36}/invitation/resend$"
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: auth-employees-status
+        paths:
+          - "~/auth/employees/[0-9a-fA-F-]{36}/status$"
+        methods:
+          - PATCH
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
       - name: auth-health
         paths:
           - /health

@@ -1,3 +1,4 @@
+import { loadAuthStatusConfig, type AuthStatusConfig } from "./auth-status";
 import { createHmac, randomBytes } from "node:crypto";
 
 export const AUTH_JWT_ISSUER = "departamental-auth-service";
@@ -10,7 +11,7 @@ export interface DatabaseConfig {
   databaseSsl: boolean;
 }
 
-export interface InventoryRuntimeConfig {
+export interface InventoryRuntimeConfig extends AuthStatusConfig {
   accessSecret: Buffer;
   corsOrigins: string[];
   environment: string;
@@ -109,7 +110,7 @@ export function loadInventoryRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): InventoryRuntimeConfig {
   const environment = env.NODE_ENV?.trim() || "development";
-  return {
+  return { ...loadAuthStatusConfig(env),
     accessSecret: parseBase64UrlSecret(
       requiredValue(env, "JWT_ACCESS_SECRET"),
       "JWT_ACCESS_SECRET",

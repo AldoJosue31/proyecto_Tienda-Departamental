@@ -80,7 +80,7 @@ export function CatalogExperience({ initialPage, initialError = false, initialSe
   const [cartAnnouncement, setCartAnnouncement] = useState("");
   const detailDialogRef = useRef<HTMLDialogElement>(null);
   const { add: addToCart, itemCount, ready: cartReady } = useCustomerCart();
-  const canBuy = userRole === "CUSTOMER";
+  const canBuy = userRole === "CUSTOMER" || userRole === null;
 
   const catalogSearch = useMemo(() => ({ search, category, brand, page: requestedPage, pageSize: 20 }), [brand, category, requestedPage, search]);
   const isInitialCatalogSearch = !initialError && !category && !brand && requestedPage === initialPage.page;
@@ -145,7 +145,7 @@ function ProductCard({ product, canBuy, onOpen }: { product: CatalogProductSumma
 }
 
 function ProductDialog({ product, userRole, addedVariantId, itemCount, onAdd, onClose }: { product: CatalogProductSummary; userRole: Role | null; addedVariantId: string | null; itemCount: number; onAdd: (product: CatalogProductSummary, variant: CatalogVariant) => void; onClose: () => void }) {
-  const canBuy = userRole === "CUSTOMER";
+  const canBuy = userRole === "CUSTOMER" || userRole === null;
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const selectedVariant = product.variants.find((variant) => variant.id === selectedVariantId) ?? null;
   const justAdded = selectedVariant?.id === addedVariantId;

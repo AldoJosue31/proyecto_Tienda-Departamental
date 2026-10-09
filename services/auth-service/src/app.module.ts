@@ -21,10 +21,17 @@ import { RefreshTokensRepository } from "./refresh-tokens/refresh-tokens.reposit
 import { loadAuthTokenConfig, loadDatabaseConfig, loadNotificationInternalConfig } from "./config/environment";
 import { NotificationContactController } from "./users/notification-contact.controller";
 import { UsersRepository } from "./users/users.repository";
+import { loadOnboardingConfig, ONBOARDING_CONFIG } from './onboarding/onboarding.config';
+import { OnboardingController, OnboardingInternalController } from './onboarding/onboarding.controller';
+import { OnboardingService } from './onboarding/onboarding.service';
+import { OnboardingEventsService } from './onboarding/onboarding-events.service';
 
 @Module({
-  controllers: [AuthController, NotificationContactController, HealthController],
+  controllers: [AuthController, OnboardingController, OnboardingInternalController, NotificationContactController, HealthController],
   providers: [
+    { provide: ONBOARDING_CONFIG, useFactory: loadOnboardingConfig },
+    OnboardingService,
+    OnboardingEventsService,
     {
       provide: DATABASE_CONFIG,
       useFactory: loadDatabaseConfig,

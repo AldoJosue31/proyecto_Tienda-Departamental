@@ -4,9 +4,12 @@ export interface AuthUserRecord {
   id: string;
   email: string;
   name: string;
-  passwordHash: string;
+  passwordHash: string | null;
   role: Role;
   isActive: boolean;
+  onboardingStatus: 'PENDING_EMAIL' | 'PENDING_INVITATION' | 'READY';
+  emailVerifiedAt: Date | null;
+  authVersion: number;
 }
 
 export interface PublicUser {
@@ -14,6 +17,7 @@ export interface PublicUser {
   email: string;
   name: string;
   role: Role;
+  authVersion?: number;
 }
 
 export interface AdminUser extends PublicUser {

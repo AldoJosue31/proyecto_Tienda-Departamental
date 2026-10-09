@@ -1,3 +1,4 @@
+import { loadAuthStatusConfig, type AuthStatusConfig } from "./auth-status";
 import { randomBytes } from "node:crypto";
 
 export const AUTH_JWT_ISSUER = "departamental-auth-service";
@@ -5,7 +6,7 @@ export const ROLES = ["ADMIN", "EMPLOYEE", "CUSTOMER"] as const;
 export type Role = (typeof ROLES)[number];
 
 export interface DatabaseConfig { databaseUrl: string; databaseSsl: boolean; }
-export interface CrmRuntimeConfig { accessSecret: Buffer; corsOrigins: string[]; environment: string; rabbitmqUrl: string; outboxPublishIntervalMilliseconds: number; }
+export interface CrmRuntimeConfig extends AuthStatusConfig { accessSecret: Buffer; corsOrigins: string[]; environment: string; rabbitmqUrl: string; outboxPublishIntervalMilliseconds: number; }
 
 function requiredValue(env: NodeJS.ProcessEnv, name: string): string { const value = env[name]?.trim(); if (!value) throw new Error(name + " must be configured."); return value; }
 function base64UrlSecret(value: string): Buffer { if (!/^[A-Za-z0-9_-]+$/.test(value) || Buffer.from(value, "base64url").length < 32) throw new Error("JWT_ACCESS_SECRET must use base64url encoding with at least 32 bytes."); return Buffer.from(value, "utf8"); }
@@ -14,6 +15,6 @@ function amqp(value: string): string { let parsed: URL; try { parsed = new URL(v
 function positiveInteger(env: NodeJS.ProcessEnv, name: string, fallback: number, maximum: number): number { const raw = env[name]?.trim(); if (!raw) return fallback; const value = Number(raw); if (!Number.isSafeInteger(value) || value < 1 || value > maximum) throw new Error(name + " must be a positive integer no greater than " + maximum + "."); return value; }
 
 export function loadDatabaseConfig(env: NodeJS.ProcessEnv = process.env): DatabaseConfig { const databaseUrl = requiredValue(env, "DATABASE_URL"); let parsed: URL; try { parsed = new URL(databaseUrl); } catch { throw new Error("DATABASE_URL must be a valid PostgreSQL connection URL."); } if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") throw new Error("DATABASE_URL must use postgres or postgresql protocol."); return { databaseUrl, databaseSsl: env.DATABASE_SSL?.trim().toLowerCase() === "true" }; }
-export function loadCrmRuntimeConfig(env: NodeJS.ProcessEnv = process.env): CrmRuntimeConfig { const environment = env.NODE_ENV?.trim() || "development"; return { accessSecret: base64UrlSecret(requiredValue(env, "JWT_ACCESS_SECRET")), corsOrigins: origins(env, environment), environment, rabbitmqUrl: amqp(requiredValue(env, "RABBITMQ_URL")), outboxPublishIntervalMilliseconds: positiveInteger(env, "OUTBOX_PUBLISH_INTERVAL_MILLISECONDS", 1_000, 60_000) }; }
+export function loadCrmRuntimeConfig(env: NodeJS.ProcessEnv = process.env): CrmRuntimeConfig { const environment = env.NODE_ENV?.trim() || "development"; return { ...loadAuthStatusConfig(env), accessSecret: base64UrlSecret(requiredValue(env, "JWT_ACCESS_SECRET")), corsOrigins: origins(env, environment), environment, rabbitmqUrl: amqp(requiredValue(env, "RABBITMQ_URL")), outboxPublishIntervalMilliseconds: positiveInteger(env, "OUTBOX_PUBLISH_INTERVAL_MILLISECONDS", 1_000, 60_000) }; }
 export function isRole(value: unknown): value is Role { return typeof value === "string" && ROLES.includes(value as Role); }
 export function createEphemeralTestSecret(): string { return randomBytes(32).toString("base64url"); }

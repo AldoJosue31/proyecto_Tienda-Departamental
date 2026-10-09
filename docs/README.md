@@ -9,3 +9,5 @@ P01 y P02 están incorporados: la interfaz distingue sucursal de atención y mod
 El ciclo CUSTOMER tiene **cinco fases** separadas del roadmap arquitectónico. Ya incluye navegación por rol, selección de variantes, bolsa local por usuario, checkout idempotente, pedidos propios y seguimiento privado. Su cierre funcional y de accesibilidad sigue pendiente; la sección 18 del Word detalla el estado de cada fase. Pasaron 36 pruebas seleccionadas de frontend, Orders y Logistics, sin atribuirles cobertura E2E ni integración real con contenedores.
 
 El [contrato de venta física](./physical-sales-contract.md) complementa la especificación. Ante una discrepancia con el código, distinguir requisito, capacidad implementada y defecto pendiente antes de modificar cualquiera de ellos.
+
+El módulo de alta de cuentas tiene su propio [plan de ocho fases](./plan-alta-cuentas.md). La [guía de entrega y demostración](./alta-cuentas-entrega-y-demostracion.md) explica el registro de clientes desde login, las invitaciones de empleados desde ADMIN, Mailpit, pruebas y respaldo; sus reportes distinguen comprobación local, CI preparado y bases de negocio sin migrar.

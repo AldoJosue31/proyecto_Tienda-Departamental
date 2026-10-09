@@ -1,3 +1,4 @@
+import { loadAuthStatusConfig, type AuthStatusConfig } from "./auth-status";
 import { createHmac, randomBytes } from "node:crypto";
 
 export const AUTH_JWT_ISSUER = "departamental-auth-service";
@@ -5,7 +6,7 @@ export const ROLES = ["ADMIN", "EMPLOYEE", "CUSTOMER"] as const;
 export type Role = (typeof ROLES)[number];
 
 export interface DatabaseConfig { databaseUrl: string; databaseSsl: boolean; }
-export interface AnalyticsRuntimeConfig {
+export interface AnalyticsRuntimeConfig extends AuthStatusConfig {
   accessSecret: Buffer;
   corsOrigins: string[];
   environment: string;
@@ -63,7 +64,7 @@ export function loadAnalyticsRuntimeConfig(env: NodeJS.ProcessEnv = process.env)
   base64UrlSecret(inventoryServiceKey);
   const inventorySyncIntervalSeconds = Number(env.ANALYTICS_INVENTORY_SYNC_SECONDS || 30);
   if (!Number.isSafeInteger(inventorySyncIntervalSeconds) || inventorySyncIntervalSeconds < 1 || inventorySyncIntervalSeconds > 3600) throw new Error("Invalid inventory sync interval");
-  return { inventoryServiceUrl, inventoryServiceKey, inventorySyncIntervalSeconds, accessSecret: base64UrlSecret(requiredValue(env, "JWT_ACCESS_SECRET")), corsOrigins: origins(env, environment), environment, rabbitmqUrl: amqp(requiredValue(env, "RABBITMQ_URL")), timezone };
+  return { ...loadAuthStatusConfig(env), inventoryServiceUrl, inventoryServiceKey, inventorySyncIntervalSeconds, accessSecret: base64UrlSecret(requiredValue(env, "JWT_ACCESS_SECRET")), corsOrigins: origins(env, environment), environment, rabbitmqUrl: amqp(requiredValue(env, "RABBITMQ_URL")), timezone };
 }
 
 export function isRole(value: unknown): value is Role { return typeof value === "string" && ROLES.includes(value as Role); }

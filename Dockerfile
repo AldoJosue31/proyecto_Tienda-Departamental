@@ -11,6 +11,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . ./
 RUN npm run build
+RUN npm prune --omit=dev --ignore-scripts
 
 FROM node:22-alpine AS runtime
 
@@ -24,6 +25,8 @@ COPY --chown=node:node --from=build /app/package.json ./package.json
 COPY --chown=node:node --from=build /app/node_modules ./node_modules
 COPY --chown=node:node --from=build /app/public ./public
 COPY --chown=node:node --from=build /app/.next ./.next
+COPY --chown=node:node --from=build /app/scripts/secured-web-server.mjs /app/scripts/web-client-ip.mjs ./scripts/
+RUN test -s ./scripts/secured-web-server.mjs && test -s ./scripts/web-client-ip.mjs && test -s ./.next/BUILD_ID && node --check ./scripts/secured-web-server.mjs
 USER node
 EXPOSE 3000
 

@@ -11,6 +11,7 @@
   --accent: oklch(0.48 0.19 266);
   --accent-strong: oklch(0.4 0.17 266);
   --accent-soft: oklch(0.91 0.05 266);
+  --on-accent: white;
   --focus: oklch(0.57 0.19 266);
   --success: oklch(0.45 0.16 260);
   --success-surface: oklch(0.93 0.045 260);
@@ -46,6 +47,7 @@
     --accent: oklch(0.76 0.16 266);
     --accent-strong: oklch(0.84 0.13 266);
     --accent-soft: oklch(0.34 0.065 266);
+    --on-accent: oklch(0.18 0.018 264);
     --focus: oklch(0.84 0.15 266);
     --success: oklch(0.79 0.13 260);
     --success-surface: oklch(0.31 0.065 260);

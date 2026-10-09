@@ -16,10 +16,38 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run lint -- src tests scripts
+      - run: npm run lint -- src tests scripts e2e playwright.accounts.config.ts
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+  account-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/setup-integration.mjs
+      - name: Start isolated account environment
+        env:
+          COMPOSE_PARALLEL_LIMIT: 1
+        run: docker compose -p departamental-five-phases --env-file .env.integration -f compose.yaml -f compose.integration.yaml up -d --build --wait --wait-timeout 180
+      - run: npm run test:accounts-browser
+      - run: node scripts/verify-accounts-races.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: account-verification
+          path: |
+            docs/verification-accounts-browser.json
+            docs/verification-accounts-races.json
+      - name: Stop integration services
+        if: always()
+        run: docker compose -p departamental-five-phases --env-file .env.integration -f compose.yaml -f compose.integration.yaml down
   services:
     runs-on: ubuntu-latest
     strategy:
@@ -38,5 +66,6 @@ jobs:
           cache-dependency-path: services/${{ matrix.service }}-service/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run lint
       - run: npm test
       - run: npm run build

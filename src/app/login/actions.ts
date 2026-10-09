@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { safeReturnPath } from "@/lib/auth/safe-return-path";
 import type { LoginState } from "@/app/login/login-state";
 import { GatewayRequestError, gatewayJson } from "@/lib/auth/gateway-client.server";
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "@/lib/auth/session.server";
@@ -30,9 +31,6 @@ const loginResponseSchema = z.object({
 
 type LoginPayload = z.infer<typeof loginResponseSchema>;
 
-function safeNextPath(value: string | undefined) {
-  return value?.startsWith("/") && !value.startsWith("//") && !value.includes("\\") ? value : "/";
-}
 
 function cookieOptions(maxAge: number) {
   return {
@@ -85,7 +83,7 @@ export async function signIn(_previous: LoginState, formData: FormData): Promise
 
   const cookieStore = await cookies();
   setSessionCookies(payload.data, cookieStore);
-  redirect(safeNextPath(parsed.data.next));
+  redirect(safeReturnPath(parsed.data.next, payload.data.user.role));
 }
 
 /** Refreshes the HTTP-only browser session through Kong without exposing tokens to client JavaScript. */

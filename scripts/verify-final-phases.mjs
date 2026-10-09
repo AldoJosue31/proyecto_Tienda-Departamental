@@ -27,8 +27,8 @@ try {
   const admin=(await api("/auth/login",null,"POST",{email:"admin@departamental.local",password:env.SEED_ADMIN_PASSWORD})).body;assert.ok(admin.accessToken);
   const token=admin.accessToken;
   const customerId=randomUUID(),otherId=randomUUID(),email=`coupon-${customerId.slice(0,8)}@example.test`;
-  await pools.auth.query("INSERT INTO auth_users(id,email,name,password_hash,role,is_active) SELECT $1,$2,'Cliente de integración',password_hash,'CUSTOMER',TRUE FROM auth_users WHERE email='customer@departamental.local'",[customerId,email]);
-  await pools.auth.query("INSERT INTO auth_users(id,email,name,password_hash,role,is_active) SELECT $1,$2,'Cliente de integración 2',password_hash,'CUSTOMER',TRUE FROM auth_users WHERE email='customer@departamental.local'",[otherId,`coupon-${otherId.slice(0,8)}@example.test`]);
+  await pools.auth.query("INSERT INTO auth_users(id,email,name,password_hash,role,is_active,email_verified_at,verification_source) SELECT $1,$2,'Cliente de integración',password_hash,'CUSTOMER',TRUE,NOW(),'TEST_FIXTURE' FROM auth_users WHERE email='customer@departamental.local'",[customerId,email]);
+  await pools.auth.query("INSERT INTO auth_users(id,email,name,password_hash,role,is_active,email_verified_at,verification_source) SELECT $1,$2,'Cliente de integración 2',password_hash,'CUSTOMER',TRUE,NOW(),'TEST_FIXTURE' FROM auth_users WHERE email='customer@departamental.local'",[otherId,`coupon-${otherId.slice(0,8)}@example.test`]);
   const customer=(await api("/auth/login",null,"POST",{email,password:env.SEED_CUSTOMER_PASSWORD})).body;assert.ok(customer.accessToken);
   const inventory=(await api("/inventory/branches",token)).body;
   const branchId=inventory.branches[0].id;

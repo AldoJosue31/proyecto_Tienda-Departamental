@@ -1,14 +1,11 @@
 import Link from "next/link";
 
 import { LoginForm } from "@/components/auth/login-form";
-
-function safeNextPath(value: string | undefined) {
-  return value?.startsWith("/") && !value.startsWith("//") && !value.includes("\\") ? value : "/";
-}
+import { safeReturnPath } from "@/lib/auth/safe-return-path";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { next } = await searchParams;
-  const nextPath = safeNextPath(next);
+  const nextPath = safeReturnPath(next, "ADMIN");
 
   return (
     <main className="grid min-h-[100dvh] bg-[var(--page)] px-4 py-6 text-[var(--ink)] sm:px-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(26rem,0.9fr)] lg:p-8">
@@ -28,6 +25,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em]">Inicia sesión</h1>
           <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--muted)]">Usa las credenciales asignadas para continuar con tus tareas.</p>
           <LoginForm nextPath={nextPath} />
+          <p className="mt-6 text-sm leading-6 text-[var(--muted)]">¿Quieres comprar con una cuenta nueva? <Link href={`/register?next=${encodeURIComponent(nextPath)}`} className="inline-flex min-h-11 items-center font-semibold text-[var(--accent-strong)] underline underline-offset-4">Crear cuenta</Link></p>
+          <p className="mt-2 text-xs leading-5 text-[var(--muted)]">Los empleados reciben una invitación de su administrador.</p>
         </div>
       </section>
     </main>

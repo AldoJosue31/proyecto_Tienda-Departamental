@@ -1,3 +1,4 @@
+import { loadAuthStatusConfig, type AuthStatusConfig } from "./auth-status";
 import { randomBytes } from "node:crypto";
 
 export const AUTH_JWT_ISSUER = "departamental-auth-service";
@@ -5,7 +6,7 @@ export const ROLES = ["ADMIN", "EMPLOYEE", "CUSTOMER"] as const;
 export type Role = (typeof ROLES)[number];
 
 export interface DatabaseConfig { databaseUrl: string; databaseSsl: boolean; }
-export interface LogisticsRuntimeConfig {
+export interface LogisticsRuntimeConfig extends AuthStatusConfig {
   accessSecret: Buffer;
   internalOrdersServiceKey: Buffer;
   corsOrigins: string[];
@@ -57,7 +58,7 @@ export function loadDatabaseConfig(env: NodeJS.ProcessEnv = process.env): Databa
 
 export function loadLogisticsRuntimeConfig(env: NodeJS.ProcessEnv = process.env): LogisticsRuntimeConfig {
   const environment = env.NODE_ENV?.trim() || "development";
-  return {
+  return { ...loadAuthStatusConfig(env),
     accessSecret: base64UrlSecret(requiredValue(env, "JWT_ACCESS_SECRET"), "JWT_ACCESS_SECRET"),
     internalOrdersServiceKey: base64UrlSecret(requiredValue(env, "LOGISTICS_INTERNAL_SERVICE_KEY"), "LOGISTICS_INTERNAL_SERVICE_KEY"),
     corsOrigins: origins(env, environment), environment, rabbitmqUrl: amqp(requiredValue(env, "RABBITMQ_URL")),

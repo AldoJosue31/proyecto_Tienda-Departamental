@@ -1,0 +1,24 @@
+{
+  "completedAt": "2026-10-09T07:39:29.947Z",
+  "project": "departamental-five-phases",
+  "passed": true,
+  "checks": [
+    {
+      "name": "resend racing with acceptance leaves one activation and never revives the retired challenge",
+      "passed": true,
+      "milliseconds": 13433,
+      "races": 3,
+      "duplicateActivations": 0
+    },
+    {
+      "name": "disabling racing with refresh revokes every token even if rotation finishes first",
+      "passed": true,
+      "milliseconds": 4925,
+      "races": 5,
+      "survivingRevokedSessions": 0
+    }
+  ],
+  "privacy": {
+    "credentialsTokensLinksExcluded": true
+  }
+}

@@ -22,6 +22,9 @@ const user: AuthUserRecord = {
   passwordHash: "hash-that-is-never-exposed",
   role: "CUSTOMER",
   isActive: true,
+  onboardingStatus: 'READY',
+  emailVerifiedAt: new Date('2026-01-01T00:00:00Z'),
+  authVersion: 0,
 };
 
 const publicUser: PublicUser = {
@@ -29,6 +32,7 @@ const publicUser: PublicUser = {
   email: user.email,
   name: user.name,
   role: user.role,
+  authVersion: 0,
 };
 
 const metadata: SessionMetadata = {
@@ -54,11 +58,12 @@ function createService() {
   const users = {
     findByEmail: vi.fn(),
     findActiveById: vi.fn(),
-    findActiveByIdForSession: vi.fn(),
+    findActiveByIdForSession: vi.fn(async () => publicUser),
   } as unknown as UsersRepository;
   const refreshTokens = {
     create: vi.fn(),
     findByHashForUpdate: vi.fn(),
+    findUserIdByHash: vi.fn(async () => user.id),
     revokeForReplacement: vi.fn(),
     revokeFamily: vi.fn(),
     revoke: vi.fn(),
@@ -97,6 +102,27 @@ function createService() {
 }
 
 describe("AuthService", () => {
+  it('never checks a null invite password or starts sessions for pending accounts', async () => {
+    const { service, users, passwords, refreshTokens } = createService();
+    for (const pending of [
+      { ...user, role: 'EMPLOYEE' as const, passwordHash: null, onboardingStatus: 'PENDING_INVITATION' as const, emailVerifiedAt: null },
+      { ...user, onboardingStatus: 'PENDING_EMAIL' as const, emailVerifiedAt: null },
+    ]) {
+      vi.mocked(users.findByEmail).mockResolvedValue(pending);
+      await expect(service.login(pending.email, 'old password', metadata)).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    }
+    expect(passwords.verify).not.toHaveBeenCalled();
+    expect(refreshTokens.create).not.toHaveBeenCalled();
+  });
+
+  it('checks state and version again before committing a login session', async () => {
+    const { service, users, passwords, refreshTokens } = createService();
+    vi.mocked(users.findByEmail).mockResolvedValue({ ...user, authVersion: 0 });
+    vi.mocked(passwords.verify).mockResolvedValue(true);
+    vi.mocked(users.findActiveByIdForSession).mockResolvedValue({ ...publicUser, authVersion: 1 });
+    await expect(service.login(user.email, 'valid password', metadata)).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    expect(refreshTokens.create).not.toHaveBeenCalled();
+  });
   it("creates a session for a valid active user without returning the password hash", async () => {
     const { service, users, refreshTokens, passwords } = createService();
     vi.mocked(users.findByEmail).mockResolvedValue(user);

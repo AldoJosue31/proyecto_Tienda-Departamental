@@ -30,8 +30,8 @@ async function bootstrap(): Promise<void> {
       callback(new Error("Origin is not allowed by CORS."));
     },
     credentials: true,
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Authorization", "Content-Type", "X-Correlation-Id"],
+    methods: ["GET", "POST", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key"],
     exposedHeaders: ["X-Correlation-Id"],
   });
   app.useGlobalPipes(
