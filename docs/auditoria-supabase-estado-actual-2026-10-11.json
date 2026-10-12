@@ -1,0 +1,359 @@
+{
+  "checkedAt": "2026-10-11T20:23:57.851Z",
+  "scope": "Read-only running stack metadata and outbound TCP probes; no data mutation",
+  "containers": [
+    {
+      "name": "departamental-five-phases-servicio-autenticacion-1",
+      "networks": [
+        {
+          "name": "departamental-five-phases_auth-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_events-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_integration-access",
+          "internal": false
+        }
+      ]
+    },
+    {
+      "name": "departamental-five-phases-servicio-pedidos-1",
+      "networks": [
+        {
+          "name": "departamental-five-phases_auth-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_catalog-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_events-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_integration-access",
+          "internal": false
+        },
+        {
+          "name": "departamental-five-phases_inventory-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_logistics-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_orders-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_pricing-internal",
+          "internal": true
+        }
+      ]
+    },
+    {
+      "name": "departamental-five-phases-servicio-precios-1",
+      "networks": [
+        {
+          "name": "departamental-five-phases_auth-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_events-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_integration-access",
+          "internal": false
+        },
+        {
+          "name": "departamental-five-phases_orders-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_pricing-internal",
+          "internal": true
+        }
+      ]
+    },
+    {
+      "name": "departamental-five-phases-servicio-inventario-1",
+      "networks": [
+        {
+          "name": "departamental-five-phases_auth-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_events-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_integration-access",
+          "internal": false
+        },
+        {
+          "name": "departamental-five-phases_inventory-internal",
+          "internal": true
+        }
+      ]
+    },
+    {
+      "name": "departamental-five-phases-servicio-analitica-1",
+      "networks": [
+        {
+          "name": "departamental-five-phases_analytics-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_auth-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_events-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_inventory-internal",
+          "internal": true
+        }
+      ]
+    },
+    {
+      "name": "departamental-five-phases-servicio-catalogo-1",
+      "networks": [
+        {
+          "name": "departamental-five-phases_auth-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_catalog-internal",
+          "internal": true
+        }
+      ]
+    },
+    {
+      "name": "departamental-five-phases-servicio-clientes-1",
+      "networks": [
+        {
+          "name": "departamental-five-phases_auth-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_crm-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_events-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_pricing-internal",
+          "internal": true
+        }
+      ]
+    },
+    {
+      "name": "departamental-five-phases-servicio-logistica-1",
+      "networks": [
+        {
+          "name": "departamental-five-phases_auth-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_events-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_logistics-internal",
+          "internal": true
+        }
+      ]
+    },
+    {
+      "name": "departamental-five-phases-servicio-tiempo-real-1",
+      "networks": [
+        {
+          "name": "departamental-five-phases_auth-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_events-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_realtime-internal",
+          "internal": true
+        }
+      ]
+    },
+    {
+      "name": "departamental-five-phases-servicio-notificaciones-1",
+      "networks": [
+        {
+          "name": "departamental-five-phases_auth-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_events-internal",
+          "internal": true
+        },
+        {
+          "name": "departamental-five-phases_notification-egress",
+          "internal": false
+        },
+        {
+          "name": "departamental-five-phases_notification-internal",
+          "internal": true
+        }
+      ]
+    }
+  ],
+  "databases": [
+    {
+      "domain": "auth",
+      "exitCode": 0,
+      "version": "16.15",
+      "database_size_bytes": 8633367,
+      "tables": 10,
+      "migration_count": 2,
+      "installed_migrations": [
+        "001_auth_schema.sql",
+        "002_account_onboarding.sql"
+      ]
+    },
+    {
+      "domain": "catalog",
+      "exitCode": 0,
+      "version": "16.15",
+      "database_size_bytes": 8231959,
+      "tables": 6,
+      "migration_count": 1,
+      "installed_migrations": [
+        "001_catalog_schema.sql"
+      ]
+    },
+    {
+      "domain": "inventory",
+      "exitCode": 0,
+      "version": "16.15",
+      "database_size_bytes": 8543255,
+      "tables": 10,
+      "migration_count": 3,
+      "installed_migrations": [
+        "001_inventory_schema.sql",
+        "002_events_outbox.sql",
+        "003_stock_revision.sql"
+      ]
+    },
+    {
+      "domain": "pricing",
+      "exitCode": 0,
+      "version": "16.15",
+      "database_size_bytes": 8264727,
+      "tables": 7,
+      "migration_count": 3,
+      "installed_migrations": [
+        "001_pricing_schema.sql",
+        "002_coupon_rights.sql",
+        "002_outbox.sql"
+      ]
+    },
+    {
+      "domain": "orders",
+      "exitCode": 0,
+      "version": "16.15",
+      "database_size_bytes": 8420375,
+      "tables": 6,
+      "migration_count": 5,
+      "installed_migrations": [
+        "001_orders_schema.sql",
+        "002_outbox.sql",
+        "003_order_channel.sql",
+        "004_cancellation_pending.sql",
+        "005_coupon_snapshot.sql"
+      ]
+    },
+    {
+      "domain": "analytics",
+      "exitCode": 0,
+      "version": "16.15",
+      "database_size_bytes": 8240151,
+      "tables": 8,
+      "migration_count": 2,
+      "installed_migrations": [
+        "001_analytics_projections.sql",
+        "002_inventory_reconciliation.sql"
+      ]
+    },
+    {
+      "domain": "logistics",
+      "exitCode": 0,
+      "version": "16.15",
+      "database_size_bytes": 8223767,
+      "tables": 7,
+      "migration_count": 3,
+      "installed_migrations": [
+        "001_logistics_schema.sql",
+        "002_courier_tracking.sql",
+        "003_order_channel.sql"
+      ]
+    },
+    {
+      "domain": "crm",
+      "exitCode": 0,
+      "version": "16.15",
+      "database_size_bytes": 8551447,
+      "tables": 9,
+      "migration_count": 4,
+      "installed_migrations": [
+        "001_crm_projections.sql",
+        "002_campaigns.sql",
+        "003_campaign_segment_cutoff.sql",
+        "004_coupon_delivery.sql"
+      ]
+    },
+    {
+      "domain": "notification",
+      "exitCode": 0,
+      "version": "16.15",
+      "database_size_bytes": 8608791,
+      "tables": 7,
+      "migration_count": 3,
+      "installed_migrations": [
+        "001_notifications.sql",
+        "002_delivery_outcomes.sql",
+        "003_auth_onboarding.sql"
+      ]
+    }
+  ],
+  "probes": [
+    {
+      "service": "catalogo",
+      "exitCode": 0,
+      "probe": {
+        "result": "EAI_AGAIN"
+      }
+    },
+    {
+      "service": "pedidos",
+      "exitCode": 0,
+      "probe": {
+        "result": "CONNECTED",
+        "endpoint": "supabase.com:443"
+      }
+    },
+    {
+      "service": "notificaciones",
+      "exitCode": 0,
+      "probe": {
+        "result": "CONNECTED",
+        "endpoint": "supabase.com:443"
+      }
+    }
+  ]
+}

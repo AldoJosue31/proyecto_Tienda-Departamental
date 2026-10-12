@@ -1,0 +1,303 @@
+{
+  "startedAt": "2026-10-11T20:27:41.274Z",
+  "scope": "Disposable PostgreSQL 17; no hosted database writes or production data",
+  "container": "departamental-supabase-audit-371689d6",
+  "migrations": [
+    {
+      "domain": "auth",
+      "profile": "public",
+      "schema": "public",
+      "files": [
+        "001_auth_schema.sql",
+        "002_account_onboarding.sql"
+      ],
+      "tableCount": 10,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "catalog",
+      "profile": "public",
+      "schema": "public",
+      "files": [
+        "001_catalog_schema.sql"
+      ],
+      "tableCount": 6,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "inventory",
+      "profile": "public",
+      "schema": "public",
+      "files": [
+        "001_inventory_schema.sql",
+        "002_events_outbox.sql",
+        "003_stock_revision.sql"
+      ],
+      "tableCount": 10,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "pricing",
+      "profile": "public",
+      "schema": "public",
+      "files": [
+        "001_pricing_schema.sql",
+        "002_coupon_rights.sql",
+        "002_outbox.sql"
+      ],
+      "tableCount": 7,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "orders",
+      "profile": "public",
+      "schema": "public",
+      "files": [
+        "001_orders_schema.sql",
+        "002_outbox.sql",
+        "003_order_channel.sql",
+        "004_cancellation_pending.sql",
+        "005_coupon_snapshot.sql"
+      ],
+      "tableCount": 6,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "analytics",
+      "profile": "public",
+      "schema": "public",
+      "files": [
+        "001_analytics_projections.sql",
+        "002_inventory_reconciliation.sql"
+      ],
+      "tableCount": 8,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "logistics",
+      "profile": "public",
+      "schema": "public",
+      "files": [
+        "001_logistics_schema.sql",
+        "002_courier_tracking.sql",
+        "003_order_channel.sql"
+      ],
+      "tableCount": 7,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "crm",
+      "profile": "public",
+      "schema": "public",
+      "files": [
+        "001_crm_projections.sql",
+        "002_campaigns.sql",
+        "003_campaign_segment_cutoff.sql",
+        "004_coupon_delivery.sql"
+      ],
+      "tableCount": 9,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "notification",
+      "profile": "public",
+      "schema": "public",
+      "files": [
+        "001_notifications.sql",
+        "002_delivery_outcomes.sql",
+        "003_auth_onboarding.sql"
+      ],
+      "tableCount": 7,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "auth",
+      "profile": "private",
+      "schema": "app_private",
+      "files": [
+        "001_auth_schema.sql",
+        "002_account_onboarding.sql"
+      ],
+      "tableCount": 10,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "catalog",
+      "profile": "private",
+      "schema": "app_private",
+      "files": [
+        "001_catalog_schema.sql"
+      ],
+      "tableCount": 6,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "inventory",
+      "profile": "private",
+      "schema": "app_private",
+      "files": [
+        "001_inventory_schema.sql",
+        "002_events_outbox.sql",
+        "003_stock_revision.sql"
+      ],
+      "tableCount": 10,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "pricing",
+      "profile": "private",
+      "schema": "app_private",
+      "files": [
+        "001_pricing_schema.sql",
+        "002_coupon_rights.sql",
+        "002_outbox.sql"
+      ],
+      "tableCount": 7,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "orders",
+      "profile": "private",
+      "schema": "app_private",
+      "files": [
+        "001_orders_schema.sql",
+        "002_outbox.sql",
+        "003_order_channel.sql",
+        "004_cancellation_pending.sql",
+        "005_coupon_snapshot.sql"
+      ],
+      "tableCount": 6,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "analytics",
+      "profile": "private",
+      "schema": "app_private",
+      "files": [
+        "001_analytics_projections.sql",
+        "002_inventory_reconciliation.sql"
+      ],
+      "tableCount": 8,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "logistics",
+      "profile": "private",
+      "schema": "app_private",
+      "files": [
+        "001_logistics_schema.sql",
+        "002_courier_tracking.sql",
+        "003_order_channel.sql"
+      ],
+      "tableCount": 7,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "crm",
+      "profile": "private",
+      "schema": "app_private",
+      "files": [
+        "001_crm_projections.sql",
+        "002_campaigns.sql",
+        "003_campaign_segment_cutoff.sql",
+        "004_coupon_delivery.sql"
+      ],
+      "tableCount": 9,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    },
+    {
+      "domain": "notification",
+      "profile": "private",
+      "schema": "app_private",
+      "files": [
+        "001_notifications.sql",
+        "002_delivery_outcomes.sql",
+        "003_auth_onboarding.sql"
+      ],
+      "tableCount": 7,
+      "nonSuperuser": true,
+      "secondRunUnchanged": true,
+      "passed": true
+    }
+  ],
+  "runtime": [
+    {
+      "name": "Real Inventory reserve: 20 simultaneous buyers compete for the last unit",
+      "passed": true,
+      "buyers": 20,
+      "successfulReservations": 1,
+      "outOfStock": 19,
+      "replayDoesNotDuplicateEvents": true,
+      "commitReplayDoesNotDoubleConsume": true
+    },
+    {
+      "name": "Inventory reservation release returns the unit to availability",
+      "passed": true
+    },
+    {
+      "name": "Inventory rolls back stock, reservation and outbox together when enqueue fails",
+      "passed": true
+    },
+    {
+      "name": "Two real Inventory outbox workers claim disjoint rows using SKIP LOCKED",
+      "passed": true,
+      "firstWorkerClaims": 25,
+      "secondWorkerClaims": 25,
+      "duplicates": 0
+    },
+    {
+      "name": "Real Orders session advisory lock serializes operations and explicitly unlocks",
+      "passed": true,
+      "concurrentOperations": 8,
+      "maximumSimultaneousCriticalSections": 1,
+      "locksLeftBehind": 0
+    },
+    {
+      "name": "Real Pricing activates at Mexico City midnight, only once, with transactional event",
+      "passed": true,
+      "businessTimezone": "America/Mexico_City",
+      "utcBoundary": "2026-10-12T06:00:00.000Z",
+      "duplicateEvents": 0,
+      "schedulerTickNotMeasured": true
+    }
+  ],
+  "cleanup": true,
+  "serverVersion": "17.11",
+  "image": "sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24",
+  "passed": true,
+  "finishedAt": "2026-10-11T20:28:48.139Z"
+}
