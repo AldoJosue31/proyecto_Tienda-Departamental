@@ -321,7 +321,7 @@ docker compose up --build
 La aplicación web queda en `http://localhost:3000` (o el puerto configurado en
 `WEB_HOST_PORT`) y el Gateway en `http://localhost:8000`. Para las cuentas
 locales de demostración de los tres roles, consulta [Acceso local](ACCESO_LOCAL.md).
-En desarrollo también se pueden crear los catorce productos semilla de Catalog;
+En desarrollo también se pueden crear los veinte productos semilla de Catalog;
 consulta [Catalog Service](services/catalog-service/README.md) para sus
 contratos y configuración.
 

@@ -21,7 +21,40 @@ interface SeedProduct {
   brand: { name: string; slug: string };
   tags: string[];
   imageUrl: string;
-  variant: SeedVariant;
+  variant?: SeedVariant;
+  variants?: SeedVariant[];
+}
+
+interface SeedOption {
+  name: string;
+  code: string;
+}
+
+function variantMatrix(
+  productNumber: number,
+  skuPrefix: string,
+  colors: readonly SeedOption[],
+  materials: readonly SeedOption[],
+  basePrice: number,
+  sizePriceStep: number,
+  materialPriceStep: number,
+): SeedVariant[] {
+  let sequence = 0;
+  return ["S", "M", "L"].flatMap((size, sizeIndex) =>
+    colors.flatMap((color) =>
+      materials.map((material, materialIndex) => {
+        sequence += 1;
+        return {
+          id: `a2000000-0000-4000-8000-${String(productNumber * 100 + sequence).padStart(12, "0")}`,
+          sku: `${skuPrefix}-${size}-${color.code}-${material.code}`,
+          size,
+          color: color.name,
+          material: material.name,
+          listPrice: basePrice + sizeIndex * sizePriceStep + materialIndex * materialPriceStep,
+        };
+      }),
+    ),
+  );
 }
 
 const IMAGE_URL = "/catalog/departmental-products-v1.png";
@@ -263,6 +296,108 @@ const products: SeedProduct[] = [
       listPrice: 899,
     },
   },
+  {
+    id: "a1000000-0000-4000-8000-000000000015",
+    slug: "camisa-aural-relajada",
+    name: "Camisa Aural relajada",
+    description: "Camisa de manga larga y corte relajado para combinar a diario.",
+    category: { name: "Moda", slug: "moda" },
+    brand: { name: "Aural", slug: "aural" },
+    tags: ["Camisa", "Unisex", "Tallas S M L"],
+    imageUrl: "/catalog/camisa-aural-relajada.png",
+    variants: variantMatrix(15, "AUR-CAM", [
+      { name: "Marfil", code: "MAR" },
+      { name: "Azul petróleo", code: "AZP" },
+    ], [
+      { name: "Algodón", code: "ALG" },
+      { name: "Lino", code: "LIN" },
+    ], 899, 40, 180),
+  },
+  {
+    id: "a1000000-0000-4000-8000-000000000016",
+    slug: "sudadera-boreal-capucha",
+    name: "Sudadera Boreal con capucha",
+    description: "Sudadera unisex de corte cómodo con capucha y bolsillo frontal.",
+    category: { name: "Moda", slug: "moda" },
+    brand: { name: "Boreal", slug: "boreal" },
+    tags: ["Sudadera", "Unisex", "Tallas S M L"],
+    imageUrl: "/catalog/sudadera-boreal-capucha.png",
+    variants: variantMatrix(16, "BOR-SUD", [
+      { name: "Verde pino", code: "PIN" },
+      { name: "Arena", code: "ARE" },
+    ], [
+      { name: "Algodón", code: "ALG" },
+      { name: "Felpa reciclada", code: "FEL" },
+    ], 1_199, 60, 200),
+  },
+  {
+    id: "a1000000-0000-4000-8000-000000000017",
+    slug: "pantalon-terral-cargo",
+    name: "Pantalón Terral cargo",
+    description: "Pantalón unisex de corte relajado con bolsillos laterales.",
+    category: { name: "Moda", slug: "moda" },
+    brand: { name: "Terral", slug: "terral" },
+    tags: ["Pantalón", "Cargo", "Tallas S M L"],
+    imageUrl: "/catalog/pantalon-terral-cargo.png",
+    variants: variantMatrix(17, "TER-PAN", [
+      { name: "Caqui", code: "CAQ" },
+      { name: "Grafito", code: "GRA" },
+    ], [
+      { name: "Algodón", code: "ALG" },
+      { name: "Sarga reciclada", code: "SAR" },
+    ], 1_099, 50, 170),
+  },
+  {
+    id: "a1000000-0000-4000-8000-000000000018",
+    slug: "chamarra-brisa-cortaviento",
+    name: "Chamarra Brisa cortaviento",
+    description: "Chamarra ligera con cierre, capucha y tejido de secado rápido.",
+    category: { name: "Deportes", slug: "deportes" },
+    brand: { name: "Brisa", slug: "brisa" },
+    tags: ["Chamarra", "Exterior", "Tallas S M L"],
+    imageUrl: "/catalog/chamarra-brisa-cortaviento.png",
+    variants: variantMatrix(18, "BRI-CHA", [
+      { name: "Azul petróleo", code: "AZP" },
+      { name: "Negro", code: "NEG" },
+    ], [
+      { name: "Nylon", code: "NYL" },
+      { name: "Poliéster reciclado", code: "POL" },
+    ], 1_799, 80, 250),
+  },
+  {
+    id: "a1000000-0000-4000-8000-000000000019",
+    slug: "mandil-oliva-cocina",
+    name: "Mandil Oliva de cocina",
+    description: "Mandil ajustable con bolsillos frontales para cocinar con comodidad.",
+    category: { name: "Cocina", slug: "cocina" },
+    brand: { name: "Oliva", slug: "oliva" },
+    tags: ["Mandil", "Cocina", "Tallas S M L"],
+    imageUrl: "/catalog/mandil-oliva-cocina.png",
+    variants: variantMatrix(19, "OLI-MAN", [
+      { name: "Terracota", code: "TER" },
+      { name: "Azul marino", code: "AZM" },
+    ], [
+      { name: "Lona de algodón", code: "LON" },
+      { name: "Lino", code: "LIN" },
+    ], 549, 30, 120),
+  },
+  {
+    id: "a1000000-0000-4000-8000-000000000020",
+    slug: "cama-nido-mascotas",
+    name: "Cama Nido para mascotas",
+    description: "Cama acolchada con bordes suaves y cojín central removible.",
+    category: { name: "Mascotas", slug: "mascotas" },
+    brand: { name: "Nido", slug: "nido" },
+    tags: ["Mascotas", "Cama", "Tallas S M L"],
+    imageUrl: "/catalog/cama-nido-mascotas.png",
+    variants: variantMatrix(20, "NID-CAM", [
+      { name: "Arena", code: "ARE" },
+      { name: "Terracota", code: "TER" },
+    ], [
+      { name: "Lona", code: "LON" },
+      { name: "Terciopelo", code: "VEL" },
+    ], 899, 250, 180),
+  },
 ];
 
 async function referencedId(
@@ -326,25 +461,33 @@ async function seedProduct(client: PoolClient, product: SeedProduct): Promise<bo
   if (!productId) {
     throw new Error("Catalog seed product was not found.");
   }
-  const variantResult = await client.query(
-    `
-      INSERT INTO catalog_product_variants (
-        id, product_id, sku, size, color, material, list_price, currency, status
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'MXN', 'ACTIVE')
-      ON CONFLICT (sku) DO NOTHING
-    `,
-    [
-      product.variant.id,
-      productId,
-      product.variant.sku,
-      product.variant.size ?? null,
-      product.variant.color ?? null,
-      product.variant.material ?? null,
-      product.variant.listPrice,
-    ],
-  );
-  return (productResult.rowCount ?? 0) > 0 || (variantResult.rowCount ?? 0) > 0;
+  const variants = product.variants ?? (product.variant ? [product.variant] : []);
+  if (variants.length === 0) {
+    throw new Error("Catalog seed product has no variants.");
+  }
+  let changed = (productResult.rowCount ?? 0) > 0;
+  for (const variant of variants) {
+    const variantResult = await client.query(
+      `
+        INSERT INTO catalog_product_variants (
+          id, product_id, sku, size, color, material, list_price, currency, status
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'MXN', 'ACTIVE')
+        ON CONFLICT (sku) DO NOTHING
+      `,
+      [
+        variant.id,
+        productId,
+        variant.sku,
+        variant.size ?? null,
+        variant.color ?? null,
+        variant.material ?? null,
+        variant.listPrice,
+      ],
+    );
+    changed = (variantResult.rowCount ?? 0) > 0 || changed;
+  }
+  return changed;
 }
 
 async function run(): Promise<void> {

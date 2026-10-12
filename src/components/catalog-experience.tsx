@@ -42,7 +42,19 @@ function money(value: number, currency: string) {
   }
 }
 
+function orderedSizes(variants: CatalogVariant[]) {
+  const order = ["S", "M", "L"];
+  return Array.from(new Set(variants.map((variant) => variant.size).filter((value): value is string => Boolean(value))))
+    .sort((left, right) => order.indexOf(left) - order.indexOf(right));
+}
+
 function visibleAttributes(product: CatalogProductSummary) {
+  const sizes = orderedSizes(product.variants);
+  const colors = Array.from(new Set(product.variants.map((variant) => variant.color).filter((value): value is string => Boolean(value))));
+  const materials = Array.from(new Set(product.variants.map((variant) => variant.material).filter((value): value is string => Boolean(value))));
+  if (sizes.length > 1 && colors.length > 1 && materials.length > 1) {
+    return ["Tallas " + sizes.join(", "), colors.length + " colores", materials.length + " materiales"];
+  }
   return product.variants.flatMap((variant) => [variant.size, variant.color, variant.material].filter(Boolean) as string[]);
 }
 
@@ -144,11 +156,107 @@ function ProductCard({ product, canBuy, onOpen }: { product: CatalogProductSumma
   return <article className="group min-w-0"><ProductMedia product={product} /><div className="mt-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold text-[var(--muted)]">{product.brand.name}</p><h2 className="mt-1 text-base font-semibold tracking-[-0.02em]">{product.name}</h2></div><span className="shrink-0 rounded-md bg-[var(--accent-soft)] px-2 py-1 text-xs font-semibold text-[var(--accent-strong)]">{product.category.name}</span></div><p className="mt-2 min-h-10 text-sm leading-5 text-[var(--muted)]">{product.description ?? "Conoce las opciones disponibles de este producto."}</p><div className="mt-4 flex items-end justify-between gap-3 border-t border-[var(--line)] pt-3"><PriceHint product={product} /><p className="text-right text-xs font-semibold text-[var(--muted)]">{product.variants.length} {product.variants.length === 1 ? "variante" : "variantes"}</p></div>{attributes.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{attributes.map((attribute) => <span key={attribute} className="rounded-md bg-[var(--surface-muted)] px-2 py-1 text-xs text-[var(--muted)]">{attribute}</span>)}</div>}<button type="button" onClick={onOpen} className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--ink)] px-3 text-sm font-semibold text-[var(--surface)] transition-colors duration-200 hover:bg-[var(--accent-strong)]"><IconTag size={17} stroke={2} aria-hidden="true" />{canBuy ? "Elegir y agregar" : "Ver variantes"}</button></div></article>;
 }
 
-function ProductDialog({ product, userRole, addedVariantId, itemCount, onAdd, onClose }: { product: CatalogProductSummary; userRole: Role | null; addedVariantId: string | null; itemCount: number; onAdd: (product: CatalogProductSummary, variant: CatalogVariant) => void; onClose: () => void }) {
+type AttributeSelectProps = {
+  label: string;
+  placeholder: string;
+  options: string[];
+  value: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+};
+
+function AttributeSelect({ label, placeholder, options, value, disabled = false, onChange }: AttributeSelectProps) {
+  return <label className="block">
+    <span className="text-sm font-semibold">{label}</span>
+    <select
+      value={value}
+      disabled={disabled}
+      onChange={(event) => onChange(event.target.value)}
+      className="mt-1.5 h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm focus:border-[var(--accent)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <option value="">{placeholder}</option>
+      {options.map((option) => <option key={option} value={option}>{option}</option>)}
+    </select>
+  </label>;
+}
+
+function ProductDialog({ product, userRole, addedVariantId, itemCount, onAdd, onClose }: {
+  product: CatalogProductSummary;
+  userRole: Role | null;
+  addedVariantId: string | null;
+  itemCount: number;
+  onAdd: (product: CatalogProductSummary, variant: CatalogVariant) => void;
+  onClose: () => void;
+}) {
   const canBuy = userRole === "CUSTOMER" || userRole === null;
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const selectedVariant = product.variants.find((variant) => variant.id === selectedVariantId) ?? null;
+  const [selectedSize, setSelectedSize] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
+  const [selectedMaterial, setSelectedMaterial] = useState("");
+
+  const sizes = orderedSizes(product.variants);
+  const colors = Array.from(new Set(product.variants.map((variant) => variant.color).filter((value): value is string => Boolean(value))));
+  const materials = Array.from(new Set(product.variants.map((variant) => variant.material).filter((value): value is string => Boolean(value))));
+  const hasAttributeMatrix = sizes.length > 1 && colors.length > 1 && materials.length > 1
+    && product.variants.length === sizes.length * colors.length * materials.length;
+  const selectedVariant = hasAttributeMatrix
+    ? product.variants.find((variant) => variant.size === selectedSize && variant.color === selectedColor && variant.material === selectedMaterial) ?? null
+    : product.variants.find((variant) => variant.id === selectedVariantId) ?? null;
   const justAdded = selectedVariant?.id === addedVariantId;
 
-  return <div className="grid gap-6 p-5 sm:grid-cols-[11rem_minmax(0,1fr)] sm:p-6"><ProductMedia product={product} compact /><div><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-[var(--accent-strong)]">{product.brand.name} · {product.category.name}</p><h2 id="product-dialog-title" className="mt-1 text-balance text-2xl font-semibold tracking-[-0.03em]">{product.name}</h2></div><button type="button" onClick={onClose} aria-label="Cerrar detalle" className="grid size-11 shrink-0 place-items-center rounded-xl text-[var(--muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"><IconX size={20} aria-hidden="true" /></button></div><p className="mt-3 text-sm leading-6 text-[var(--muted)]">{product.description ?? "Revisa las variantes disponibles de este producto."}</p><div className="mt-5 border-y border-[var(--line)] py-4"><p className="text-sm font-semibold">Elige una variante</p><p className="mt-1 text-sm text-[var(--muted)]">Selecciona una opción para revisar sus atributos antes de agregarla.</p><div className="mt-3 space-y-2" role="radiogroup" aria-label={`Variantes de ${product.name}`}>{product.variants.map((variant) => { const selected = variant.id === selectedVariantId; const attributes = variantAttributes(variant); return <label key={variant.id} className={`flex w-full cursor-pointer flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 has-[:focus-visible]:outline-[var(--focus)] ${selected ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-transparent bg-[var(--surface-muted)] hover:border-[var(--line)] hover:bg-[var(--surface)]"}`}><input type="radio" name={`variant-${product.id}`} checked={selected} onChange={() => setSelectedVariantId(variant.id)} className="sr-only" /><span><span className="block text-sm font-semibold">{variant.label}</span>{attributes.length > 0 ? <span className="mt-1 block text-xs leading-5 text-[var(--muted)]">{attributes.join(" · ")}</span> : null}<span className="mt-1 block text-xs text-[var(--muted)]">SKU {variant.sku}</span></span><span className="text-sm font-semibold">{money(variant.listPrice, variant.currency)}</span></label>; })}</div></div>{canBuy ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-[var(--muted)]" role="status" aria-live="polite">{selectedVariant ? `${selectedVariant.label} seleccionada.` : "Selecciona una variante para continuar."}</p><button type="button" disabled={!selectedVariant || justAdded} onClick={() => { if (selectedVariant) onAdd(product, selectedVariant); }} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] disabled:text-[var(--muted)]"><IconPlus size={17} aria-hidden="true" />{justAdded ? "Agregada a la bolsa" : "Agregar a la bolsa"}</button></div> : null}{canBuy && addedVariantId ? <Link href="/checkout" className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent-soft)] px-4 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent)] hover:text-white"><IconShoppingBag size={17} aria-hidden="true" />Ver bolsa{itemCount ? ` · ${itemCount}` : ""}</Link> : null}{userRole === null ? <Link href="/login?next=/" className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-strong)]"><IconShoppingBag size={17} aria-hidden="true" />Inicia sesión para comprar</Link> : !canBuy ? <p className="mt-4 text-sm leading-6 text-[var(--muted)]">Las compras en línea se realizan con una cuenta CUSTOMER. El personal usa el flujo de ventas físicas.</p> : <p className="mt-4 text-xs leading-5 text-[var(--muted)]">El precio final y la existencia se confirman al enviar el pedido.</p>}</div></div>;
+  return <div className="grid gap-6 p-5 sm:grid-cols-[11rem_minmax(0,1fr)] sm:p-6">
+    <ProductMedia product={product} compact />
+    <div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-[var(--accent-strong)]">{product.brand.name} · {product.category.name}</p>
+          <h2 id="product-dialog-title" className="mt-1 text-balance text-2xl font-semibold tracking-[-0.03em]">{product.name}</h2>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Cerrar detalle" className="grid size-11 shrink-0 place-items-center rounded-xl text-[var(--muted)] hover:bg-[var(--surface-muted)]"><IconX size={20} aria-hidden="true" /></button>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{product.description ?? "Revisa las variantes disponibles de este producto."}</p>
+      <div className="mt-5 border-y border-[var(--line)] py-4">
+        <p className="text-sm font-semibold">Elige una variante</p>
+        {hasAttributeMatrix ? <>
+          <p className="mt-1 text-sm text-[var(--muted)]">Selecciona talla, color y material para encontrar el SKU exacto.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <AttributeSelect label="Talla" placeholder="Elige talla" options={sizes} value={selectedSize} onChange={(value) => { setSelectedSize(value); setSelectedColor(""); setSelectedMaterial(""); }} />
+            <AttributeSelect label="Color" placeholder="Elige color" options={colors} value={selectedColor} disabled={!selectedSize} onChange={(value) => { setSelectedColor(value); setSelectedMaterial(""); }} />
+            <div className="sm:col-span-2">
+              <AttributeSelect label="Material" placeholder="Elige material" options={materials} value={selectedMaterial} disabled={!selectedColor} onChange={setSelectedMaterial} />
+            </div>
+          </div>
+          {selectedVariant && <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[var(--accent-soft)] px-4 py-3">
+            <span className="text-sm text-[var(--accent-strong)]">SKU {selectedVariant.sku}</span>
+            <span className="font-semibold">{money(selectedVariant.listPrice, selectedVariant.currency)}</span>
+          </div>}
+        </> : <>
+          <p className="mt-1 text-sm text-[var(--muted)]">Selecciona una opción para revisar sus atributos antes de agregarla.</p>
+          <div className="mt-3 space-y-2" role="radiogroup" aria-label={"Variantes de " + product.name}>
+            {product.variants.map((variant) => {
+              const selected = variant.id === selectedVariantId;
+              const attributes = variantAttributes(variant);
+              return <label key={variant.id} className={"flex w-full cursor-pointer flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 has-[:focus-visible]:outline-[var(--focus)] " + (selected ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-transparent bg-[var(--surface-muted)] hover:border-[var(--line)] hover:bg-[var(--surface)]")}>
+                <input type="radio" name={"variant-" + product.id} checked={selected} onChange={() => setSelectedVariantId(variant.id)} className="sr-only" />
+                <span>
+                  <span className="block text-sm font-semibold">{variant.label}</span>
+                  {attributes.length > 0 && <span className="mt-1 block text-xs leading-5 text-[var(--muted)]">{attributes.join(" · ")}</span>}
+                  <span className="mt-1 block text-xs text-[var(--muted)]">SKU {variant.sku}</span>
+                </span>
+                <span className="text-sm font-semibold">{money(variant.listPrice, variant.currency)}</span>
+              </label>;
+            })}
+          </div>
+        </>}
+      </div>
+      {canBuy && <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-[var(--muted)]" role="status" aria-live="polite">{selectedVariant ? selectedVariant.label + " seleccionada." : "Selecciona una variante para continuar."}</p>
+        <button type="button" disabled={!selectedVariant || justAdded} onClick={() => { if (selectedVariant) onAdd(product, selectedVariant); }} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] disabled:text-[var(--muted)]"><IconPlus size={17} aria-hidden="true" />{justAdded ? "Agregada a la bolsa" : "Agregar a la bolsa"}</button>
+      </div>}
+      {canBuy && addedVariantId && <Link href="/checkout" className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent-soft)] px-4 text-sm font-semibold text-[var(--accent-strong)] hover:bg-[var(--accent)] hover:text-white"><IconShoppingBag size={17} aria-hidden="true" />Ver bolsa{itemCount ? " · " + itemCount : ""}</Link>}
+      {userRole === null ? <Link href="/login?next=/" className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]"><IconShoppingBag size={17} aria-hidden="true" />Inicia sesión para comprar</Link>
+        : !canBuy ? <p className="mt-4 text-sm leading-6 text-[var(--muted)]">Las compras en línea se realizan con una cuenta CUSTOMER. El personal usa el flujo de ventas físicas.</p>
+        : <p className="mt-4 text-xs leading-5 text-[var(--muted)]">El precio final y la existencia se confirman al enviar el pedido.</p>}
+    </div>
+  </div>;
 }

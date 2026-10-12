@@ -17,6 +17,11 @@ interface SeedStock {
   reorderPoint: number | null;
 }
 
+interface SeedOption {
+  name: string;
+  code: string;
+}
+
 const branchIds = {
   centro: "b1000000-0000-4000-8000-000000000001",
   norte: "b1000000-0000-4000-8000-000000000002",
@@ -185,6 +190,79 @@ const stocks: SeedStock[] = [
     reorderPoint: 4,
   },
 ];
+
+function variantMatrixStocks(
+  productNumber: number,
+  productName: string,
+  skuPrefix: string,
+  colors: readonly SeedOption[],
+  materials: readonly SeedOption[],
+): SeedStock[] {
+  let sequence = 0;
+  return ["S", "M", "L"].flatMap((size) =>
+    colors.flatMap((color) =>
+      materials.map((material) => {
+        sequence += 1;
+        return {
+          variant: {
+            id: `a2000000-0000-4000-8000-${String(productNumber * 100 + sequence).padStart(12, "0")}`,
+            productName,
+            sku: `${skuPrefix}-${size}-${color.code}-${material.code}`,
+            variantLabel: `${size} · ${color.name} · ${material.name}`,
+          },
+          branchId: branchIds.centro,
+          onHand: 4,
+          reorderPoint: 1,
+        };
+      }),
+    ),
+  );
+}
+
+stocks.push(
+  ...variantMatrixStocks(15, "Camisa Aural relajada", "AUR-CAM", [
+    { name: "Marfil", code: "MAR" },
+    { name: "Azul petróleo", code: "AZP" },
+  ], [
+    { name: "Algodón", code: "ALG" },
+    { name: "Lino", code: "LIN" },
+  ]),
+  ...variantMatrixStocks(16, "Sudadera Boreal con capucha", "BOR-SUD", [
+    { name: "Verde pino", code: "PIN" },
+    { name: "Arena", code: "ARE" },
+  ], [
+    { name: "Algodón", code: "ALG" },
+    { name: "Felpa reciclada", code: "FEL" },
+  ]),
+  ...variantMatrixStocks(17, "Pantalón Terral cargo", "TER-PAN", [
+    { name: "Caqui", code: "CAQ" },
+    { name: "Grafito", code: "GRA" },
+  ], [
+    { name: "Algodón", code: "ALG" },
+    { name: "Sarga reciclada", code: "SAR" },
+  ]),
+  ...variantMatrixStocks(18, "Chamarra Brisa cortaviento", "BRI-CHA", [
+    { name: "Azul petróleo", code: "AZP" },
+    { name: "Negro", code: "NEG" },
+  ], [
+    { name: "Nylon", code: "NYL" },
+    { name: "Poliéster reciclado", code: "POL" },
+  ]),
+  ...variantMatrixStocks(19, "Mandil Oliva de cocina", "OLI-MAN", [
+    { name: "Terracota", code: "TER" },
+    { name: "Azul marino", code: "AZM" },
+  ], [
+    { name: "Lona de algodón", code: "LON" },
+    { name: "Lino", code: "LIN" },
+  ]),
+  ...variantMatrixStocks(20, "Cama Nido para mascotas", "NID-CAM", [
+    { name: "Arena", code: "ARE" },
+    { name: "Terracota", code: "TER" },
+  ], [
+    { name: "Lona", code: "LON" },
+    { name: "Terciopelo", code: "VEL" },
+  ]),
+);
 
 async function seedBranch(client: PoolClient, branch: { id: string; name: string }): Promise<void> {
   await client.query(

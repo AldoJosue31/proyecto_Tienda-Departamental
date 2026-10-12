@@ -132,7 +132,7 @@ npm run db:seed
 npm run start:dev
 ```
 
-El seed no se ejecuta en producción. En una base nueva crea catorce productos `ACTIVE`. Los seis originales usan el sprite `/catalog/departmental-products-v1.png`:
+El seed no se ejecuta en producción. En una base nueva crea veinte productos `ACTIVE`. Los seis originales usan el sprite `/catalog/departmental-products-v1.png`:
 
 | Producto | UUID | Sprite sugerido |
 | --- | --- | --- |
@@ -155,6 +155,17 @@ Los ocho productos adicionales tienen una imagen individual en `public/catalog/`
 | `escritorio-luma-compacto` | Oficina | `escritorio-luma-compacto.png` |
 | `camara-prisma-instantanea` | Electrónica | `camara-prisma-instantanea.png` |
 | `bloques-tilo-madera` | Juguetes | `bloques-tilo-madera.png` |
+
+Los seis productos siguientes tienen una imagen individual y doce variantes cada uno: tallas `S`, `M` y `L`, dos colores y dos materiales. Cada combinación tiene SKU, precio y stock propios; las imágenes muestran una variante representativa.
+
+| Producto | Categoría | Imagen |
+| --- | --- | --- |
+| `camisa-aural-relajada` | Moda | `camisa-aural-relajada.png` |
+| `sudadera-boreal-capucha` | Moda | `sudadera-boreal-capucha.png` |
+| `pantalon-terral-cargo` | Moda | `pantalon-terral-cargo.png` |
+| `chamarra-brisa-cortaviento` | Deportes | `chamarra-brisa-cortaviento.png` |
+| `mandil-oliva-cocina` | Cocina | `mandil-oliva-cocina.png` |
+| `cama-nido-mascotas` | Mascotas | `cama-nido-mascotas.png` |
 
 ## Calidad
 
