@@ -253,6 +253,8 @@ The recurring spacing rhythm is based on four-pixel steps. Labels sit close to t
 
 Account layouts use one column below the large breakpoint. At the large breakpoint (64rem), the existing composition adds an inverted companion panel and a form column with proportions (1.1fr / 0.9fr), with the form-side track bounded below (26rem). The form section is centered and bounded (28rem). This is the account pattern rather than a universal page template.
 
+The login companion panel is a user-approved exception: minimalist product photography with pure-white perimeter and panel, with a diffused light-gray area only near the center and around the products. Its headline is the user-requested store slogan, “Todo lo que te gusta, en un solo lugar.” This photographic surface keeps the light ink and accent values in both color schemes; the form still follows the active theme. The photograph keeps its intrinsic aspect ratio and blends its own perimeter into the white panel through a soft alpha fade. The fade applies to the actual image bounds, keeping products and the headline sharp. This photograph serves the original PNG without additional lossy compression; other images keep their existing optimization. Its provenance and generation prompt are recorded in `docs/design/login-products-v3.md`.
+
 The shell keeps the wordmark and account actions together on mobile while search occupies the next row. Desktop search joins them in the same row. Desktop primary navigation becomes a disclosure menu below the large breakpoint, with links reflowing to two columns from the small breakpoint (40rem).
 
 Forms and operational rows reflow instead of shrinking their contents. The employee invitation fields become two columns from the small breakpoint; employee rows become identity, status and action columns from the large breakpoint. Actions wrap, names break at word boundaries and email addresses can break to preserve the viewport.
@@ -355,5 +357,4 @@ The implemented motion is small: color changes and disclosure-chevron rotation. 
 - **Don't** shrink the account controls or hide a field's label to fit a narrow viewport.
 - **Don't** turn the account companion layout into the template for every authenticated page.
 
-Existing drift is not a reusable rule: the incumbent login and some older pages carry pre-heading labels; several older accent controls still hard-code white instead of the mode-aware foreground; older account overlays combine border and broad shadow; selection, caret and scrollbar styling remain browser defaults. This documentation does not repair or canonize those inherited details.
-
+Existing drift is not a reusable rule: some older pages carry pre-heading labels; several older accent controls still hard-code white instead of the mode-aware foreground; older account overlays combine border and broad shadow; selection, caret and scrollbar styling remain browser defaults. This documentation does not repair or canonize those inherited details.
