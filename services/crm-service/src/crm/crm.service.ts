@@ -1,3 +1,4 @@
+import { CrmAuthorityService, type CustomerActivity, type DirectoryCustomer } from "./crm-authority.service";
 import { inactiveCutoff } from "./inactive-cutoff";
 import { Injectable } from "@nestjs/common";
 import { createHash, randomUUID } from "node:crypto";
@@ -10,7 +11,7 @@ interface CustomerRow extends QueryResultRow { customer_id: string; first_purcha
 interface PurchaseRow extends QueryResultRow { order_id: string; branch_id: string; currency: string; total: number | string; purchased_at: Date | string; }
 interface ItemRow extends QueryResultRow { order_id: string; product_id: string; variant_id: string; product_name: string; sku: string; variant_label: string; quantity: number | string; line_total: number | string; }
 interface UpdatedRow extends QueryResultRow { last_updated_at: Date | string | null; }
-interface CampaignRow extends QueryResultRow { id: string; created_by: string; segment_months: number | string; coupon_code: string; valid_until: Date | string; target_count: number | string; created_at: Date | string; updated_at: Date | string; }
+interface CampaignRow extends QueryResultRow { id: string; created_by: string; segment_months: number | string; coupon_code: string; valid_until: Date | string; target_count: number | string; reference_at:Date|string|null; cutoff_at:Date|string|null; created_at: Date | string; updated_at: Date | string; }
 interface CampaignCountsRow extends QueryResultRow { simulated_count: number | string; unknown_count: number | string; pending_count: number | string; sent_count: number | string; failed_count: number | string; undeliverable_count: number | string; }
 interface CampaignRecipientRow extends QueryResultRow { campaign_id: string; customer_id: string; }
 
@@ -18,7 +19,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 
 @Injectable()
 export class CrmService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(private readonly database: DatabaseService, private readonly authority?: CrmAuthorityService) {}
 
   async project(event: CrmEvent): Promise<void> {
     await this.database.withTransaction(async (client) => {
@@ -32,45 +33,35 @@ export class CrmService {
     });
   }
 
-  async customers(): Promise<CustomersResponse> {
-    const result = await this.database.query<CustomerRow>(this.customerSelect("ORDER BY last_purchase_at DESC, customer_id ASC"));
-    return { customers: result.rows.map((row) => this.customer(row)), lastUpdatedAt: await this.lastUpdatedAt() };
+  private requireAuthority(): CrmAuthorityService {
+    if (!this.authority) throw new ApiException(503,"AUTHORITY_UNAVAILABLE","No se puede verificar el directorio y las compras oficiales."); return this.authority;
   }
-
-  async customerProfile(customerIdValue: string): Promise<CustomerProfileResponse> {
-    const customerId = this.customerId(customerIdValue);
-    const result = await this.database.query<CustomerRow>(this.customerSelect("WHERE customer_id = $1"), [customerId]);
-    const customer = result.rows[0];
-    if (!customer) throw new ApiException(404, "CUSTOMER_NOT_FOUND", "Cliente no encontrado en la proyección CRM");
-    const purchases = await this.purchases(customerId);
-    return { customer: this.customer(customer), purchases, lastUpdatedAt: await this.lastUpdatedAt() };
+  private summary(user:DirectoryCustomer,activity:CustomerActivity,referenceAt:string):CustomerSummary {
+    return {customerId:user.id,name:user.name,joinedAt:user.createdAt,firstPurchaseAt:activity.firstPurchaseAt,lastPurchaseAt:activity.lastPurchaseAt,completedOrders:activity.completedOrders,lifetimeTotal:activity.lifetimeTotal,currency:activity.currency,updatedAt:referenceAt};
   }
-
-  async inactiveSegment(monthsValue?: string, now = new Date()): Promise<InactiveSegmentResponse> {
-    const months = this.months(monthsValue);
-    const referenceAt = new Date(now);
-    const cutoffAt = inactiveCutoff(referenceAt, months);
-    const result = await this.database.query<CustomerRow>(this.customerSelect("WHERE last_purchase_at < $1 ORDER BY last_purchase_at ASC, customer_id ASC LIMIT 50"), [cutoffAt]);
-    const count = await this.database.query<{ count: string | number }>("SELECT COUNT(*) AS count FROM crm_customers WHERE last_purchase_at < $1", [cutoffAt]);
-    return {
-      segment: {
-        code: "INACTIVE_PURCHASERS", months, referenceAt: referenceAt.toISOString(), cutoffAt: cutoffAt.toISOString(), includesNeverPurchased: false,
-        rule: "Incluye clientes con compras proyectadas cuya última compra es anterior al corte; excluye identidades sin compras proyectadas. Corte de meses calendario en America/Mexico_City.",
-      },
-      count: this.number(count.rows[0]?.count ?? 0), customers: result.rows.map((row) => this.customer(row)), lastUpdatedAt: await this.lastUpdatedAt(),
-    };
+  async customers():Promise<CustomersResponse> {
+    const snapshot=await this.requireAuthority().snapshot();
+    const users=new Map(snapshot.users.map(user=>[user.id,user]));
+    return {customers:snapshot.customers.map(activity=>this.summary(users.get(activity.customerId)!,activity,snapshot.referenceAt)).sort((a,b)=>(b.lastPurchaseAt ?? "").localeCompare(a.lastPurchaseAt ?? "")),lastUpdatedAt:snapshot.referenceAt};
   }
-
+  async customerProfile(customerIdValue:string):Promise<CustomerProfileResponse> {
+    const source=await this.requireAuthority().profile(this.customerId(customerIdValue));
+    return {customer:this.summary(source.user,source.activity,source.referenceAt),purchases:source.orders.map(order=>({orderId:order.id,branchId:order.branchId,currency:order.currency,total:order.total,subtotal:order.subtotal,discountTotal:order.discountTotal,couponCode:order.couponCode,purchasedAt:order.completedAt,items:order.items})),historyComplete:source.complete,lastUpdatedAt:source.referenceAt};
+  }
+  async inactiveSegment(monthsValue?:string,now?:Date):Promise<InactiveSegmentResponse> {
+    const months=this.months(monthsValue),snapshot=await this.requireAuthority().snapshot(),referenceAt=now ?? new Date(snapshot.referenceAt),cutoffAt=inactiveCutoff(referenceAt,months);
+    const users=new Map(snapshot.users.map(user=>[user.id,user]));
+    const eligible=snapshot.customers.filter(activity=>activity.lastPurchaseAt ? new Date(activity.lastPurchaseAt)<cutoffAt : new Date(users.get(activity.customerId)!.createdAt)<=cutoffAt).map(activity=>({...this.summary(users.get(activity.customerId)!,activity,referenceAt.toISOString()),segmentGroup:activity.lastPurchaseAt ? "PURCHASER" as const : "NEVER_PURCHASED" as const}));
+    return {segment:{code:"INACTIVE_CUSTOMERS",months,referenceAt:referenceAt.toISOString(),cutoffAt:cutoffAt.toISOString(),includesNeverPurchased:true,rule:"Compradores: última compra anterior al corte. Sin compras: alta con antigüedad de al menos el periodo. Meses calendario CDMX; la confirmación verifica Orders y fija los destinatarios en el instante de esa consulta."},count:eligible.length,groups:{purchasers:eligible.filter(c=>c.segmentGroup==="PURCHASER").length,neverPurchased:eligible.filter(c=>c.segmentGroup==="NEVER_PURCHASED").length},customers:eligible.slice(0,50),lastUpdatedAt:snapshot.referenceAt};
+  }
   async createCampaign(inputValue: CouponCampaignInput, createdBy: string, rawIdempotencyKey: string | undefined, correlationId: string | null): Promise<CampaignResponse> {
     const input = this.campaignInput(inputValue);
     const creator = this.customerId(createdBy);
     const requestKey = rawIdempotencyKey?.trim() || randomUUID();
     if (requestKey.length > 200) throw new ApiException(400, "VALIDATION_ERROR", "Idempotency-Key no puede exceder 200 caracteres");
-    const referenceAt = new Date();
-    const cutoffAt = inactiveCutoff(referenceAt, input.months);
     return this.database.withTransaction(async (client) => {
       await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [creator + ":" + requestKey]);
-      const prior = await client.query<CampaignRow>("SELECT id, created_by, segment_months, coupon_code, valid_until, target_count, created_at, updated_at FROM crm_campaigns WHERE created_by = $1 AND request_key = $2", [creator, requestKey]);
+      const prior = await client.query<CampaignRow>("SELECT id, created_by, segment_months, coupon_code, valid_until, target_count, reference_at, cutoff_at, created_at, updated_at FROM crm_campaigns WHERE created_by = $1 AND request_key = $2", [creator, requestKey]);
       if (prior.rows[0]) {
         const stored = await client.query<{ request_hash: string | null }>("SELECT request_hash FROM crm_campaigns WHERE id=$1", [prior.rows[0].id]);
         if (stored.rows[0]?.request_hash && stored.rows[0].request_hash !== this.campaignHash(input)) throw new ApiException(409,"IDEMPOTENCY_KEY_REUSED","La llave pertenece a una campaña diferente.");
@@ -79,17 +70,19 @@ export class CrmService {
       await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",["coupon-code:"+input.couponCode]);
       const code = await client.query("SELECT id FROM crm_campaigns WHERE coupon_code=$1 AND discount_type IS NOT NULL",[input.couponCode]);
       if (code.rows.length) throw new ApiException(409,"COUPON_CODE_CONFLICT","Usa un código diferente para esta campaña.");
-      const recipients = await client.query<{ customer_id: string }>("SELECT customer_id FROM crm_customers WHERE last_purchase_at < $1 ORDER BY last_purchase_at ASC, customer_id ASC FOR UPDATE", [cutoffAt]);
+      const snapshot=await this.requireAuthority().snapshot();
+      const referenceAt=new Date(snapshot.referenceAt),cutoffAt=inactiveCutoff(referenceAt,input.months),users=new Map(snapshot.users.map(user=>[user.id,user]));
+      const recipients={rows:snapshot.customers.filter(activity=>activity.lastPurchaseAt ? new Date(activity.lastPurchaseAt)<cutoffAt : new Date(users.get(activity.customerId)!.createdAt)<=cutoffAt).map(activity=>({customer_id:activity.customerId,segment_group:activity.lastPurchaseAt ? "PURCHASER" : "NEVER_PURCHASED"}))};
       if (!recipients.rows.length) throw new ApiException(422, "EMPTY_SEGMENT", "No hay clientes elegibles para crear esta campaña");
       const created = await client.query<CampaignRow>([
         "INSERT INTO crm_campaigns (created_by, request_key, segment_months, coupon_code, valid_until, target_count, reference_at, cutoff_at,discount_type,discount_value,target_scope,target_id,request_hash)",
         "VALUES ($1, $2, $3, $4, $5, $6, $7, $8,$9,$10,$11,$12,$13)",
-        "RETURNING id, created_by, segment_months, coupon_code, valid_until, target_count, created_at, updated_at",
+        "RETURNING id, created_by, segment_months, coupon_code, valid_until, target_count, reference_at, cutoff_at, created_at, updated_at",
       ].join("\n"), [creator, requestKey, input.months, input.couponCode, input.validUntil, recipients.rows.length, referenceAt, cutoffAt,input.discountType,input.discountValue,input.targetScope,input.targetId,this.campaignHash(input)]);
       const campaign = created.rows[0];
       if (!campaign) throw new Error("Campaign creation failed.");
       for (const recipient of recipients.rows) {
-        await client.query("INSERT INTO crm_campaign_recipients (campaign_id, customer_id) VALUES ($1, $2)", [campaign.id, recipient.customer_id]);
+        await client.query("INSERT INTO crm_campaign_recipients (campaign_id, customer_id, segment_group) VALUES ($1, $2, $3)", [campaign.id, recipient.customer_id, recipient.segment_group]);
         const payload = JSON.stringify({ campaignId: campaign.id, customerId: recipient.customer_id, coupon: { code: input.couponCode, validUntil: input.validUntil.toISOString(),discountType:input.discountType,discountValue:input.discountValue,targetScope:input.targetScope,targetId:input.targetId } });
         await client.query([
           "INSERT INTO crm_campaign_outbox_events (campaign_id, customer_id, event_type, correlation_id, payload)",
@@ -179,7 +172,7 @@ export class CrmService {
   }
 
   private async campaignForClient(client: Pick<PoolClient, "query">, campaignId: string): Promise<CampaignResponse> {
-    const campaignResult = await client.query<CampaignRow>("SELECT id, created_by, segment_months, coupon_code, valid_until, target_count, created_at, updated_at FROM crm_campaigns WHERE id = $1", [campaignId]);
+    const campaignResult = await client.query<CampaignRow>("SELECT id, created_by, segment_months, coupon_code, valid_until, target_count, reference_at, cutoff_at, created_at, updated_at FROM crm_campaigns WHERE id = $1", [campaignId]);
     const campaign = campaignResult.rows[0];
     if (!campaign) throw new ApiException(404, "CAMPAIGN_NOT_FOUND", "Campaña no encontrada");
     const counts = await client.query<CampaignCountsRow>([
@@ -198,7 +191,7 @@ export class CrmService {
     const undeliverableCount = this.number(progress.undeliverable_count);
     const status = pendingCount > 0 ? (sentCount + simulatedCount + unknownCount + failedCount + undeliverableCount > 0 ? "PROCESSING" : "QUEUED") : (failedCount + undeliverableCount > 0 ? "PARTIAL" : "COMPLETED");
     const response: CouponCampaign = {
-      id: campaign.id, segmentMonths: this.number(campaign.segment_months), couponCode: campaign.coupon_code, validUntil: this.iso(campaign.valid_until), targetCount: this.number(campaign.target_count), pendingCount, sentCount, simulatedCount, unknownCount, failedCount, undeliverableCount, status, createdBy: campaign.created_by, createdAt: this.iso(campaign.created_at), updatedAt: this.iso(campaign.updated_at),
+      referenceAt:campaign.reference_at ? this.iso(campaign.reference_at) : null, cutoffAt:campaign.cutoff_at ? this.iso(campaign.cutoff_at) : null, id: campaign.id, segmentMonths: this.number(campaign.segment_months), couponCode: campaign.coupon_code, validUntil: this.iso(campaign.valid_until), targetCount: this.number(campaign.target_count), pendingCount, sentCount, simulatedCount, unknownCount, failedCount, undeliverableCount, status, createdBy: campaign.created_by, createdAt: this.iso(campaign.created_at), updatedAt: this.iso(campaign.updated_at),
     };
     return { campaign: response };
   }

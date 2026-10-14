@@ -1,0 +1,47 @@
+{
+  "completedAt": "2026-10-14T03:03:16.008Z",
+  "passed": true,
+  "project": "departamental-five-phases",
+  "scope": "Complete inventory and physical/online browser flows with synthetic articles",
+  "checks": [
+    {
+      "name": "ADMIN creates a product and variant, edits attributes and navigates by keyboard",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 6907
+    },
+    {
+      "name": "EMPLOYEE records receipts and inclusive reorder points from desktop and mobile",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 8660
+    },
+    {
+      "name": "EMPLOYEE completes a physical ticket with current price and optional customer, without shipment",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 3340
+    },
+    {
+      "name": "CUSTOMER keeps catalog filters after return and buys an exact variant then cancels through UI",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 6142
+    },
+    {
+      "name": "Dashboard receives 12 physical sales, reconnects and shows AGOTADO without revision regression",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 27132
+    },
+    {
+      "name": "CUSTOMER bags stay separate when the same browser changes accounts",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 4601
+    }
+  ],
+  "privacy": {
+    "tracesVideosPasswordsTokensExcluded": true
+  }
+}

@@ -20,10 +20,16 @@ import { RolesGuard } from "../common/roles.guard";
 import { CreatePromotionDto, QuoteQueryDto, UpdatePromotionDto } from "./pricing.dto";
 import { PricingService } from "./pricing.service";
 import type { Promotion, Quote } from "./pricing.types";
+import { BatchQuoteDto } from "./batch-quote.dto";
+import { BatchQuoteService } from "./batch-quote.service";
 
 @Controller()
 export class PricingController {
-  constructor(private readonly pricing: PricingService) {}
+  constructor(private readonly pricing: PricingService, private readonly batch: BatchQuoteService) {}
+
+  @Post("pricing/quotes")
+  @HttpCode(HttpStatus.OK)
+  quotes(@Body() body: BatchQuoteDto) { return this.batch.quote(body); }
 
   @Get("pricing/quote")
   quote(@Query() query: QuoteQueryDto): Promise<Quote> {

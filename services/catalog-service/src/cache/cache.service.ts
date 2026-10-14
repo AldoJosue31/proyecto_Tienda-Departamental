@@ -13,6 +13,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CacheService.name);
   private client: Redis | null = null;
   private status: CacheStatus = "disabled";
+  private generation = 0;
 
   constructor(@Inject(CACHE_CONFIG) private readonly config: CacheConfig) {}
 
@@ -27,16 +28,17 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       enableOfflineQueue: false,
       maxRetriesPerRequest: 1,
       connectTimeout: 1_000,
-      retryStrategy: () => null,
+      retryStrategy: attempt => Math.min(attempt * 500, 5_000),
     });
     client.on("error", () => this.markDegraded());
+    client.on("close", () => this.markDegraded());
+    client.on("ready", () => { this.status = "ready"; this.generation++; });
+    this.client = client;
 
     try {
       await client.connect();
-      this.client = client;
       this.status = "ready";
     } catch {
-      client.disconnect();
       this.status = "degraded";
       this.logger.warn("Redis cache is unavailable; PostgreSQL fallback is active.");
     }
@@ -45,6 +47,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   getStatus(): CacheStatus {
     return this.status;
   }
+
+  getGeneration(): number { return this.generation; }
 
   async getJson<T>(key: string): Promise<T | null> {
     const raw = await this.run(() => this.client?.get(key));

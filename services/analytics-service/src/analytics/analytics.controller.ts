@@ -12,7 +12,8 @@ export class AnalyticsController {
   constructor(private readonly analytics: AnalyticsService) {}
   @Get("sales/by-branch") salesByBranch(@Query("period") period?: string, @Query("currency") currency?: string): Promise<SalesByBranchResponse> { return this.analytics.salesByBranch(period, currency); }
   @Get("sales/today") salesToday(@Query("currency") currency?: string): Promise<SalesTodayResponse> { return this.analytics.salesToday(currency); }
-  @Get("products/top") topProducts(@Query("period") period?: string, @Query("limit") limit?: string, @Query("currency") currency?: string): Promise<TopProductsResponse> { return this.analytics.topProducts(period, limit, currency); }
+  @Get("products/top") topProducts(@Query("period") period?: string, @Query("limit") limit?: string, @Query("currency") currency?: string, @Query("metric") metric?: string): Promise<TopProductsResponse> { return this.analytics.topProducts(period, limit, currency, metric); }
+  @Get("categories/top") topCategories(@Query("period") period?: string, @Query("limit") limit?: string, @Query("currency") currency?: string, @Query("metric") metric?: string) { return this.analytics.topCategories(period, limit, currency, metric); }
   @Get("ticket-average") ticketAverage(@Query("period") period?: string, @Query("currency") currency?: string): Promise<TicketAverageResponse> { return this.analytics.ticketAverage(period, currency); }
   @Get("inventory/by-branch") inventoryByBranch(): Promise<InventoryByBranchResponse> { return this.analytics.inventoryByBranch(); }
 }

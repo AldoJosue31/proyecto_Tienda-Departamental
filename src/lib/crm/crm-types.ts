@@ -1,7 +1,8 @@
 export interface CrmCustomerSummary {
+  name?: string; joinedAt?: string; segmentGroup?: "PURCHASER" | "NEVER_PURCHASED";
   customerId: string;
-  firstPurchaseAt: string;
-  lastPurchaseAt: string;
+  firstPurchaseAt: string | null;
+  lastPurchaseAt: string | null;
   completedOrders: number;
   lifetimeTotal: number;
   currency: string;
@@ -16,15 +17,18 @@ export interface CrmPurchaseItem {
   variantLabel: string;
   quantity: number;
   lineTotal: number;
+  listUnitPrice?: number; unitPrice?: number; lineDiscountTotal?: number;
 }
 
 export interface CrmCustomerProfile {
+  historyComplete?: boolean;
   customer: CrmCustomerSummary;
   purchases: Array<{
     orderId: string;
     branchId: string;
     currency: string;
     total: number;
+    subtotal?: number; discountTotal?: number; couponCode?: string | null;
     purchasedAt: string;
     items: CrmPurchaseItem[];
   }>;
@@ -34,14 +38,15 @@ export interface CrmCustomerProfile {
 export interface CrmCustomers { customers: CrmCustomerSummary[]; lastUpdatedAt: string | null; }
 export interface InactiveCustomerSegment {
   segment: {
-    code: "INACTIVE_PURCHASERS";
+    code: "INACTIVE_CUSTOMERS";
     months: number;
     referenceAt: string;
     cutoffAt: string;
-    includesNeverPurchased: false;
+    includesNeverPurchased: true;
     rule: string;
   };
   count: number;
+  groups: {purchasers:number;neverPurchased:number};
   customers: CrmCustomerSummary[];
   lastUpdatedAt: string | null;
 }
@@ -49,6 +54,7 @@ export interface InactiveCustomerSegment {
 export type CampaignStatus = "QUEUED" | "PROCESSING" | "COMPLETED" | "PARTIAL";
 
 export interface CouponCampaign {
+  referenceAt?: string | null; cutoffAt?: string | null;
   id: string;
   segmentMonths: number;
   couponCode: string;

@@ -4,7 +4,7 @@ import { ApiException } from "../common/api-exception";
 import { DatabaseService } from "../database/database.service";
 import type {
   AnalyticsEvent, AnalyticsPeriod, AnalyticsPeriodResponse, InventoryByBranchResponse,
-  SalesByBranchResponse, SalesTodayResponse, TicketAverageResponse, TopProductsResponse,
+  SalesByBranchResponse, SalesTodayResponse, TicketAverageResponse, TopProductsResponse, TopCategoriesResponse,
 } from "./analytics.types";
 
 interface UpdatedRow extends QueryResultRow { last_updated_at: Date | string | null; }
@@ -61,19 +61,42 @@ export class AnalyticsService {
 
   async ticketAverage(periodValue?: string, currencyValue?: string): Promise<TicketAverageResponse> {
     const period = this.period(periodValue); const summary = await this.salesSummary(period, this.currency(currencyValue));
-    return { period: this.periodResponse(period), currency: summary.currency, ticketAverage: summary.completedOrders === 0 ? 0 : this.money(summary.sales / summary.completedOrders), completedOrders: summary.completedOrders, formula: "ventas completadas / tickets completados", lastUpdatedAt: await this.lastUpdatedAt() };
+    return { period: this.periodResponse(period), currency: summary.currency, sales: summary.sales, ticketAverage: summary.completedOrders === 0 ? 0 : this.money(summary.sales / summary.completedOrders), completedOrders: summary.completedOrders, formula: "ventas completadas / tickets completados", lastUpdatedAt: await this.lastUpdatedAt() };
   }
 
-  async topProducts(periodValue?: string, limitValue?: string, currencyValue?: string): Promise<TopProductsResponse> {
+  async topProducts(periodValue?: string, limitValue?: string, currencyValue?: string, metricValue?: string): Promise<TopProductsResponse> {
+    const metric = this.metric(metricValue);
     const period = this.period(periodValue); const limit = this.limit(limitValue); const currency = this.currency(currencyValue); const days = PERIOD_DAYS[period];
     const result = await this.database.query<ProductRow>([
       "WITH report_window AS (SELECT (date_trunc('day', NOW() AT TIME ZONE $2) - make_interval(days => $3)) AT TIME ZONE $2 AS starts_at, (date_trunc('day', NOW() AT TIME ZONE $2) + INTERVAL '1 day') AT TIME ZONE $2 AS ends_at)",
       "SELECT i.product_id, (ARRAY_AGG(i.product_name ORDER BY o.completed_at DESC, o.order_id DESC, i.variant_id))[1] AS product_name, SUM(i.quantity) AS units_sold, SUM(i.line_total) AS sales",
       "FROM analytics_order_item_projection AS i JOIN analytics_order_projection AS o ON o.order_id = i.order_id CROSS JOIN report_window AS w",
       "WHERE o.status = 'COMPLETED' AND o.currency = $1 AND o.completed_at >= w.starts_at AND o.completed_at < w.ends_at",
-      "GROUP BY i.product_id ORDER BY units_sold DESC, sales DESC, product_name ASC, i.product_id ASC LIMIT $4",
+      `GROUP BY i.product_id ORDER BY ${metric === "sales" ? "sales DESC, units_sold" : "units_sold DESC, sales"} DESC, product_name ASC, i.product_id ASC LIMIT $4`,
     ].join("\n"), [currency, this.timezone(), days, limit]);
     return { period: this.periodResponse(period), currency, limit, products: result.rows.map((row) => ({ productId: row.product_id, productName: row.product_name, unitsSold: this.number(row.units_sold), sales: this.number(row.sales) })), lastUpdatedAt: await this.lastUpdatedAt() };
+  }
+
+  async topCategories(periodValue?: string, limitValue?: string, currencyValue?: string, metricValue?: string): Promise<TopCategoriesResponse> {
+    const period = this.period(periodValue), limit = this.limit(limitValue), currency = this.currency(currencyValue), metric = this.metric(metricValue);
+    const result = await this.database.query<{ category_id: string | null; product_ids: string[]; units_sold: string; sales: string }>(`
+      WITH report_window AS (SELECT (date_trunc('day',NOW() AT TIME ZONE $2)-make_interval(days=>$3)) AT TIME ZONE $2 AS starts_at,(date_trunc('day',NOW() AT TIME ZONE $2)+INTERVAL '1 day') AT TIME ZONE $2 AS ends_at)
+      SELECT i.category_id,(ARRAY_AGG(i.product_id ORDER BY o.completed_at DESC))[1:100] AS product_ids,SUM(i.quantity) AS units_sold,SUM(i.line_total) AS sales
+      FROM analytics_order_item_projection i JOIN analytics_order_projection o ON o.order_id=i.order_id CROSS JOIN report_window w
+      WHERE o.status='COMPLETED' AND o.currency=$1 AND o.completed_at>=w.starts_at AND o.completed_at<w.ends_at
+      GROUP BY i.category_id ORDER BY ${metric === "sales" ? "sales DESC, units_sold" : "units_sold DESC, sales"} DESC,i.category_id NULLS LAST LIMIT $4`, [currency, this.timezone(), PERIOD_DAYS[period], limit]);
+    const names = new Map<string, string>();
+    const ids = [...new Set(result.rows.flatMap(row => row.product_ids))];
+    try {
+      for (let offset=0; offset<ids.length; offset+=100) {
+        const response = await fetch(`${process.env.CATALOG_SERVICE_URL ?? "http://servicio-catalogo:3002"}/products/resolve`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ids:ids.slice(offset,offset+100)}),signal:AbortSignal.timeout(5000) });
+        if (!response.ok) throw new Error("Catalog unavailable");
+        const data = await response.json() as { products: Array<{ category:{id:string;name:string} }> };
+        for (const product of data.products) names.set(product.category.id,product.category.name);
+      }
+    } catch { /* Historic category identity is retained even if its current label is unavailable. */ }
+    const coverage = await this.database.query<{ count:string }>("SELECT COUNT(*) AS count FROM analytics_order_item_projection WHERE category_id IS NULL");
+    return { period:this.periodResponse(period),currency,limit,metric,incompleteItems:Number(coverage.rows[0]?.count ?? 0),categories:result.rows.map(row=>({categoryId:row.category_id,categoryName:row.category_id ? names.get(row.category_id) ?? `Categoría ${row.category_id.slice(0,8)} · nombre no disponible` : "Sin categoría histórica",nameSource:names.has(row.category_id ?? "") ? "CURRENT_CATALOG" : "UNAVAILABLE",unitsSold:this.number(row.units_sold),sales:this.number(row.sales)})),lastUpdatedAt:await this.lastUpdatedAt() };
   }
 
   async inventoryByBranch(): Promise<InventoryByBranchResponse> {
@@ -98,9 +121,9 @@ export class AnalyticsService {
     if (!inserted.rows[0]) return;
     for (const item of event.items) {
       await client.query([
-        "INSERT INTO analytics_order_item_projection (order_id, product_id, variant_id, product_name, quantity, line_total)",
-        "VALUES ($1, $2, $3, $4, $5, $6)",
-      ].join("\n"), [event.orderId, item.productId, item.variantId, item.productName, item.quantity, item.lineTotal]);
+        "INSERT INTO analytics_order_item_projection (order_id, product_id, variant_id, product_name, quantity, line_total, category_id)",
+        "VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      ].join("\n"), [event.orderId, item.productId, item.variantId, item.productName, item.quantity, item.lineTotal, item.categoryId ?? null]);
     }
   }
 
@@ -140,6 +163,7 @@ export class AnalyticsService {
     return value ? new Date(value).toISOString() : null;
   }
   private period(value?: string): AnalyticsPeriod { if (!value) return "today"; if (value === "today" || value === "7d" || value === "30d") return value; throw new ApiException(400, "VALIDATION_ERROR", "El periodo debe ser today, 7d o 30d"); }
+  private metric(value?: string): "units" | "sales" { if (!value || value === "units") return "units"; if (value === "sales") return "sales"; throw new ApiException(400,"VALIDATION_ERROR","La métrica debe ser units o sales."); }
   private limit(value?: string): number { if (!value) return 5; const number = Number(value); if (![5, 10, 20].includes(number)) throw new ApiException(400, "VALIDATION_ERROR", "El límite debe ser 5, 10 o 20"); return number; }
   private currency(value?: string): string { const currency = value?.trim().toUpperCase() || DEFAULT_CURRENCY; if (!/^[A-Z]{3}$/.test(currency)) throw new ApiException(400, "VALIDATION_ERROR", "La moneda debe usar código ISO de tres letras"); return currency; }
   private timezone(): string { return process.env.ANALYTICS_TIMEZONE?.trim() || "America/Mexico_City"; }

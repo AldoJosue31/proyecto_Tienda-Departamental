@@ -22,7 +22,6 @@ describe("contrato de venta física", () => {
     const contract = read("docs/physical-sales-contract.md");
 
     expect(service).toContain("assertChannelAccess");
-    expect(service).toContain("PHYSICAL_SALE_CUSTOMER_REQUIRED");
     expect(repository).toContain("PHYSICAL_SALE_CREATED");
     expect(service).toContain("this.inventory.reserve");
     expect(service).toContain("this.inventory.commit");

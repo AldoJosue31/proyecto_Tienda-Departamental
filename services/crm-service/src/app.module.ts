@@ -13,12 +13,13 @@ import { CampaignDeliveryConsumer } from "./crm/campaign-delivery.consumer";
 import { CampaignOutboxService } from "./crm/campaign-outbox.service";
 import { CrmController } from "./crm/crm.controller";
 import { CrmService } from "./crm/crm.service";
+import { CrmAuthorityService } from "./crm/crm-authority.service";
 import { DATABASE_CONFIG, DatabaseService } from "./database/database.service";
 import { HealthController } from "./health/health.controller";
 
 @Module({ controllers: [CrmController, HealthController], providers: [
   { provide: DATABASE_CONFIG, useFactory: loadDatabaseConfig }, { provide: CRM_RUNTIME_CONFIG, useFactory: loadCrmRuntimeConfig },
-  DatabaseService, TokenService, AuthStatusClient, CrmService, CrmConsumer, CampaignDeliveryConsumer, CampaignOutboxService, JwtAuthGuard, RolesGuard, CorrelationIdMiddleware,
+  DatabaseService, TokenService, AuthStatusClient, CrmAuthorityService, CrmService, CrmConsumer, CampaignDeliveryConsumer, CampaignOutboxService, JwtAuthGuard, RolesGuard, CorrelationIdMiddleware,
   { provide: APP_FILTER, useClass: HttpExceptionFilter },
 ] })
 export class AppModule implements NestModule { configure(consumer: MiddlewareConsumer): void { consumer.apply(CorrelationIdMiddleware).forRoutes("*"); } }

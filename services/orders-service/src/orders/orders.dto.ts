@@ -6,6 +6,7 @@ import {
   IsIn,
   IsInt,
   IsOptional,
+  IsNumber,
   IsString,
   IsUUID,
   Max,
@@ -34,6 +35,9 @@ export class CreateOrderItemDto {
 }
 
 export class CreateOrderDto {
+  // This is the amount the caller accepted, never the source of a charged price.
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(999999999999.99)
+  expectedTotal?: number;
   @IsUUID()
   branchId!: string;
 

@@ -10,13 +10,18 @@ import {
   IconShoppingBag,
   IconTrash,
 } from "@tabler/icons-react";
-import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { VariantPrice } from "@/components/variant-price";
+import { useCartQuote } from "@/lib/pricing/use-cart-quote";
+import type { CartQuote } from "@/lib/pricing/types";
+import { SaleRequestError, saleWasRejected } from "@/lib/pricing/sale-error";
+
 import { useCustomerCart } from "@/components/customer-cart-provider";
 import type { CustomerCartLine } from "@/lib/cart/customer-cart";
-import { getCatalogProduct } from "@/lib/catalog/catalog-client";
+import { getCatalogProducts } from "@/lib/catalog/catalog-client";
 import { catalogProductImageStyle } from "@/lib/catalog/product-image";
 import type { CatalogProductSummary, CatalogVariant } from "@/lib/catalog/types";
 
@@ -47,7 +52,7 @@ function messageFrom(response: Response, body: unknown) {
 async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { ...init, headers: { "X-Correlation-Id": crypto.randomUUID(), ...init?.headers } });
   const body: unknown = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(messageFrom(response, body));
+  if (!response.ok) throw new SaleRequestError(messageFrom(response, body), response.status, typeof body === "object" && body !== null && "code" in body ? String(body.code) : "");
   return body as T;
 }
 
@@ -56,36 +61,25 @@ function reference(orderId: string) {
 }
 
 export function CustomerCheckout() {
-  const { lines, itemCount, ready, revise, remove, consume } = useCustomerCart();
+  const { customerId, lines, itemCount, ready, revise, remove, consume } = useCustomerCart();
   const [branchId, setBranchId] = useState("");
   const [couponCode,setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState("");
   const [confirmation, setConfirmation] = useState<CheckoutConfirmation | null>(null);
   const checkoutKey = useRef<string | null>(null);
+  const attemptedQuote = useRef<CartQuote | null>(null);
+  const [attemptDisplay, setAttemptDisplay] = useState<{ quote: CartQuote; signature: string } | null>(null);
   const productIds = useMemo(() => [...new Set(lines.map((line) => line.productId))], [lines]);
-  const productQueries = useQueries({
-    queries: productIds.map((productId) => ({
-      queryKey: ["catalog-product", productId],
-      queryFn: ({ signal }) => getCatalogProduct(productId, signal),
-      enabled: ready,
-      staleTime: 60_000,
-      retry: false,
-    })),
-  });
-  const products = useMemo(() => {
-    const values = new Map<string, CatalogProductSummary>();
-    productQueries.forEach((query, index) => {
-      if (query.data) values.set(productIds[index], query.data);
-    });
-    return values;
-  }, [productIds, productQueries]);
+  const productsQuery = useQuery({ queryKey: ["catalog-cart-products", productIds], queryFn: ({ signal }) => getCatalogProducts(productIds, signal), enabled: ready && productIds.length > 0, staleTime: 30_000, retry: false });
+  const products = useMemo(() => new Map((productsQuery.data ?? []).map(product => [product.id, product])), [productsQuery.data]);
   const resolvedLines = useMemo<ResolvedCartLine[]>(() => lines.flatMap((line) => {
     const product = products.get(line.productId);
     const variant = product?.variants.find((candidate) => candidate.id === line.variantId);
     return product && variant ? [{ product, variant, quantity: line.quantity }] : [];
   }), [lines, products]);
   const unverifiedLines = useMemo(() => lines.filter((line) => !resolvedLines.some((item) => item.product.id === line.productId && item.variant.id === line.variantId)), [lines, resolvedLines]);
-  const productsLoading = !ready || productQueries.some((query) => query.isLoading);
-  const productsFailed = productQueries.some((query) => query.isError);
+  const productsLoading = !ready || productsQuery.isLoading;
+  const productsFailed = productsQuery.isError;
   const branchesQuery = useQuery({
     queryKey: ["checkout", "branches"],
     queryFn: () => jsonRequest<{ branches: CheckoutBranch[] }>("/api/checkout/branches"),
@@ -98,31 +92,43 @@ export function CustomerCheckout() {
   const cartSignature = lines.map((line) => `${line.productId}:${line.variantId}:${line.quantity}`).join("|");
   const currencies = useMemo(() => new Set(resolvedLines.map((item) => item.variant.currency)), [resolvedLines]);
   const hasMixedCurrencies = currencies.size > 1;
-  const total = resolvedLines.reduce((sum, item) => sum + item.variant.listPrice * item.quantity, 0);
+  const baseTotal = resolvedLines.reduce((sum, item) => sum + item.variant.listPrice * item.quantity, 0);
   const currency = resolvedLines[0]?.variant.currency ?? "MXN";
 
-  useEffect(() => { checkoutKey.current = null; }, [branchId, cartSignature,couponCode]);
-  const coupon = useMutation({mutationFn:async()=>({signature:cartSignature+"|"+couponCode,result:await jsonRequest<{discountTotal:number;prices:Array<{variantId:string;unitPrice:number}>}>("/api/checkout/coupon",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:couponCode,items:lines})})})});
-  const couponPreview = coupon.data?.signature === cartSignature+"|"+couponCode ? coupon.data.result : null;
+  useEffect(() => { checkoutKey.current = null; attemptedQuote.current = null; }, [customerId, branchId, cartSignature,appliedCoupon]);
+  const quoteItems = resolvedLines.map(item => ({ productId: item.product.id, variantId: item.variant.id, quantity: item.quantity }));
+  const quote = useCartQuote(quoteItems, appliedCoupon, customerId ?? "guest");
+  const attemptSignature = customerId + "|" + branchId + "|" + cartSignature + "|" + appliedCoupon;
+  const frozenQuote = attemptDisplay?.signature === attemptSignature ? attemptDisplay.quote : null;
+  const displayQuote = frozenQuote ?? (quote.valid ? quote.data : undefined);
+  const total = displayQuote?.total ?? baseTotal;
 
   const checkout = useMutation({
     mutationFn: async () => {
+      if (!attemptedQuote.current && !quote.valid) throw new Error("Actualiza los precios antes de confirmar.");
       if (!selectedBranch || !resolvedLines.length || unverifiedLines.length > 0 || hasMixedCurrencies) throw new Error("Revisa los artículos y selecciona una sucursal antes de confirmar.");
+      attemptedQuote.current ??= quote.data!; setAttemptDisplay({ quote: attemptedQuote.current, signature: attemptSignature });
       const idempotencyKey = checkoutKey.current ?? (checkoutKey.current = crypto.randomUUID());
       const sentLines = resolvedLines.map((item) => ({ productId: item.product.id, variantId: item.variant.id, quantity: item.quantity }));
       const result = await jsonRequest<CheckoutResult>("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-        body: JSON.stringify({ branchId: selectedBranch.id, items: sentLines, ...(couponCode.trim() ? {couponCode:couponCode.trim().toUpperCase()} : {}) }),
+        body: JSON.stringify({ branchId: selectedBranch.id, expectedTotal: attemptedQuote.current!.total, items: sentLines, ...(appliedCoupon ? {couponCode:appliedCoupon} : {}) }),
       });
       return { result, sentLines, branchName: selectedBranch.name, itemCount: sentLines.reduce((sum, line) => sum + line.quantity, 0) } satisfies CheckoutMutationResult;
+    },
+    onError: async (error) => {
+      if (saleWasRejected(error)) { checkoutKey.current = null; attemptedQuote.current = null; setAttemptDisplay(null); if (error instanceof SaleRequestError && error.code === "PRICE_CHANGED") await quote.refetch(); }
     },
     onSuccess: ({ result, sentLines, branchName, itemCount: submittedItemCount }) => {
       setConfirmation({ ...result, branchName, itemCount: submittedItemCount });
       consume(sentLines);
       checkoutKey.current = null;
+      attemptedQuote.current = null;
+      setAttemptDisplay(null);
     },
   });
+  const editingLocked = checkout.isPending || Boolean(frozenQuote);
 
   if (confirmation) return <Confirmation confirmation={confirmation} />;
 
@@ -132,31 +138,32 @@ export function CustomerCheckout() {
     {!ready || productsLoading ? <CheckoutSkeleton /> : lines.length === 0 ? <EmptyBag /> : <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <section className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)]" aria-labelledby="bag-lines-title">
         <div className="border-b border-[var(--line)] px-5 py-4 sm:px-6"><h2 id="bag-lines-title" className="font-semibold">Artículos seleccionados</h2><p className="mt-1 text-sm text-[var(--muted)]">Puedes ajustar cantidades o quitar una variante.</p></div>
-        <div className="divide-y divide-[var(--line)]">{resolvedLines.map((item) => <CartLine key={item.variant.id} item={item} disabled={checkout.isPending} onAdjust={(delta) => revise({ productId: item.product.id, variantId: item.variant.id }, delta)} onRemove={() => remove(item.variant.id)} />)}</div>
-        {unverifiedLines.length > 0 ? <div className="border-t border-[var(--line)] bg-[var(--warning-surface)] px-5 py-4 sm:px-6" role="alert"><div className="flex items-start gap-3"><IconAlertTriangle className="mt-0.5 shrink-0 text-[var(--warning)]" size={19} aria-hidden="true" /><div><p className="text-sm font-semibold">Hay artículos que requieren atención</p><p className="mt-1 text-sm leading-6 text-[var(--muted)]">{productsFailed ? "No pudimos verificar uno o más artículos. Reintenta la verificación o quítalos antes de confirmar." : "Una variante ya no está disponible. Quítala antes de confirmar."}</p><div className="mt-3 flex flex-wrap gap-2">{productsFailed ? <button type="button" onClick={() => { productQueries.forEach((query) => { void query.refetch(); }); }} disabled={checkout.isPending} className="inline-flex min-h-11 items-center rounded-lg bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--warning)] transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-45">Reintentar verificación</button> : null}{unverifiedLines.map((line) => <button key={line.variantId} type="button" onClick={() => remove(line.variantId)} disabled={checkout.isPending} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--warning)] transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-45">Quitar artículo no disponible<IconTrash size={16} aria-hidden="true" /></button>)}</div></div></div></div> : null}
+        <div className="divide-y divide-[var(--line)]">{resolvedLines.map((item) => <CartLine key={item.variant.id} item={{ ...item, variant: { ...item.variant, price: (frozenQuote || quote.valid) ? displayQuote?.prices.find(price => price.variantId === item.variant.id) : undefined } }} disabled={editingLocked} onAdjust={(delta) => revise({ productId: item.product.id, variantId: item.variant.id }, delta)} onRemove={() => remove(item.variant.id)} />)}</div>
+        {unverifiedLines.length > 0 ? <div className="border-t border-[var(--line)] bg-[var(--warning-surface)] px-5 py-4 sm:px-6" role="alert"><div className="flex items-start gap-3"><IconAlertTriangle className="mt-0.5 shrink-0 text-[var(--warning)]" size={19} aria-hidden="true" /><div><p className="text-sm font-semibold">Hay artículos que requieren atención</p><p className="mt-1 text-sm leading-6 text-[var(--muted)]">{productsFailed ? "No pudimos verificar uno o más artículos. Reintenta la verificación o quítalos antes de confirmar." : "Una variante ya no está disponible. Quítala antes de confirmar."}</p><div className="mt-3 flex flex-wrap gap-2">{productsFailed ? <button type="button" onClick={() => { void productsQuery.refetch(); }} disabled={editingLocked} className="inline-flex min-h-11 items-center rounded-lg bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--warning)] transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-45">Reintentar verificación</button> : null}{unverifiedLines.map((line) => <button key={line.variantId} type="button" onClick={() => remove(line.variantId)} disabled={editingLocked} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--warning)] transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-45">Quitar artículo no disponible<IconTrash size={16} aria-hidden="true" /></button>)}</div></div></div></div> : null}
       </section>
       <aside className="h-fit rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 lg:sticky lg:top-28 sm:p-6" aria-labelledby="checkout-summary-title">
         <h2 id="checkout-summary-title" className="font-semibold">Confirmar pedido</h2><p className="mt-1 text-sm leading-6 text-[var(--muted)]">Elige la sucursal que atenderá tu pedido.</p>
-        <fieldset disabled={branchesQuery.isLoading || Boolean(branchesQuery.error) || checkout.isPending} className="mt-5"><legend className="text-sm font-semibold">Sucursal que atiende el pedido</legend><p id="checkout-branch-help" className="mt-1 text-xs leading-5 text-[var(--muted)]">Esta selección indica la sucursal que atiende tu pedido; no confirma una modalidad de entrega. La disponibilidad y el precio vigentes se validan al enviarlo.</p>{branchesQuery.isLoading ? <p className="mt-3 flex min-h-11 items-center gap-2 rounded-xl bg-[var(--surface-muted)] px-3 text-sm text-[var(--muted)]"><IconLoader2 size={17} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Cargando sucursales…</p> : branches.length > 0 ? <div className="mt-3 space-y-2">{branches.map((branch) => { const selected = branch.id === branchId; return <label key={branch.id} className={`flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border px-3 py-3 transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 has-[:focus-visible]:outline-[var(--focus)] ${selected ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--line)] bg-[var(--surface-muted)] hover:bg-[var(--surface)]"}`}><input type="radio" name="checkout-branch" value={branch.id} checked={selected} onChange={() => setBranchId(branch.id)} aria-describedby="checkout-branch-help" className="sr-only" /><span className="text-sm font-semibold">{branch.name}</span><span className={`text-xs font-semibold ${selected ? "text-[var(--accent-strong)]" : "text-[var(--muted)]"}`}>{selected ? "Seleccionada" : "Elegir"}</span></label>; })}</div> : !branchesQuery.isError ? <p className="mt-3 rounded-xl border border-dashed border-[var(--line)] px-3 py-3 text-sm leading-6 text-[var(--muted)]" role="status">No hay sucursales de atención disponibles.</p> : null}</fieldset>
-        {branchesQuery.isError ? <div role="alert" className="mt-3 flex flex-wrap items-start gap-2 text-sm leading-5 text-[var(--danger)]"><IconAlertTriangle className="mt-0.5 shrink-0" size={16} aria-hidden="true" /><span>{branchesQuery.error instanceof Error ? branchesQuery.error.message : "No fue posible cargar las sucursales."}</span><button type="button" onClick={() => { void branchesQuery.refetch(); }} disabled={checkout.isPending} className="min-h-10 rounded-lg px-2 font-semibold underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-45">Reintentar</button></div> : null}
+        <fieldset disabled={branchesQuery.isLoading || Boolean(branchesQuery.error) || editingLocked} className="mt-5"><legend className="text-sm font-semibold">Sucursal que atiende el pedido</legend><p id="checkout-branch-help" className="mt-1 text-xs leading-5 text-[var(--muted)]">Esta selección indica la sucursal que atiende tu pedido; no confirma una modalidad de entrega. La disponibilidad y el precio vigentes se validan al enviarlo.</p>{branchesQuery.isLoading ? <p className="mt-3 flex min-h-11 items-center gap-2 rounded-xl bg-[var(--surface-muted)] px-3 text-sm text-[var(--muted)]"><IconLoader2 size={17} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Cargando sucursales…</p> : branches.length > 0 ? <div className="mt-3 space-y-2">{branches.map((branch) => { const selected = branch.id === branchId; return <label key={branch.id} className={`flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border px-3 py-3 transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 has-[:focus-visible]:outline-[var(--focus)] ${selected ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--line)] bg-[var(--surface-muted)] hover:bg-[var(--surface)]"}`}><input type="radio" name="checkout-branch" value={branch.id} checked={selected} onChange={() => setBranchId(branch.id)} aria-describedby="checkout-branch-help" className="sr-only" /><span className="text-sm font-semibold">{branch.name}</span><span className={`text-xs font-semibold ${selected ? "text-[var(--accent-strong)]" : "text-[var(--muted)]"}`}>{selected ? "Seleccionada" : "Elegir"}</span></label>; })}</div> : !branchesQuery.isError ? <p className="mt-3 rounded-xl border border-dashed border-[var(--line)] px-3 py-3 text-sm leading-6 text-[var(--muted)]" role="status">No hay sucursales de atención disponibles.</p> : null}</fieldset>
+        {branchesQuery.isError ? <div role="alert" className="mt-3 flex flex-wrap items-start gap-2 text-sm leading-5 text-[var(--danger)]"><IconAlertTriangle className="mt-0.5 shrink-0" size={16} aria-hidden="true" /><span>{branchesQuery.error instanceof Error ? branchesQuery.error.message : "No fue posible cargar las sucursales."}</span><button type="button" onClick={() => { void branchesQuery.refetch(); }} disabled={editingLocked} className="min-h-10 rounded-lg px-2 font-semibold underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-45">Reintentar</button></div> : null}
         <div className="mt-5 space-y-2">
           <label htmlFor="checkout-coupon" className="text-sm font-medium">Código de descuento</label>
-          <div className="flex gap-2"><input id="checkout-coupon" value={couponCode} maxLength={64} disabled={checkout.isPending} onChange={event=>{setCouponCode(event.target.value.toUpperCase());coupon.reset();}} className="min-w-0 flex-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm" placeholder="Código recibido por correo" /><button type="button" disabled={!couponCode.trim() || coupon.isPending || checkout.isPending || !resolvedLines.length} onClick={()=>coupon.mutate()} className="rounded-xl bg-[var(--surface-muted)] px-3 text-sm font-semibold disabled:opacity-50">Validar</button></div>
-          {coupon.isError ? <p role="alert" className="text-sm text-[var(--danger)]">{coupon.error.message}</p> : null}
-          {coupon.isSuccess && couponPreview ? <p role="status" className="text-sm text-[var(--success)]">Cupón válido. Total estimado {money(total-couponPreview.discountTotal,currency)}. Se aplica el mejor beneficio por artículo, sin acumular descuentos.</p> : null}
+          <div className="flex gap-2"><input id="checkout-coupon" value={couponCode} maxLength={64} disabled={editingLocked} onChange={event=>{setCouponCode(event.target.value.toUpperCase());setAppliedCoupon("");}} className="min-w-0 flex-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm" placeholder="Código recibido por correo" /><button type="button" disabled={!couponCode.trim() || quote.isFetching || editingLocked || !resolvedLines.length} onClick={()=>setAppliedCoupon(couponCode.trim().toUpperCase())} className="rounded-xl bg-[var(--surface-muted)] px-3 text-sm font-semibold disabled:opacity-50">Validar</button></div>
+          {quote.isError ? <p role="alert" className="text-sm text-[var(--danger)]">{quote.error?.message}</p> : null}
+          {quote.valid && appliedCoupon ? <p role="status" className="text-sm text-[var(--success)]">Cupón válido. Total vigente {money(total,currency)}. Se aplica el mejor beneficio por artículo, sin acumular descuentos.</p> : null}
         </div>
-        <dl className="mt-6 space-y-2 border-y border-[var(--line)] py-4 text-sm"><div className="flex items-center justify-between gap-4 text-[var(--muted)]"><dt>Artículos</dt><dd>{itemCount}</dd></div><div className="flex items-end justify-between gap-4"><dt className="font-semibold">Total estimado</dt><dd className="text-xl font-semibold tracking-[-0.03em]">{money(couponPreview ? total-couponPreview.discountTotal : total, currency)}</dd></div></dl>
-        <p className="mt-4 text-xs leading-5 text-[var(--muted)]">El total se calcula con el precio publicado. Pricing e Inventory validan el precio vigente y la existencia al confirmar.</p>
+        <dl className="mt-6 space-y-2 border-y border-[var(--line)] py-4 text-sm"><div className="flex items-center justify-between gap-4 text-[var(--muted)]"><dt>Artículos</dt><dd>{itemCount}</dd></div><div className="flex items-end justify-between gap-4"><dt className="font-semibold">Total vigente</dt><dd className="text-xl font-semibold tracking-[-0.03em]">{displayQuote ? money(total, currency) : "Cotización pendiente"}</dd></div></dl>
+        <p className="mt-4 text-xs leading-5 text-[var(--muted)]">El precio vigente y la existencia se validan al confirmar. Si cambia el importe, podrás revisar y confirmar el nuevo total.</p>
         {hasMixedCurrencies ? <p role="alert" className="mt-4 flex gap-2 text-sm leading-5 text-[var(--danger)]"><IconAlertTriangle className="mt-0.5 shrink-0" size={16} aria-hidden="true" />Tu bolsa contiene precios en distintas monedas. Ajusta los artículos antes de confirmar.</p> : null}
         {checkout.isError ? <p role="alert" className="mt-4 flex gap-2 text-sm leading-5 text-[var(--danger)]"><IconAlertTriangle className="mt-0.5 shrink-0" size={16} aria-hidden="true" />{checkout.error instanceof Error ? checkout.error.message : "No fue posible confirmar tu pedido."}</p> : null}
-        <button type="button" onClick={() => checkout.mutate()} disabled={!selectedBranch || !resolvedLines.length || unverifiedLines.length > 0 || hasMixedCurrencies || branchesQuery.isLoading || Boolean(branchesQuery.error) || checkout.isPending} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-45">{checkout.isPending ? <><IconLoader2 size={18} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Confirmando pedido</> : <><IconCircleCheck size={18} aria-hidden="true" />Confirmar pedido</>}</button>
+        <button type="button" onClick={() => checkout.mutate()} disabled={!selectedBranch || !resolvedLines.length || unverifiedLines.length > 0 || hasMixedCurrencies || branchesQuery.isLoading || Boolean(branchesQuery.error) || (!frozenQuote && (!quote.valid || quote.isFetching)) || checkout.isPending} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-45">{checkout.isPending ? <><IconLoader2 size={18} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Confirmando pedido</> : <><IconCircleCheck size={18} aria-hidden="true" />Confirmar pedido</>}</button>
+<p role="status" className="mt-3 text-sm text-[var(--muted)]">{frozenQuote ? "Se conserva este intento. Reintenta la confirmación para consultar su resultado sin duplicarlo." : quote.isFetching ? "Actualizando precios…" : quote.valid ? "Precios vigentes; se validarán al confirmar." : "Actualiza la cotización para confirmar."}</p>{displayQuote && displayQuote.discountTotal > 0 ? <p className="mt-2 text-sm font-semibold text-[var(--accent-strong)]">Ahorras {money(displayQuote.discountTotal, displayQuote.currency)}</p> : null}
       </aside>
     </div>}
   </section>;
 }
 
 function CartLine({ item, onAdjust, onRemove, disabled }: { item: ResolvedCartLine; onAdjust: (delta: number) => void; onRemove: () => void; disabled: boolean }) {
-  return <article className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6"><div className="flex min-w-0 items-center gap-3"><div role="img" aria-label={`Imagen de ${item.product.name}`} className="grid size-14 shrink-0 overflow-hidden rounded-lg bg-[var(--surface-muted)] bg-no-repeat" style={catalogProductImageStyle(item.product)}>{!item.product.imageUrl ? <span aria-hidden="true" className="place-self-center font-semibold text-[var(--accent-strong)]">{item.product.name.slice(0, 1)}</span> : null}</div><div className="min-w-0"><p className="truncate text-sm font-semibold">{item.product.name}</p><p className="mt-1 text-xs text-[var(--muted)]">{item.variant.label} · SKU {item.variant.sku}</p><p className="mt-1 text-sm font-semibold">{money(item.variant.listPrice * item.quantity, item.variant.currency)}</p></div></div><div className="flex items-center gap-2"><div className="flex min-h-11 items-center rounded-lg border border-[var(--line)]"><button type="button" aria-label={`Restar ${item.product.name}`} onClick={() => onAdjust(-1)} disabled={disabled} className="grid size-11 place-items-center text-[var(--muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-45"><IconMinus size={16} aria-hidden="true" /></button><span className="w-8 text-center text-sm font-semibold" aria-label={`${item.quantity} unidades`}>{item.quantity}</span><button type="button" aria-label={`Sumar ${item.product.name}`} onClick={() => onAdjust(1)} disabled={disabled} className="grid size-11 place-items-center text-[var(--muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-45"><IconPlus size={16} aria-hidden="true" /></button></div><button type="button" onClick={onRemove} disabled={disabled} aria-label={`Quitar ${item.product.name}`} className="grid size-11 place-items-center rounded-lg text-[var(--muted)] transition-colors hover:bg-[var(--danger-surface)] hover:text-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-45"><IconTrash size={17} aria-hidden="true" /></button></div></article>;
+  return <article className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6"><div className="flex min-w-0 items-center gap-3"><div role="img" aria-label={`Imagen de ${item.product.name}`} className="grid size-14 shrink-0 overflow-hidden rounded-lg bg-[var(--surface-muted)] bg-no-repeat" style={catalogProductImageStyle(item.product)}>{!item.product.imageUrl ? <span aria-hidden="true" className="place-self-center font-semibold text-[var(--accent-strong)]">{item.product.name.slice(0, 1)}</span> : null}</div><div className="min-w-0"><p className="truncate text-sm font-semibold">{item.product.name}</p><p className="mt-1 text-xs text-[var(--muted)]">{item.variant.label} · SKU {item.variant.sku}</p><p className="mt-1 text-sm font-semibold"><VariantPrice variant={item.variant} quantity={item.quantity} /></p></div></div><div className="flex items-center gap-2"><div className="flex min-h-11 items-center rounded-lg border border-[var(--line)]"><button type="button" aria-label={`Restar ${item.product.name}`} onClick={() => onAdjust(-1)} disabled={disabled} className="grid size-11 place-items-center text-[var(--muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-45"><IconMinus size={16} aria-hidden="true" /></button><span className="w-8 text-center text-sm font-semibold" aria-label={`${item.quantity} unidades`}>{item.quantity}</span><button type="button" aria-label={`Sumar ${item.product.name}`} onClick={() => onAdjust(1)} disabled={disabled} className="grid size-11 place-items-center text-[var(--muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-45"><IconPlus size={16} aria-hidden="true" /></button></div><button type="button" onClick={onRemove} disabled={disabled} aria-label={`Quitar ${item.product.name}`} className="grid size-11 place-items-center rounded-lg text-[var(--muted)] transition-colors hover:bg-[var(--danger-surface)] hover:text-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-45"><IconTrash size={17} aria-hidden="true" /></button></div></article>;
 }
 
 function EmptyBag() {

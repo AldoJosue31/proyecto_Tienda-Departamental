@@ -1,0 +1,78 @@
+{
+  "completedAt": "2026-10-14T00:32:49.916Z",
+  "project": "departamental-five-phases",
+  "universityScope": true,
+  "externalSmtpRequired": false,
+  "physicalPhoneGpsClaimed": false,
+  "passed": true,
+  "checks": [
+    {
+      "name": "new public operations require JWT and private directories/reports stay behind purpose credentials",
+      "passed": true,
+      "milliseconds": 52
+    },
+    {
+      "name": "rankings aggregate 6+6 variants and compare units versus revenue for all CDMX periods",
+      "passed": true,
+      "milliseconds": 121
+    },
+    {
+      "name": "inventory bar and pie data match every authoritative branch and BFF exposes categories",
+      "passed": true,
+      "milliseconds": 2686
+    },
+    {
+      "name": "legacy category identity is recovered through the private Orders batch API",
+      "passed": true,
+      "milliseconds": 6960
+    },
+    {
+      "name": "repeated cancellation adjusts sales, categories and ticket average exactly once",
+      "passed": true,
+      "milliseconds": 1306
+    },
+    {
+      "name": "inactive preview includes separate old purchasers and old registrations without purchases",
+      "passed": true,
+      "milliseconds": 2644
+    },
+    {
+      "name": "campaign excludes a newly completed purchase even while its CRM event is delayed",
+      "passed": true,
+      "milliseconds": 11481
+    },
+    {
+      "name": "RabbitMQ, coupon rights and actual SMTP capture deliver to an old customer without purchases",
+      "passed": true,
+      "milliseconds": 46471
+    },
+    {
+      "name": "BFF coupon purchase keeps the authoritative discounted snapshot in CRM history",
+      "passed": true,
+      "milliseconds": 2768
+    },
+    {
+      "name": "courier selection uses enabled employee identities and ignores a forged display name",
+      "passed": true,
+      "milliseconds": 2637
+    },
+    {
+      "name": "another employee cannot publish, take ownership or advance someone else's shipment",
+      "passed": true,
+      "milliseconds": 41
+    },
+    {
+      "name": "location sources are explicit, stale positions cannot overwrite fresh ones and customer GPS stays private",
+      "passed": true,
+      "milliseconds": 154
+    },
+    {
+      "name": "concurrent delivery has one audited actor/time and one stale-version conflict",
+      "passed": true,
+      "milliseconds": 33
+    }
+  ],
+  "privacy": {
+    "credentialsIdentitiesPayloadsExcluded": true
+  }
+}

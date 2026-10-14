@@ -13,10 +13,13 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useCustomerCart } from "@/components/customer-cart-provider";
+import { VariantPrice } from "@/components/variant-price";
+import { priceRefreshDelay } from "@/lib/pricing/types";
+import { usePriceValidity, withoutCatalogPrices } from "@/lib/pricing/use-price-validity";
 import type { Role } from "@/lib/auth/roles";
 import { searchCatalog } from "@/lib/catalog/catalog-client";
 import { catalogProductImageStyle } from "@/lib/catalog/product-image";
@@ -26,21 +29,10 @@ type CatalogExperienceProps = {
   initialPage: CatalogPage;
   initialError?: boolean;
   initialSearch: string;
+  initialCategory: string;
+  initialBrand: string;
   userRole: Role | null;
 };
-
-function money(value: number, currency: string) {
-  try {
-    return new Intl.NumberFormat("es-MX", {
-      style: "currency",
-      currency,
-      minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  } catch {
-    return `${value.toFixed(2)} ${currency}`;
-  }
-}
 
 function orderedSizes(variants: CatalogVariant[]) {
   const order = ["S", "M", "L"];
@@ -74,19 +66,21 @@ function ProductMedia({ product, compact = false }: { product: CatalogProductSum
 }
 
 function PriceHint({ product }: { product: CatalogProductSummary }) {
-  const prices = product.variants.map((variant) => variant.listPrice).filter(Number.isFinite);
-  const currency = product.variants[0]?.currency ?? "MXN";
+  const prices = product.variants.map((variant) => variant.price?.effectivePrice ?? variant.listPrice).filter(Number.isFinite);
   if (!prices.length) return <p className="text-sm font-medium text-[var(--muted)]">Sin variantes activas</p>;
   const minimum = Math.min(...prices);
   const maximum = Math.max(...prices);
-  return <div><p className="text-xs font-medium text-[var(--muted)]">Precio base</p><p className="mt-0.5 text-lg font-semibold tracking-[-0.025em]">{minimum === maximum ? money(minimum, currency) : `Desde ${money(minimum, currency)}`}</p></div>;
+  const cheapest = product.variants.find(variant => (variant.price?.effectivePrice ?? variant.listPrice) === minimum)!;
+  return <div><p className="text-xs font-medium text-[var(--muted)]">{product.variants.every(variant => variant.price) ? "Precio vigente" : "Precio de lista · Cotización pendiente"}</p><div className="mt-0.5 text-lg tracking-[-0.025em]">{minimum !== maximum ? <span className="text-xs text-[var(--muted)]">Desde</span> : null}<VariantPrice variant={cheapest} /></div></div>;
 }
 
-export function CatalogExperience({ initialPage, initialError = false, initialSearch: search, userRole }: CatalogExperienceProps) {
+export function CatalogExperience({ initialPage, initialError = false, initialSearch: search, initialCategory, initialBrand, userRole }: CatalogExperienceProps) {
   const router = useRouter();
-  const [category, setCategory] = useState("");
-  const [brand, setBrand] = useState("");
-  const [requestedPage, setRequestedPage] = useState(initialPage.page);
+  const params = useSearchParams();
+  const category = (params.get("category") ?? "").slice(0, 200);
+  const brand = (params.get("brand") ?? "").slice(0, 200);
+  const rawPage = Number(params.get("page") ?? 1);
+  const requestedPage = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
   const [selectedProduct, setSelectedProduct] = useState<CatalogProductSummary | null>(null);
   const [addedVariantId, setAddedVariantId] = useState<string | null>(null);
   const [cartAnnouncement, setCartAnnouncement] = useState("");
@@ -95,14 +89,18 @@ export function CatalogExperience({ initialPage, initialError = false, initialSe
   const canBuy = userRole === "CUSTOMER" || userRole === null;
 
   const catalogSearch = useMemo(() => ({ search, category, brand, page: requestedPage, pageSize: 20 }), [brand, category, requestedPage, search]);
-  const isInitialCatalogSearch = !initialError && !category && !brand && requestedPage === initialPage.page;
-  const catalogQuery = useQuery({ queryKey: ["catalog", catalogSearch], queryFn: ({ signal }) => searchCatalog(catalogSearch, signal), initialData: isInitialCatalogSearch ? initialPage : undefined, retry: false });
-  const page = catalogQuery.data ?? (isInitialCatalogSearch ? initialPage : emptyCatalogPage);
+  const isInitialCatalogSearch = !initialError && category === initialCategory && brand === initialBrand && requestedPage === initialPage.page;
+  const catalogQuery = useQuery({ queryKey: ["catalog", catalogSearch], queryFn: ({ signal }) => searchCatalog(catalogSearch, signal), initialData: isInitialCatalogSearch ? initialPage : undefined, retry: false, staleTime: 0, refetchOnWindowFocus: "always", refetchOnReconnect: "always", refetchInterval: query => query.state.status === "error" ? 5000 : priceRefreshDelay(query.state.data?.pricingValidUntil) });
+  const sourcePage = catalogQuery.data ?? (isInitialCatalogSearch ? initialPage : emptyCatalogPage);
+  const pricesValid = usePriceValidity(sourcePage.pricingValidUntil, catalogQuery.isError);
+  const page = pricesValid ? sourcePage : { ...sourcePage, items: sourcePage.items.map(withoutCatalogPrices) };
   const resultsLoading = catalogQuery.isLoading && !catalogQuery.data;
   const categories = page.facets.categories;
   const brands = page.facets.brands;
   const catalogError = catalogQuery.isError || (initialError && !catalogQuery.data) ? "No pudimos actualizar el catálogo. Conservamos los últimos resultados mientras reintentas." : null;
   const totalPages = Math.max(1, Math.ceil(page.total / page.pageSize));
+
+  const currentProduct = selectedProduct ? page.items.find(item => item.id === selectedProduct.id) ?? withoutCatalogPrices(selectedProduct) : null;
 
   useEffect(() => {
     const dialog = detailDialogRef.current;
@@ -111,7 +109,16 @@ export function CatalogExperience({ initialPage, initialError = false, initialSe
     if (!selectedProduct && dialog.open) dialog.close();
   }, [selectedProduct]);
 
-  function resetPage() { setRequestedPage(1); }
+  function changeFilters(change: Record<string, string>) {
+    const next = new URLSearchParams(params.toString());
+    for (const [key, value] of Object.entries(change)) {
+      if (value) next.set(key, value); else next.delete(key);
+    }
+    router.push("/?" + next.toString(), { scroll: false });
+  }
+  function setCategory(value: string) { changeFilters({ category: value, page: "" }); }
+  function setBrand(value: string) { changeFilters({ brand: value, page: "" }); }
+  function setRequestedPage(value: number) { changeFilters({ page: String(value) }); }
   function addVariant(product: CatalogProductSummary, variant: CatalogVariant) {
     const added = addToCart({ productId: product.id, variantId: variant.id });
     if (!added) {
@@ -130,15 +137,15 @@ export function CatalogExperience({ initialPage, initialError = false, initialSe
       </div>
       <p className="sr-only" role="status" aria-live="polite">{cartAnnouncement}</p>
       <section className="mt-8 w-full max-w-[31rem] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3" aria-label="Filtros del catálogo" aria-busy={catalogQuery.isFetching}>
-        <div className="grid gap-3 sm:grid-cols-2"><label><span className="sr-only">Categoría</span><select value={category} onChange={(event) => { setCategory(event.target.value); resetPage(); }} className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none"><option value="">Todas las categorías</option>{categories.map((facet) => <option key={facet.slug} value={facet.slug}>{facet.name} ({facet.count})</option>)}</select></label><label><span className="sr-only">Marca</span><select value={brand} onChange={(event) => { setBrand(event.target.value); resetPage(); }} className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none"><option value="">Todas las marcas</option>{brands.map((facet) => <option key={facet.slug} value={facet.slug}>{facet.name} ({facet.count})</option>)}</select></label></div>
+        <div className="grid gap-3 sm:grid-cols-2"><label><span className="sr-only">Categoría</span><select value={category} onChange={(event) => { setCategory(event.target.value); }} className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none"><option value="">Todas las categorías</option>{categories.map((facet) => <option key={facet.slug} value={facet.slug}>{facet.name} ({facet.count})</option>)}</select></label><label><span className="sr-only">Marca</span><select value={brand} onChange={(event) => { setBrand(event.target.value); }} className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none"><option value="">Todas las marcas</option>{brands.map((facet) => <option key={facet.slug} value={facet.slug}>{facet.name} ({facet.count})</option>)}</select></label></div>
       </section>
       {catalogError && <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--danger)]/30 bg-[var(--danger-surface)] px-4 py-3 text-sm text-[var(--ink)]" role="alert"><span className="flex items-center gap-2"><IconAlertTriangle size={18} className="text-[var(--danger)]" aria-hidden="true" />{catalogError}</span><button type="button" onClick={() => { void catalogQuery.refetch(); }} className="inline-flex min-h-10 items-center gap-2 font-semibold text-[var(--danger)] underline decoration-1 underline-offset-4"><IconRefresh size={16} aria-hidden="true" />Reintentar</button></div>}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3" aria-live="polite"><p className="text-sm text-[var(--muted)]">{resultsLoading ? "Cargando resultados…" : catalogQuery.isFetching ? "Actualizando catálogo…" : `${page.items.length} ${page.items.length === 1 ? "resultado" : "resultados"} en esta página`}</p>{(search || category || brand) && <button type="button" onClick={() => { if (search) { router.push("/"); return; } setCategory(""); setBrand(""); setRequestedPage(1); }} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)]"><IconX size={16} aria-hidden="true" />Limpiar filtros</button>}</div>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3" aria-live="polite"><p className="text-sm text-[var(--muted)]">{resultsLoading ? "Cargando resultados…" : catalogQuery.isFetching ? "Actualizando catálogo…" : `${page.items.length} ${page.items.length === 1 ? "resultado" : "resultados"} en esta página`}</p>{(search || category || brand) && <button type="button" onClick={() => { router.push("/"); }} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)]"><IconX size={16} aria-hidden="true" />Limpiar filtros</button>}</div>
       {resultsLoading ? <CatalogResultsSkeleton /> : catalogError && !catalogQuery.data ? <CatalogUnavailable onRetry={() => { void catalogQuery.refetch(); }} /> : page.items.length === 0 ? <div className="mt-6 rounded-2xl border border-dashed border-[var(--line)] px-6 py-16 text-center"><IconSearch className="mx-auto text-[var(--muted)]" size={30} stroke={1.5} aria-hidden="true" /><h2 className="mt-3 font-semibold">No encontramos coincidencias</h2><p className="mt-1 text-sm text-[var(--muted)]">Prueba con otra búsqueda, categoría o marca.</p></div> : <div className="mt-7 grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{page.items.map((product) => <ProductCard key={product.id} product={product} canBuy={canBuy} onOpen={() => { setSelectedProduct(product); setAddedVariantId(null); }} />)}</div>}
       {page.total > page.pageSize && <nav className="mt-10 flex items-center justify-center gap-3" aria-label="Paginación del catálogo"><button type="button" disabled={page.page <= 1 || catalogQuery.isFetching} onClick={() => setRequestedPage(page.page - 1)} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-[var(--line)] px-3 text-sm font-semibold transition-colors hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-45"><IconChevronLeft size={17} aria-hidden="true" />Anterior</button><p className="text-sm text-[var(--muted)]">Página <span className="font-semibold text-[var(--ink)]">{page.page}</span> de {totalPages}</p><button type="button" disabled={page.page >= totalPages || catalogQuery.isFetching} onClick={() => setRequestedPage(page.page + 1)} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-[var(--line)] px-3 text-sm font-semibold transition-colors hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-45">Siguiente<IconChevronRight size={17} aria-hidden="true" /></button></nav>}
     </section>
     <dialog ref={detailDialogRef} onClose={() => setSelectedProduct(null)} aria-labelledby="product-dialog-title" className="w-[min(46rem,calc(100vw-2rem))] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-0 text-[var(--ink)] shadow-xl backdrop:bg-black/35">
-      {selectedProduct && <ProductDialog key={selectedProduct.id} product={selectedProduct} userRole={userRole} addedVariantId={addedVariantId} itemCount={itemCount} onAdd={addVariant} onClose={() => detailDialogRef.current?.close()} />}
+      {selectedProduct && <ProductDialog key={selectedProduct.id} product={currentProduct ?? selectedProduct} userRole={userRole} addedVariantId={addedVariantId} itemCount={itemCount} onAdd={addVariant} onClose={() => detailDialogRef.current?.close()} />}
     </dialog>
   </>;
 }
@@ -228,7 +235,7 @@ function ProductDialog({ product, userRole, addedVariantId, itemCount, onAdd, on
           </div>
           {selectedVariant && <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[var(--accent-soft)] px-4 py-3">
             <span className="text-sm text-[var(--accent-strong)]">SKU {selectedVariant.sku}</span>
-            <span className="font-semibold">{money(selectedVariant.listPrice, selectedVariant.currency)}</span>
+            <VariantPrice variant={selectedVariant} />
           </div>}
         </> : <>
           <p className="mt-1 text-sm text-[var(--muted)]">Selecciona una opción para revisar sus atributos antes de agregarla.</p>
@@ -243,7 +250,7 @@ function ProductDialog({ product, userRole, addedVariantId, itemCount, onAdd, on
                   {attributes.length > 0 && <span className="mt-1 block text-xs leading-5 text-[var(--muted)]">{attributes.join(" · ")}</span>}
                   <span className="mt-1 block text-xs text-[var(--muted)]">SKU {variant.sku}</span>
                 </span>
-                <span className="text-sm font-semibold">{money(variant.listPrice, variant.currency)}</span>
+                <VariantPrice variant={variant} />
               </label>;
             })}
           </div>

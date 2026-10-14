@@ -412,10 +412,25 @@ export class CatalogRepository {
           OR c.name ILIKE '%' || $1 || '%'
           OR b.name ILIKE '%' || $1 || '%'
           OR array_to_string(p.tags, ' ') ILIKE '%' || $1 || '%'
+          OR EXISTS (
+            SELECT 1 FROM catalog_product_variants searchable_variant
+            WHERE searchable_variant.product_id = p.id
+              AND searchable_variant.status = 'ACTIVE'
+              AND concat_ws(' ', searchable_variant.sku, searchable_variant.size,
+                searchable_variant.color, searchable_variant.material) ILIKE '%' || $1 || '%'
+          )
         )
         ${categoryFilter}
         ${brandFilter}
     `;
+  }
+
+  async findPublicBatch(ids: string[]): Promise<PublicCatalogProduct[]> {
+    const result = await this.database.query<ProductRow>(
+      `SELECT ${PRODUCT_COLUMNS} ${PRODUCT_JOINS} WHERE p.status = 'ACTIVE' AND p.id = ANY($1::uuid[])`,
+      [ids],
+    );
+    return (await this.attachVariants(result.rows, true)).map(product => this.toPublicProduct(product));
   }
 
   private toFacets(rows: FacetRow[]): ProductSearchResponse["facets"]["categories"] {

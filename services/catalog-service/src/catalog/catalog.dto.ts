@@ -1,6 +1,7 @@
 import { Type, Transform } from "class-transformer";
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsDefined,
   IsIn,
@@ -8,6 +9,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   MaxLength,
@@ -17,6 +19,14 @@ import {
 } from "class-validator";
 
 import { CATALOG_STATUSES, type CatalogStatus } from "./catalog.types";
+
+export class ResolveProductsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @IsUUID("4", { each: true })
+  ids!: string[];
+}
 
 function normalizedText(value: unknown): unknown {
   return typeof value === "string" ? value.trim() : value;

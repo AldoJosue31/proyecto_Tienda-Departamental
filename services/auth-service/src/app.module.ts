@@ -20,6 +20,7 @@ import { HealthController } from "./health/health.controller";
 import { RefreshTokensRepository } from "./refresh-tokens/refresh-tokens.repository";
 import { loadAuthTokenConfig, loadDatabaseConfig, loadNotificationInternalConfig } from "./config/environment";
 import { NotificationContactController } from "./users/notification-contact.controller";
+import { DirectoryController, DirectoryGuard } from "./users/directory.controller";
 import { UsersRepository } from "./users/users.repository";
 import { loadOnboardingConfig, ONBOARDING_CONFIG } from './onboarding/onboarding.config';
 import { OnboardingController, OnboardingInternalController } from './onboarding/onboarding.controller';
@@ -27,7 +28,7 @@ import { OnboardingService } from './onboarding/onboarding.service';
 import { OnboardingEventsService } from './onboarding/onboarding-events.service';
 
 @Module({
-  controllers: [AuthController, OnboardingController, OnboardingInternalController, NotificationContactController, HealthController],
+  controllers: [AuthController, OnboardingController, OnboardingInternalController, NotificationContactController, DirectoryController, HealthController],
   providers: [
     { provide: ONBOARDING_CONFIG, useFactory: loadOnboardingConfig },
     OnboardingService,
@@ -52,6 +53,7 @@ import { OnboardingEventsService } from './onboarding/onboarding-events.service'
     AuthService,
     JwtAuthGuard,
     InternalNotificationGuard,
+    DirectoryGuard,
     OptionalJwtAuthGuard,
     RolesGuard,
     CorrelationIdMiddleware,

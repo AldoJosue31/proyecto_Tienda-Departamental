@@ -1,9 +1,68 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { test, expect, env, fixtureEmail, fixturePassword, auth, orders, userFor, direct, mailLink, signIn, capture, passwords, assertIsolation } from "./helpers";
 
 test.describe.configure({ mode: "serial" });
 test.beforeAll(assertIsolation);
 test.afterAll(async () => { await Promise.all([auth.end(), orders.end()]); });
+
+test("discounted checkout rejects a changed price and recovers a lost confirmation without duplicate charge", async ({ page }) => {
+  const session = await (await direct("/auth/login", { email: "admin@departamental.local", password: env.SEED_ADMIN_PASSWORD })).json();
+  const request = async (path: string, method = "GET", body?: unknown) => {
+    const response = await fetch("http://localhost:8005" + path, { method, headers: { Authorization: "Bearer " + session.accessToken, ...(body ? { "Content-Type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    return { status: response.status, body: await response.json().catch(() => null) };
+  };
+  const customer = await userFor("customer@departamental.local");
+  const branches = (await request("/inventory/branches")).body.branches;
+  const stocks = (await request("/inventory/branches/" + branches[0].id)).body.items;
+  const products = (await request("/products")).body.items;
+  const stock = stocks.find((s: { variantId: string; available: number }) => s.available > 3 && products.some((p: { variants: { id: string }[] }) => p.variants.some(v => v.id === s.variantId)));
+  expect(stock).toBeTruthy();
+  const product = products.find((p: { variants: { id: string }[] }) => p.variants.some(v => v.id === stock.variantId));
+  const variant = product.variants.find((v: { id: string }) => v.id === stock.variantId);
+  const began = new Date().toISOString();
+  const promotion = { name: "Prueba de precios " + randomUUID().slice(0, 8), discountType: "PERCENTAGE", discountValue: 20, priority: 1000, startsAt: new Date(Date.now() - 60000).toISOString(), endsAt: new Date(Date.now() + 3600000).toISOString(), timezone: "America/Mexico_City", targets: [{ scope: "VARIANT", targetId: variant.id }] };
+  const created = await request("/promotions", "POST", promotion); expect(created.status).toBe(201);
+  const promotionId = created.body.promotion.id;
+  try {
+    await signIn(page, "customer@departamental.local", env.SEED_CUSTOMER_PASSWORD);
+    const card = page.getByRole("article").filter({ has: page.getByRole("heading", { name: product.name, exact: true }) });
+    await expect(card.getByText(promotion.name, { exact: true })).toBeVisible();
+    await card.getByRole("button", { name: "Elegir y agregar" }).click();
+    await page.getByRole("radio", { name: new RegExp(variant.sku.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) }).press("Space");
+    await page.getByRole("button", { name: "Agregar a la bolsa", exact: true }).click();
+    await page.getByRole("link", { name: /Ver bolsa/ }).click();
+    await page.getByRole("radio", { name: new RegExp(branches[0].name) }).press("Space");
+    await expect(page.getByText(/Ahorras/).first()).toBeVisible();
+    await capture(page, "pricing-checkout");
+    let attempt = 0; const keys: string[] = [];
+    await page.route("**/api/checkout", async route => {
+      attempt++; keys.push(route.request().headers()["idempotency-key"]);
+      if (attempt === 1) {
+        expect((await request("/promotions/" + promotionId, "PATCH", { ...promotion, discountValue: 30 })).status).toBe(200);
+        await route.continue();
+      } else if (attempt === 2) {
+        const accepted = await route.fetch(); expect(accepted.status()).toBe(201);
+        await route.abort("failed");
+      } else await route.continue();
+    });
+    await page.getByRole("button", { name: "Confirmar pedido", exact: true }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "precio cambió" })).toBeVisible();
+    const confirmedCount = async () => Number((await orders.query("SELECT COUNT(*)::int AS n FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.customer_id=$1 AND i.variant_id=$2 AND o.created_at >= $3 AND o.status='CONFIRMED'", [customer.id, variant.id, began])).rows[0].n);
+    expect(await confirmedCount()).toBe(0);
+    await page.getByRole("button", { name: "Confirmar pedido", exact: true }).click();
+    await expect(page.getByText("Se conserva este intento.", { exact: false })).toBeVisible();
+    await expect(page.getByLabel("Código de descuento")).toBeDisabled();
+    await page.getByRole("button", { name: "Confirmar pedido", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Tu compra quedó registrada." })).toBeVisible();
+    expect(keys[1]).toBe(keys[2]); expect(keys[0]).not.toBe(keys[1]);
+    expect(await confirmedCount()).toBe(1);
+    const result = await orders.query("SELECT o.total FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.customer_id=$1 AND i.variant_id=$2 AND o.created_at >= $3 AND o.status='CONFIRMED'", [customer.id, variant.id, began]);
+    expect(Number(result.rows[0].total)).toBe(Math.round(variant.listPrice * 0.7 * 100) / 100);
+  } finally {
+    await request("/promotions/" + promotionId, "DELETE");
+    await direct("/auth/logout", { refreshToken: session.refreshToken });
+  }
+});
 
 test("customer registers from checkout, confirms by SMTP, signs in and buys without losing the guest bag", async ({ page, context }) => {
   const email = fixtureEmail("customer");
@@ -96,7 +155,7 @@ test("ADMIN invites with safe retry, resends, and disables then enables an emplo
     await expect(page.getByRole("status").filter({ hasText: "El enlace anterior" })).toBeVisible();
     await employeePage.goto(oldLink); await passwords(employeePage);
     await employeePage.getByRole("button", { name: "Aceptar invitación", exact: true }).click();
-    await expect(employeePage.getByRole("alert").filter({ hasText: "El enlace venció" })).toBeVisible();
+    await expect(employeePage.getByRole("alert").filter({ hasText: "El enlace venció" })).toBeVisible().catch(async error => { await capture(employeePage, "invitation-expired-diagnostic"); throw error; });
   });
   await test.step("employee sets a password, signs in, and cannot access Users", async () => {
     await employeePage.goto(await mailLink(email));

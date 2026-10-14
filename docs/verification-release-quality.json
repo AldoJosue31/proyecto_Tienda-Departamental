@@ -1,0 +1,266 @@
+{
+  "completedAt": "2026-10-14T06:11:30.100Z",
+  "passed": false,
+  "testCount": 220,
+  "results": [
+    {
+      "project": "web",
+      "verifiedAt": "2026-10-14T06:07:37.769Z",
+      "checks": [
+        {
+          "command": "run lint -- src tests scripts e2e playwright.accounts.config.ts playwright.phases-four-six.config.ts playwright.phases-seven.config.ts playwright.principal.config.ts",
+          "passed": true
+        },
+        {
+          "command": "run typecheck",
+          "passed": true
+        },
+        {
+          "command": "test",
+          "passed": false
+        }
+      ],
+      "passed": false
+    },
+    {
+      "project": "auth",
+      "verifiedAt": "2026-10-14T06:11:30.097Z",
+      "checks": [
+        {
+          "command": "run lint",
+          "passed": true
+        },
+        {
+          "command": "run typecheck",
+          "passed": true
+        },
+        {
+          "command": "test",
+          "passed": true,
+          "testCount": 36
+        },
+        {
+          "command": "run build",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "project": "catalog",
+      "verifiedAt": "2026-10-14T02:36:58.106Z",
+      "checks": [
+        {
+          "command": "run lint",
+          "passed": true
+        },
+        {
+          "command": "run typecheck",
+          "passed": true
+        },
+        {
+          "command": "test",
+          "passed": true,
+          "testCount": 30
+        },
+        {
+          "command": "run build",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "project": "inventory",
+      "verifiedAt": "2026-10-14T02:13:09.404Z",
+      "checks": [
+        {
+          "command": "run lint",
+          "passed": true
+        },
+        {
+          "command": "run typecheck",
+          "passed": true
+        },
+        {
+          "command": "test",
+          "passed": true,
+          "testCount": 13
+        },
+        {
+          "command": "run build",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "project": "pricing",
+      "verifiedAt": "2026-10-14T02:13:40.323Z",
+      "checks": [
+        {
+          "command": "run lint",
+          "passed": true
+        },
+        {
+          "command": "run typecheck",
+          "passed": true
+        },
+        {
+          "command": "test",
+          "passed": true,
+          "testCount": 24
+        },
+        {
+          "command": "run build",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "project": "orders",
+      "verifiedAt": "2026-10-14T02:48:57.335Z",
+      "checks": [
+        {
+          "command": "run lint",
+          "passed": true
+        },
+        {
+          "command": "run typecheck",
+          "passed": true
+        },
+        {
+          "command": "test",
+          "passed": true,
+          "testCount": 23
+        },
+        {
+          "command": "run build",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "project": "realtime",
+      "verifiedAt": "2026-10-14T02:14:47.799Z",
+      "checks": [
+        {
+          "command": "run lint",
+          "passed": true
+        },
+        {
+          "command": "run typecheck",
+          "passed": true
+        },
+        {
+          "command": "test",
+          "passed": true,
+          "testCount": 16
+        },
+        {
+          "command": "run build",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "project": "analytics",
+      "verifiedAt": "2026-10-14T02:15:19.776Z",
+      "checks": [
+        {
+          "command": "run lint",
+          "passed": true
+        },
+        {
+          "command": "run typecheck",
+          "passed": true
+        },
+        {
+          "command": "test",
+          "passed": true,
+          "testCount": 17
+        },
+        {
+          "command": "run build",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "project": "logistics",
+      "verifiedAt": "2026-10-14T02:41:55.635Z",
+      "checks": [
+        {
+          "command": "run lint",
+          "passed": true
+        },
+        {
+          "command": "run typecheck",
+          "passed": true
+        },
+        {
+          "command": "test",
+          "passed": true,
+          "testCount": 18
+        },
+        {
+          "command": "run build",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "project": "crm",
+      "verifiedAt": "2026-10-14T02:16:29.412Z",
+      "checks": [
+        {
+          "command": "run lint",
+          "passed": true
+        },
+        {
+          "command": "run typecheck",
+          "passed": true
+        },
+        {
+          "command": "test",
+          "passed": true,
+          "testCount": 19
+        },
+        {
+          "command": "run build",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "project": "notification",
+      "verifiedAt": "2026-10-14T02:28:43.264Z",
+      "checks": [
+        {
+          "command": "run lint",
+          "passed": true
+        },
+        {
+          "command": "run typecheck",
+          "passed": true
+        },
+        {
+          "command": "test",
+          "passed": true,
+          "testCount": 24
+        },
+        {
+          "command": "run build",
+          "passed": true
+        }
+      ],
+      "passed": true
+    }
+  ]
+}

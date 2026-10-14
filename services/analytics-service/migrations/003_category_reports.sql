@@ -1,0 +1,3 @@
+ALTER TABLE analytics_order_item_projection ADD COLUMN category_id UUID NULL;
+ALTER TABLE analytics_order_item_projection ADD COLUMN category_checked_at TIMESTAMPTZ NULL;
+CREATE INDEX analytics_order_item_category_idx ON analytics_order_item_projection(category_id,order_id);

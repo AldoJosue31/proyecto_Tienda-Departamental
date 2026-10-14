@@ -32,9 +32,12 @@ export interface CancelledOrderEvent {
 export type CrmEvent = CompletedOrderEvent | CancelledOrderEvent;
 
 export interface CustomerSummary {
+  name?: string;
+  joinedAt?: string;
+  segmentGroup?: "PURCHASER" | "NEVER_PURCHASED";
   customerId: string;
-  firstPurchaseAt: string;
-  lastPurchaseAt: string;
+  firstPurchaseAt: string | null;
+  lastPurchaseAt: string | null;
   completedOrders: number;
   lifetimeTotal: number;
   currency: string;
@@ -42,6 +45,9 @@ export interface CustomerSummary {
 }
 
 export interface CustomerPurchase {
+  subtotal?: number;
+  discountTotal?: number;
+  couponCode?: string | null;
   orderId: string;
   branchId: string;
   currency: string;
@@ -51,6 +57,7 @@ export interface CustomerPurchase {
 }
 
 export interface CustomerProfileResponse {
+  historyComplete?: boolean;
   customer: CustomerSummary;
   purchases: CustomerPurchase[];
   lastUpdatedAt: string | null;
@@ -59,14 +66,15 @@ export interface CustomerProfileResponse {
 export interface CustomersResponse { customers: CustomerSummary[]; lastUpdatedAt: string | null; }
 export interface InactiveSegmentResponse {
   segment: {
-    code: "INACTIVE_PURCHASERS";
+    code: "INACTIVE_CUSTOMERS";
     months: number;
     referenceAt: string;
     cutoffAt: string;
-    includesNeverPurchased: false;
+    includesNeverPurchased: true;
     rule: string;
   };
   count: number;
+  groups: { purchasers: number; neverPurchased: number };
   customers: CustomerSummary[];
   lastUpdatedAt: string | null;
 }
@@ -85,6 +93,7 @@ export interface CouponCampaignInput {
 }
 
 export interface CouponCampaign {
+  referenceAt?: string | null; cutoffAt?: string | null;
   id: string;
   segmentMonths: number;
   couponCode: string;

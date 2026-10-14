@@ -20,9 +20,10 @@ import { OrdersRepository } from "./orders/orders.repository";
 import { OrdersService } from "./orders/orders.service";
 import { PricingClient } from "./orders/pricing.client";
 import { CouponStateController, CouponStateGuard } from "./orders/coupon-state.controller";
+import { OrdersReportController, OrdersReportGuard } from "./orders/report.controller";
 
 @Module({
-  controllers: [OrdersController, CouponStateController, HealthController],
+  controllers: [OrdersController, CouponStateController, OrdersReportController, HealthController],
   providers: [
     { provide: DATABASE_CONFIG, useFactory: loadDatabaseConfig },
     { provide: ORDERS_RUNTIME_CONFIG, useFactory: loadOrdersRuntimeConfig },
@@ -37,6 +38,7 @@ import { CouponStateController, CouponStateGuard } from "./orders/coupon-state.c
     LogisticsClient,
     OrdersService,
     CouponStateGuard,
+    OrdersReportGuard,
     JwtAuthGuard,
     RolesGuard,
     CorrelationIdMiddleware,

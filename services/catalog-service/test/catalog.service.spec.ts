@@ -77,6 +77,7 @@ function createService() {
     getJson: vi.fn().mockResolvedValue(null),
     setJson: vi.fn().mockResolvedValue(undefined),
     getStatus: vi.fn().mockReturnValue("ready"),
+    getGeneration: vi.fn().mockReturnValue(1),
   } as unknown as CacheService;
 
   return {
@@ -90,6 +91,19 @@ function createService() {
 }
 
 describe("CatalogService", () => {
+  it("refreshes the authoritative version after Redis reconnects instead of resurrecting stale cached catalog", async () => {
+    const { service, repository, cache } = createService();
+    vi.mocked(cache.getString).mockResolvedValue("7");
+    vi.mocked(cache.getJson).mockResolvedValue(publicSearch);
+    await service.search({});
+    vi.mocked(cache.getGeneration).mockReturnValue(2);
+    vi.mocked(repository.getCatalogVersion).mockResolvedValue(8);
+    await service.search({});
+    expect(repository.getCatalogVersion).toHaveBeenCalledTimes(1);
+    expect(cache.setString).toHaveBeenCalledWith("catalog:version", "8", 86_400);
+    const lastKey = vi.mocked(cache.getJson).mock.calls.at(-1)?.[0];
+    expect(lastKey).not.toEqual(vi.mocked(cache.getJson).mock.calls[0]?.[0]);
+  });
   it("serves a valid cached search without reading PostgreSQL", async () => {
     const { service, repository, cache } = createService();
     vi.mocked(cache.getString).mockResolvedValue("7");
@@ -119,7 +133,7 @@ describe("CatalogService", () => {
       pageSize: 20,
     });
     expect(vi.mocked(cache.setJson)).toHaveBeenCalledWith(
-      expect.stringMatching(/^catalog:search:v9:/),
+      expect.stringMatching(/^catalog:search:search2:v9:/),
       publicSearch,
       120,
     );

@@ -42,6 +42,6 @@ describe("Fase 11: CRM proyectado y segmentación", () => {
     expect(workspace).toContain("@tanstack/react-query");
     expect(workspace).toContain("Historial de compras");
     expect(workspace).toContain("Clientes inactivos");
-    expect(read("services/crm-service/src/crm/crm.service.ts")).toContain("excluye identidades sin compras proyectadas");
+    expect(read("services/crm-service/src/crm/crm.service.ts")).toContain("Sin compras: alta con antigüedad de al menos el periodo");
   });
 });

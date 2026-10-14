@@ -2,6 +2,8 @@ import { createServer } from "node:http";
 import next from "next";
 import nextEnv from "@next/env";
 import { annotateClientIp, clientIpResolver } from "./web-client-ip.mjs";
+import { allowsCookieApiMutation } from "./web-mutation-origin.mjs";
+import { randomUUID } from "node:crypto";
 
 const dev = process.argv.includes("--dev");
 // Load .env before capturing the IP key, including when launched via npm dev.
@@ -12,8 +14,15 @@ const ipKey = process.env.TRUSTED_BFF_IP_KEY || "";
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid web port");
 if (ipKey && (!/^[A-Za-z0-9_-]+$/.test(ipKey) || Buffer.from(ipKey, "base64url").length < 32)) throw new Error("Invalid BFF signing configuration");
 const resolveIp = clientIpResolver(process.env.BFF_TRUSTED_PROXY_CIDRS);
+const publicOrigin = new URL(process.env.APP_PUBLIC_ORIGIN || "http://localhost:3000").origin;
 let handle;
 const server = createServer((request, response) => {
+  if (!allowsCookieApiMutation(request, publicOrigin)) {
+    const correlationId = randomUUID();
+    response.writeHead(403, { "Content-Type": "application/json", "Cache-Control": "private, no-store", "X-Correlation-Id": correlationId });
+    response.end(JSON.stringify({ code: "ORIGIN_NOT_ALLOWED", message: "No pudimos verificar el origen de la solicitud. Recarga la aplicación e intenta de nuevo.", correlationId }));
+    return;
+  }
   try { annotateClientIp(request, ipKey, resolveIp); }
   catch { response.writeHead(400); response.end("Invalid client address"); return; }
   Promise.resolve().then(() => handle(request, response)).catch(() => {

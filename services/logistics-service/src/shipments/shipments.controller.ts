@@ -57,8 +57,7 @@ export class ShipmentsController {
   @Patch(":id/tracking")
   @Roles("ADMIN", "EMPLOYEE")
   assignTracking(@Param("id") id: string, @Body() body: TrackingAssignmentRequest, @Req() request: AuthenticatedRequest): Promise<ShipmentDetailResponse> {
-    operationalActor(request);
-    return this.shipments.assignTracking(id, body);
+    return this.shipments.assignTracking(id, body, operationalActor(request));
   }
 }
 
@@ -81,6 +80,8 @@ export class InternalShipmentsController {
 @Roles("ADMIN", "EMPLOYEE")
 export class CouriersController {
   constructor(private readonly shipments: ShipmentsService) {}
+  @Get() async list(@Req() request: AuthenticatedRequest) { const actor=operationalActor(request),result=await this.shipments.couriers();return actor.role==="ADMIN" ? result : {couriers:result.couriers.filter(person=>person.id===actor.id)}; }
+  @Get("me/shipments") assigned(@Req() request: AuthenticatedRequest) { return this.shipments.assigned(operationalActor(request)); }
 
   @Get(":id/location")
   location(@Param("id") id: string): Promise<CourierLocationResponse> {
@@ -90,6 +91,6 @@ export class CouriersController {
   @Post(":id/location")
   recordLocation(@Param("id") id: string, @Body() body: CourierLocationRequest, @Req() request: AuthenticatedRequest): Promise<CourierLocationResponse> {
     const actor = operationalActor(request);
-    return this.shipments.recordCourierLocation(id, body, actor.correlationId);
+    return this.shipments.recordCourierLocation(id, body, actor.correlationId, actor);
   }
 }

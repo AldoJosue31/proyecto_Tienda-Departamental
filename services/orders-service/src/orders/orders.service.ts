@@ -47,7 +47,7 @@ export class OrdersService {
   ): Promise<OrderResponse> {
     const key = this.requireIdempotencyKey(idempotencyKey);
     const channel = body.channel ?? "ONLINE";
-    this.assertChannelAccess(channel, body.customerId, actor);
+    this.assertChannelAccess(channel, actor);
     const customerId = actor.role === "CUSTOMER" ? actor.id : body.customerId ?? actor.id;
     const requestedItems = this.mergeRequestedItems(body);
     const requestHash = this.requestHash(customerId, body.branchId, channel, requestedItems, body.couponCode);
@@ -88,7 +88,7 @@ export class OrdersService {
       if (order.status === "CONFIRMED" || order.status === "CANCELLATION_PENDING" || order.status === "CANCELLED") {
         return { order: this.publicOrder(order) };
       }
-      return this.completeCheckout(client, order, requestedItems, actor, key);
+      return this.completeCheckout(client, order, requestedItems, actor, key, body.expectedTotal);
     });
   }
 
@@ -217,10 +217,23 @@ export class OrdersService {
     requestedItems: RequestedItem[],
     actor: OrderActor,
     idempotencyKey: string,
+    expectedTotal?: number,
   ): Promise<OrderResponse> {
     let current = order;
     if (current.items.length === 0) {
       const snapshots = await this.createSnapshots(current.id, current.branchId, requestedItems, actor.correlationId, current.couponCode, current.customerId);
+      const actualTotal = this.money(snapshots.reduce((sum, item) => sum + item.lineTotal, 0));
+      const listTotal = this.money(snapshots.reduce((sum, item) => sum + item.listUnitPrice * item.quantity, 0));
+      if (actualTotal > 9999999999.99 || listTotal > 9999999999.99) {
+        if (current.couponCode) await this.pricing.settleCoupon(current.id, "release");
+        throw new ApiException(422, "TOTAL_LIMIT", "El importe supera el límite de un pedido.");
+      }
+      if (expectedTotal !== undefined && Math.round(actualTotal * 100) !== Math.round(expectedTotal * 100)) {
+        if (current.couponCode) await this.pricing.settleCoupon(current.id, "release");
+        const message = "El precio cambió. Actualiza la cotización y confirma el nuevo total.";
+        await this.database.withTransactionOnClient(client, transaction => this.repository.failOutOfStock(transaction, current.id, actor, "PRICE_CHANGED", message));
+        throw new ApiException(409, "PRICE_CHANGED", message);
+      }
       await this.database.withTransactionOnClient(client, async (transaction) => {
         await this.repository.replaceItems(transaction, current.id, snapshots);
         await this.repository.audit(transaction, current.id, actor, "ORDER_PRICE_SNAPSHOTTED");
@@ -426,19 +439,11 @@ export class OrdersService {
 
   private assertChannelAccess(
     channel: OrderChannel,
-    requestedCustomerId: string | undefined,
     actor: OrderActor,
   ): void {
     if (channel !== "PHYSICAL") return;
     if (actor.role === "CUSTOMER") {
       throw new ApiException(403, "FORBIDDEN", "Los clientes no pueden registrar ventas físicas");
-    }
-    if (!requestedCustomerId) {
-      throw new ApiException(
-        400,
-        "PHYSICAL_SALE_CUSTOMER_REQUIRED",
-        "Una venta física requiere el cliente al que se atribuye la compra",
-      );
     }
   }
 
@@ -515,6 +520,8 @@ export class OrdersService {
         variantLabel: item.variantLabel,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        listUnitPrice: item.listUnitPrice,
+        lineDiscountTotal: item.lineDiscountTotal,
         lineTotal: item.lineTotal,
       })),
     };

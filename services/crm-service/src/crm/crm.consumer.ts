@@ -1,5 +1,6 @@
+import { consumeReliably } from "../common/consume-reliably";
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
-import { connect, type Channel, type ChannelModel, type ConsumeMessage } from "amqplib";
+import { connect, type ConfirmChannel, type ChannelModel, type ConsumeMessage } from "amqplib";
 import { CRM_RUNTIME_CONFIG } from "../auth/token.service";
 import type { CrmRuntimeConfig } from "../config/environment";
 import { CrmService } from "./crm.service";
@@ -16,21 +17,23 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export class CrmConsumer implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CrmConsumer.name);
   private connection: ChannelModel | null = null;
-  private channel: Channel | null = null;
+  private channel: ConfirmChannel | null = null;
   constructor(private readonly crm: CrmService, @Inject(CRM_RUNTIME_CONFIG) private readonly config: Pick<CrmRuntimeConfig, "environment" | "rabbitmqUrl">) {}
   onModuleInit(): void { if (this.config.environment !== "test") void this.connect(); }
   async onModuleDestroy(): Promise<void> { this.channel = null; const connection = this.connection; this.connection = null; if (connection) await connection.close().catch(() => undefined); }
   private async connect(): Promise<void> {
     try {
-      const connection = await connect(this.config.rabbitmqUrl); const channel = await connection.createChannel();
+      const connection = await connect(this.config.rabbitmqUrl); const channel = await connection.createConfirmChannel();
       connection.on("error", () => this.clear(connection)); connection.on("close", () => this.clear(connection)); channel.on("error", () => this.clear(connection)); channel.on("close", () => this.clear(connection));
       await channel.assertExchange(EVENTS_EXCHANGE, "topic", { durable: true }); await channel.assertExchange(DEAD_LETTER_EXCHANGE, "topic", { durable: true });
       await channel.assertQueue(DLQ, { durable: true }); for (const key of ROUTING_KEYS) await channel.bindQueue(DLQ, DEAD_LETTER_EXCHANGE, key);
       await channel.assertQueue(QUEUE, { durable: true, arguments: { "x-dead-letter-exchange": DEAD_LETTER_EXCHANGE } }); for (const key of ROUTING_KEYS) await channel.bindQueue(QUEUE, EVENTS_EXCHANGE, key);
-      this.connection = connection; this.channel = channel; await channel.consume(QUEUE, (message) => void this.consume(channel, message), { noAck: false });
+      await channel.prefetch(10); this.connection = connection; this.channel = channel; await channel.consume(QUEUE, (message) => void this.consume(channel, message), { noAck: false });
     } catch { this.logger.warn("CRM event consumer is reconnecting after RabbitMQ becomes available."); const retry = setTimeout(() => void this.connect(), 1_000); retry.unref(); }
   }
-  private async consume(channel: Channel, message: ConsumeMessage | null): Promise<void> { if (!message) return; try { await this.crm.project(this.event(JSON.parse(message.content.toString("utf8")) as unknown)); channel.ack(message); } catch (error) { const reason = error instanceof Error ? error.message : "unknown error"; this.logger.warn("An invalid CRM event was sent to the DLQ: " + reason); channel.nack(message, false, false); } }
+  private async consume(channel: ConfirmChannel, message: ConsumeMessage | null): Promise<void> {
+    await consumeReliably(channel, QUEUE, message, value => this.event(value), event => this.crm.project(event), message => this.logger.warn(message));
+  }
   private event(value: unknown): CrmEvent {
     if (!this.object(value) || !this.uuid(value.eventId) || !this.date(value.occurredAt) || (typeof value.correlationId !== "string" && value.correlationId !== null) || !this.object(value.data)) throw new Error("Invalid event envelope.");
     if (value.eventType === "order.completed.v1" && value.producer === "orders-service") return this.completed(value, value.data);

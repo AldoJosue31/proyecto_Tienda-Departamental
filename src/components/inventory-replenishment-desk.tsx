@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 import { sileo } from "sileo";
 
 import type { CatalogPage, CatalogProductSummary, CatalogVariant } from "@/lib/catalog/types";
+import { searchCatalog } from "@/lib/catalog/catalog-client";
 import type { InventoryDashboard, InventoryDashboardItem } from "@/lib/inventory/dashboard-types";
 
 type MovementType = "RECEIPT" | "ADJUSTMENT_IN" | "ADJUSTMENT_OUT";
@@ -69,6 +70,13 @@ export function InventoryReplenishmentDesk({
   const [reorderPoint, setReorderPoint] = useState("");
   const [reason, setReason] = useState("");
   const [validation, setValidation] = useState<string | null>(null);
+  const catalog = useQuery({
+    queryKey: ["replenishment-catalog", search.trim()],
+    queryFn: ({ signal }) => searchCatalog({ search: search.trim(), pageSize: 100 }, signal),
+    initialData: !search.trim() ? initialCatalog ?? undefined : undefined,
+    retry: false,
+    staleTime: 10_000,
+  });
 
   const inventory = useQuery({
     queryKey: ["inventory-replenishment", branchId],
@@ -81,13 +89,13 @@ export function InventoryReplenishmentDesk({
   const currentStock = useMemo(() => new Map((dashboard?.items ?? []).map((item) => [item.variantId, item])), [dashboard?.items]);
   const options = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase("es-MX");
-    const products = initialCatalog?.items ?? [];
+    const products = catalog.data?.items ?? [];
     return products.flatMap((product) => product.variants.map((variant) => ({ product, variant }))).filter(({ product, variant }) => {
       if (!needle) return true;
       return [product.name, product.brand.name, product.category.name, variant.sku, variant.label, variant.size, variant.color, variant.material]
         .filter(Boolean).join(" ").toLocaleLowerCase("es-MX").includes(needle);
     });
-  }, [initialCatalog?.items, search]);
+  }, [catalog.data?.items, search]);
 
   const movement = useMutation({
     mutationFn: () => createMovement({
@@ -148,11 +156,12 @@ export function InventoryReplenishmentDesk({
         </div>
 
         <aside className="h-fit rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6 xl:sticky xl:top-6" aria-labelledby="movement-title">
+          {catalog.isError && <p role="alert" className="mb-4 text-sm text-[var(--danger)]">No pudimos buscar el catálogo. <button type="button" onClick={() => void catalog.refetch()} className="min-h-10 font-semibold underline">Reintentar búsqueda</button></p>}
           <div className="flex items-start gap-3"><span className="grid size-10 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent-strong)]"><IconPackage size={20} aria-hidden="true" /></span><div><h2 id="movement-title" className="font-semibold tracking-[-0.02em]">Nuevo movimiento</h2><p className="mt-1 text-sm leading-5 text-[var(--muted)]">No se modifica el stock desde el navegador.</p></div></div>
           <SelectedVariant selection={selection} stock={selectedStock ?? null} />
           <div className="mt-6 grid gap-4"><label className="grid gap-1.5 text-sm font-medium">Tipo<select value={type} onChange={(event) => setType(event.target.value as MovementType)} className="min-h-11 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm"><option value="RECEIPT">Recepción de mercancía</option><option value="ADJUSTMENT_IN">Ajuste de entrada</option><option value="ADJUSTMENT_OUT">Ajuste de salida</option></select></label><label className="grid gap-1.5 text-sm font-medium">Cantidad<input value={quantity} onChange={(event) => setQuantity(event.target.value)} inputMode="numeric" type="number" min="1" step="1" className="min-h-11 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm" /></label><label className="grid gap-1.5 text-sm font-medium">Punto de pedido <span className="font-normal text-[var(--muted)]">(opcional)</span><input value={reorderPoint} onChange={(event) => setReorderPoint(event.target.value)} inputMode="numeric" type="number" min="0" step="1" placeholder={selectedStock?.reorderPoint === null || !selectedStock ? "Sin definir" : `Actual: ${selectedStock.reorderPoint}`} className="min-h-11 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm" /></label><label className="grid gap-1.5 text-sm font-medium">Motivo <span className="font-normal text-[var(--muted)]">(opcional)</span><textarea value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} rows={3} placeholder="Ej. recepción de proveedor" className="resize-y rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm" /></label></div>
           {validation ? <p role="alert" className="mt-4 rounded-xl bg-[var(--danger-surface)] px-3 py-2.5 text-sm font-medium text-[var(--danger)]">{validation}</p> : null}
-          <button type="button" disabled={movement.isPending || !selection} onClick={submit} className="mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-50">{type === "ADJUSTMENT_OUT" ? <IconArrowDown size={18} aria-hidden="true" /> : <IconArrowUp size={18} aria-hidden="true" />}{movement.isPending ? "Registrando movimiento" : movementLabel(type)}</button>
+          <button type="button" disabled={movement.isPending || inventory.isFetching || !selection || dashboard?.branch.id !== branchId} onClick={submit} className="mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-50">{type === "ADJUSTMENT_OUT" ? <IconArrowDown size={18} aria-hidden="true" /> : <IconArrowUp size={18} aria-hidden="true" />}{movement.isPending ? "Registrando movimiento" : movementLabel(type)}</button>
           <p className="mt-3 text-xs leading-5 text-[var(--muted)]">Las ventas físicas se confirman en Caja; esta operación no puede simular una venta.</p>
         </aside>
       </div>}

@@ -5,6 +5,7 @@ import { ApiException } from "../common/api-exception";
 import type { Role } from "../config/environment";
 import { DatabaseService } from "../database/database.service";
 import { LogisticsOutboxService } from "../events/outbox.service";
+import { LogisticsDirectoryService } from "./directory.service";
 import type {
   CancelledOrderEvent,
   CompletedOrderEvent,
@@ -46,6 +47,7 @@ interface ShipmentRow extends QueryResultRow {
   packed_at: Date | string | null;
   shipped_at: Date | string | null;
   cancelled_at: Date | string | null;
+  delivered_at: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
 }
@@ -56,6 +58,7 @@ interface CourierRow extends QueryResultRow {
   last_latitude: string | number | null;
   last_longitude: string | number | null;
   last_location_at: Date | string | null;
+  last_location_source?: "DEVICE" | "DEMO" | "MANUAL" | null;
 }
 
 interface TransitionRow extends QueryResultRow {
@@ -103,10 +106,21 @@ export class ShipmentsService {
   constructor(
     private readonly database: DatabaseService,
     private readonly outbox: LogisticsOutboxService,
+    private readonly directory?: LogisticsDirectoryService,
   ) {}
+
+  async couriers() { if (!this.directory) throw new ApiException(503,"COURIER_DIRECTORY_UNAVAILABLE","Directorio no disponible."); return {couriers:await this.directory.couriers()}; }
+  async assigned(actor:ShipmentActor) {
+    const rows=await this.database.query<ShipmentRow>("SELECT * FROM logistics_shipments WHERE courier_id=$1 AND status IN ('PACKING','SHIPPED') ORDER BY updated_at,id",[actor.id]);
+    return {shipments:rows.rows.map(row=>({...this.publicShipment(row),deliveryAddress:row.delivery_address})),refreshedAt:new Date().toISOString()};
+  }
+  private assertCanOperate(row:ShipmentRow,actor:ShipmentActor):void {
+    if (actor.role==="EMPLOYEE" && row.courier_id && row.courier_id!==actor.id) throw new ApiException(403,"SHIPMENT_NOT_ASSIGNED","Este envío pertenece a otro repartidor.");
+  }
 
   async project(event: LogisticsEvent): Promise<void> {
     await this.database.withTransaction(async (client) => {
+      await this.lockOrder(client, event.orderId);
       const claimed = await client.query<{ event_id: string }>(
         "INSERT INTO logistics_processed_events (event_id, event_type, occurred_at, correlation_id) VALUES ($1, $2, $3, $4) ON CONFLICT (event_id) DO NOTHING RETURNING event_id",
         [event.eventId, event.eventType, event.occurredAt, event.correlationId],
@@ -143,12 +157,17 @@ export class ShipmentsService {
   async cancelForOrder(orderId: string, correlationId: string | null): Promise<ShipmentCancellationResponse> {
     const normalizedOrderId = this.id(orderId);
     return this.database.withTransaction(async (client) => {
+      // A row lock alone cannot serialize a shipment that has not arrived yet.
+      // Persist the cancellation before acknowledging Orders so a late
+      // completion event cannot create an operational, dispatchable shipment.
+      await this.lockOrder(client, normalizedOrderId);
       const result = await client.query<ShipmentRow>("SELECT * FROM logistics_shipments WHERE order_id = $1 FOR UPDATE", [normalizedOrderId]);
       const current = result.rows[0];
-      if (!current) return { result: "NOT_PROJECTED" };
-      if (!canCancelBeforeDispatch(current.status)) {
+      if (current && !canCancelBeforeDispatch(current.status)) {
         throw new ApiException(409, "ORDER_ALREADY_DISPATCHED", "El pedido ya fue despachado y no puede cancelarse");
       }
+      await client.query("INSERT INTO logistics_cancelled_orders (order_id, cancelled_at) VALUES ($1, NOW()) ON CONFLICT (order_id) DO NOTHING", [normalizedOrderId]);
+      if (!current) return { result: "NOT_PROJECTED" };
       if (current.status === "CANCELLED") return { result: "CANCELLED" };
       const updated = await client.query<ShipmentRow>("UPDATE logistics_shipments SET status = 'CANCELLED', version = version + 1, cancelled_at = NOW() WHERE id = $1 RETURNING *", [current.id]);
       const shipment = updated.rows[0];
@@ -167,14 +186,17 @@ export class ShipmentsService {
       const result = await client.query<ShipmentRow>("SELECT * FROM logistics_shipments WHERE id = $1 FOR UPDATE", [shipmentId]);
       const current = result.rows[0];
       if (!current) throw new ApiException(404, "SHIPMENT_NOT_FOUND", "Envío no encontrado");
+      this.assertCanOperate(current,actor);
       if (current.version !== version) throw new ApiException(409, "SHIPMENT_VERSION_CONFLICT", "El envío fue actualizado por otra sesión. Actualiza el tablero e inténtalo de nuevo.");
+      if (desired === "DELIVERED" && actor.role === "EMPLOYEE" && current.courier_id !== actor.id) throw new ApiException(403,"SHIPMENT_NOT_ASSIGNED","Solo el repartidor asignado puede confirmar esta entrega.");
+      if (desired === "SHIPPED" && (!current.courier_id || !current.delivery_address)) throw new ApiException(422,"TRACKING_REQUIRED","Asigna un repartidor y una dirección antes de enviar.");
       if (!allowedOperationalTransition(current.status, desired)) throw new ApiException(409, "INVALID_SHIPMENT_TRANSITION", "La transición de estado solicitada no está permitida");
       const updated = await client.query<ShipmentRow>([
         "UPDATE logistics_shipments SET status = $1, version = version + 1,",
         "packed_at = CASE WHEN $2 THEN NOW() ELSE packed_at END,",
-        "shipped_at = CASE WHEN $3 THEN NOW() ELSE shipped_at END",
+        "shipped_at = CASE WHEN $3 THEN NOW() ELSE shipped_at END, delivered_at = CASE WHEN $6 THEN NOW() ELSE delivered_at END",
         "WHERE id = $4 AND version = $5 RETURNING *",
-      ].join("\n"), [desired, desired === "PACKING", desired === "SHIPPED", shipmentId, version]);
+      ].join("\n"), [desired, desired === "PACKING", desired === "SHIPPED", shipmentId, version, desired === "DELIVERED"]);
       const row = updated.rows[0];
       if (!row) throw new ApiException(409, "SHIPMENT_VERSION_CONFLICT", "El envío fue actualizado por otra sesión. Actualiza el tablero e inténtalo de nuevo.");
       await this.audit(client, row.id, current.status, desired, actor.id, actor.role, actor.correlationId, "OPERATIONS");
@@ -184,10 +206,12 @@ export class ShipmentsService {
     return this.detailFromShipment(shipment, true);
   }
 
-  async assignTracking(id: string, input: TrackingAssignmentRequest): Promise<ShipmentDetailResponse> {
+  async assignTracking(id: string, input: TrackingAssignmentRequest, actor?: ShipmentActor): Promise<ShipmentDetailResponse> {
     const shipmentId = this.id(id);
     const courierId = this.id(this.text(input.courierId, "El repartidor es obligatorio", 36));
-    const courierName = this.text(input.courierName, "El nombre del repartidor es obligatorio", 120);
+    if (!actor || !this.directory) throw new ApiException(503,"COURIER_DIRECTORY_UNAVAILABLE","No se pudo verificar la asignación.");
+    if (actor.role === "EMPLOYEE" && courierId !== actor.id) throw new ApiException(403,"FORBIDDEN","Solo puedes asignarte tus propios envíos.");
+    const courierName = (await this.directory.courier(courierId)).name;
     const deliveryAddress = this.text(input.deliveryAddress, "La dirección de entrega es obligatoria", 500);
     const version = this.version(input.version);
     const shipment = await this.database.withTransaction(async (client) => {
@@ -195,6 +219,7 @@ export class ShipmentsService {
       const current = result.rows[0];
       if (!current) throw new ApiException(404, "SHIPMENT_NOT_FOUND", "Envío no encontrado");
       if (current.status === "CANCELLED" || current.status === "DELIVERED") throw new ApiException(409, "SHIPMENT_NOT_TRACKABLE", "No se puede configurar seguimiento para un envío cerrado");
+      this.assertCanOperate(current,actor);
       if (current.version !== version) throw new ApiException(409, "SHIPMENT_VERSION_CONFLICT", "El envío fue actualizado por otra sesión. Actualiza el tablero e inténtalo de nuevo.");
       await client.query([
         "INSERT INTO logistics_couriers (id, display_name) VALUES ($1, $2)",
@@ -206,17 +231,21 @@ export class ShipmentsService {
       ].join("\n"), [courierId, deliveryAddress, shipmentId, version]);
       const row = updated.rows[0];
       if (!row) throw new ApiException(409, "SHIPMENT_VERSION_CONFLICT", "El envío fue actualizado por otra sesión. Actualiza el tablero e inténtalo de nuevo.");
+      await this.audit(client,row.id,current.status,current.status,actor.id,actor.role,actor.correlationId,"OPERATIONS");
       return row;
     });
     return this.detailFromShipment(shipment, true);
   }
 
-  async recordCourierLocation(courierId: string, input: CourierLocationRequest, correlationId: string | null): Promise<CourierLocationResponse> {
+  async recordCourierLocation(courierId: string, input: CourierLocationRequest, correlationId: string | null, actor?: ShipmentActor): Promise<CourierLocationResponse> {
     const normalizedCourierId = this.id(courierId);
+    if (!actor || (actor.role === "EMPLOYEE" && actor.id !== normalizedCourierId)) throw new ApiException(403,"FORBIDDEN","No puedes publicar como otro repartidor.");
     const shipmentId = this.id(this.text(input.shipmentId, "El envío es obligatorio", 36));
     const latitude = this.coordinate(input.latitude, -90, 90, "La latitud no es válida");
     const longitude = this.coordinate(input.longitude, -180, 180, "La longitud no es válida");
     const recordedAt = this.timestamp(input.recordedAt);
+    const source=input.source ?? "MANUAL";
+    if (!["DEVICE","DEMO","MANUAL"].includes(String(source))) throw new ApiException(400,"VALIDATION_ERROR","La fuente de ubicación no es válida.");
     return this.database.withTransaction(async (client) => {
       const shipmentResult = await client.query<ShipmentRow>("SELECT * FROM logistics_shipments WHERE id = $1 FOR UPDATE", [shipmentId]);
       const shipment = shipmentResult.rows[0];
@@ -225,12 +254,12 @@ export class ShipmentsService {
       if (shipment.status !== "SHIPPED") throw new ApiException(409, "SHIPMENT_NOT_IN_TRANSIT", "El envío debe estar enviado antes de registrar ubicación");
       const updated = await client.query<CourierRow>([
         "UPDATE logistics_couriers",
-        "SET last_latitude = $1, last_longitude = $2, last_location_at = $3",
-        "WHERE id = $4 AND (last_location_at IS NULL OR last_location_at <= $3)",
-        "RETURNING id, display_name, last_latitude, last_longitude, last_location_at",
-      ].join("\n"), [latitude, longitude, recordedAt, normalizedCourierId]);
+        "SET last_latitude = $1, last_longitude = $2, last_location_at = $3, last_location_source = $5",
+        "WHERE id = $4 AND (last_location_at IS NULL OR last_location_at < $3)",
+        "RETURNING id, display_name, last_latitude, last_longitude, last_location_at, last_location_source",
+      ].join("\n"), [latitude, longitude, recordedAt, normalizedCourierId, source]);
       const courier = updated.rows[0] ?? (await client.query<CourierRow>(
-        "SELECT id, display_name, last_latitude, last_longitude, last_location_at FROM logistics_couriers WHERE id = $1",
+        "SELECT id, display_name, last_latitude, last_longitude, last_location_at, last_location_source FROM logistics_couriers WHERE id = $1",
         [normalizedCourierId],
       )).rows[0];
       if (!courier || courier.last_latitude === null || courier.last_longitude === null || !courier.last_location_at) throw new ApiException(404, "COURIER_NOT_FOUND", "Repartidor no encontrado");
@@ -242,7 +271,7 @@ export class ShipmentsService {
 
   async courierLocation(courierId: string): Promise<CourierLocationResponse> {
     const normalizedCourierId = this.id(courierId);
-    const result = await this.database.query<CourierRow>("SELECT id, display_name, last_latitude, last_longitude, last_location_at FROM logistics_couriers WHERE id = $1", [normalizedCourierId]);
+    const result = await this.database.query<CourierRow>("SELECT id, display_name, last_latitude, last_longitude, last_location_at, last_location_source FROM logistics_couriers WHERE id = $1", [normalizedCourierId]);
     const courier = result.rows[0];
     if (!courier || courier.last_latitude === null || courier.last_longitude === null || !courier.last_location_at) throw new ApiException(404, "COURIER_LOCATION_NOT_FOUND", "Ubicación de repartidor no disponible");
     return { courierId: courier.id, location: this.publicLocation(courier) };
@@ -260,6 +289,10 @@ export class ShipmentsService {
     if (!row) return;
     await this.audit(client, row.id, null, status, null, null, event.correlationId, "ORDER_EVENT");
     await this.enqueueStatusChanged(client, row, event.correlationId, null);
+  }
+
+  private async lockOrder(client: PoolClient, orderId: string): Promise<void> {
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", ["logistics:order:" + orderId.toLowerCase()]);
   }
 
   private async projectCancelledOrder(client: PoolClient, event: CancelledOrderEvent): Promise<void> {
@@ -289,7 +322,7 @@ export class ShipmentsService {
 
   private async tracking(shipment: ShipmentRow): Promise<ShipmentTracking | null> {
     if (!shipment.courier_id || !shipment.delivery_address) return null;
-    const result = await this.database.query<CourierRow>("SELECT id, display_name, last_latitude, last_longitude, last_location_at FROM logistics_couriers WHERE id = $1", [shipment.courier_id]);
+    const result = await this.database.query<CourierRow>("SELECT id, display_name, last_latitude, last_longitude, last_location_at, last_location_source FROM logistics_couriers WHERE id = $1", [shipment.courier_id]);
     const courier = result.rows[0];
     if (!courier) return null;
     const location = courier.last_latitude === null || courier.last_longitude === null || !courier.last_location_at ? null : this.publicLocation(courier);
@@ -333,7 +366,7 @@ export class ShipmentsService {
   }
 
   private publicShipment(row: ShipmentRow): Shipment {
-    return { id: row.id, orderId: row.order_id, customerId: row.customer_id, branchId: row.branch_id, channel: row.channel, currency: row.currency, total: this.number(row.total), items: this.items(row.items), status: row.status, version: row.version, packedAt: this.isoOrNull(row.packed_at), shippedAt: this.isoOrNull(row.shipped_at), cancelledAt: this.isoOrNull(row.cancelled_at), createdAt: this.iso(row.created_at), updatedAt: this.iso(row.updated_at) };
+    return { deliveredAt:this.isoOrNull(row.delivered_at),courierId:row.courier_id, id: row.id, orderId: row.order_id, customerId: row.customer_id, branchId: row.branch_id, channel: row.channel, currency: row.currency, total: this.number(row.total), items: this.items(row.items), status: row.status, version: row.version, packedAt: this.isoOrNull(row.packed_at), shippedAt: this.isoOrNull(row.shipped_at), cancelledAt: this.isoOrNull(row.cancelled_at), createdAt: this.iso(row.created_at), updatedAt: this.iso(row.updated_at) };
   }
 
   private publicTransition(row: TransitionRow, includeActors: boolean): ShipmentTransition {
@@ -341,7 +374,7 @@ export class ShipmentsService {
   }
 
   private publicLocation(row: CourierRow): CourierLocation {
-    return { latitude: this.number(row.last_latitude), longitude: this.number(row.last_longitude), recordedAt: this.iso(row.last_location_at as Date | string) };
+    return { latitude: this.number(row.last_latitude), longitude: this.number(row.last_longitude), recordedAt: this.iso(row.last_location_at as Date | string),source:row.last_location_source ?? "MANUAL" };
   }
 
   private id(value: string): string {
@@ -375,7 +408,7 @@ export class ShipmentsService {
     if (value === undefined || value === null || value === "") return new Date().toISOString();
     if (typeof value !== "string" || Number.isNaN(Date.parse(value))) throw new ApiException(400, "VALIDATION_ERROR", "El timestamp de ubicación no es válido");
     const parsed = new Date(value);
-    if (parsed.getTime() > Date.now() + 5 * 60 * 1_000) throw new ApiException(400, "VALIDATION_ERROR", "El timestamp de ubicación no puede estar en el futuro");
+    if (parsed.getTime() > Date.now() + 30_000) throw new ApiException(400, "VALIDATION_ERROR", "El timestamp de ubicación no puede estar en el futuro");
     return parsed.toISOString();
   }
 

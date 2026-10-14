@@ -11,8 +11,10 @@ interface SeedUser {
   password: string;
 }
 
-function configuredPassword(name: string, fallback: string): string {
-  return process.env[name]?.trim() || fallback;
+function configuredPassword(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value || value.length < 12) throw new Error("Configure a private seed password of at least 12 characters.");
+  return value;
 }
 
 function seedUsers(): SeedUser[] {
@@ -25,19 +27,19 @@ function seedUsers(): SeedUser[] {
       email: "admin@departamental.local",
       name: "Administrador local",
       role: "ADMIN",
-      password: configuredPassword("SEED_ADMIN_PASSWORD", "AdminLocal!2026"),
+      password: configuredPassword("SEED_ADMIN_PASSWORD"),
     },
     {
       email: "employee@departamental.local",
       name: "Empleado local",
       role: "EMPLOYEE",
-      password: configuredPassword("SEED_EMPLOYEE_PASSWORD", "EmployeeLocal!2026"),
+      password: configuredPassword("SEED_EMPLOYEE_PASSWORD"),
     },
     {
       email: "customer@departamental.local",
       name: "Cliente local",
       role: "CUSTOMER",
-      password: configuredPassword("SEED_CUSTOMER_PASSWORD", "CustomerLocal!2026"),
+      password: configuredPassword("SEED_CUSTOMER_PASSWORD"),
     },
   ];
 }

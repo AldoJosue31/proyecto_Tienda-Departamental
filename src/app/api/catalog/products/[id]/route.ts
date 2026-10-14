@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { GatewayRequestError, gatewayJson } from "@/lib/auth/gateway-client.server";
+import { enrichCatalogPrices } from "@/lib/pricing/catalog-pricing.server";
+import type { CatalogProductSummary } from "@/lib/catalog/types";
 
 export const runtime = "nodejs";
 
@@ -15,7 +17,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const { body, correlationId, response } = await gatewayJson<unknown>(`/products/${encodeURIComponent(parsed.data.id)}`, {
       headers: { "X-Correlation-Id": fallbackCorrelationId },
     });
-    return Response.json(body, {
+    const product = (body as { product?: CatalogProductSummary } | null)?.product;
+    const priced = response.ok && product ? await enrichCatalogPrices([product]) : null;
+    return Response.json(priced ? { product: priced.items[0], pricingValidUntil: priced.pricingValidUntil } : body, {
       status: response.status,
       headers: { "Cache-Control": "no-store", "X-Correlation-Id": correlationId },
     });

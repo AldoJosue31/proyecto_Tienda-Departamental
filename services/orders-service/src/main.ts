@@ -1,3 +1,4 @@
+import { rejectUnlistedOrigins } from "./common/origin-policy";
 import "reflect-metadata";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
@@ -10,7 +11,9 @@ import { loadOrdersRuntimeConfig } from "./config/environment";
 async function bootstrap(): Promise<void> {
   const config = loadOrdersRuntimeConfig();
   const app = await NestFactory.create(AppModule, { bufferLogs: config.environment === "production" });
+  app.enableShutdownHooks();
   app.use(helmet());
+  app.use(rejectUnlistedOrigins(config.corsOrigins));
   app.enableCors({
     origin: config.corsOrigins,
     credentials: true,

@@ -15,10 +15,11 @@ import { HealthController } from "./health/health.controller";
 import { ShipmentsConsumer } from "./shipments/shipments.consumer";
 import { CouriersController, InternalShipmentsController, ShipmentsController } from "./shipments/shipments.controller";
 import { ShipmentsService } from "./shipments/shipments.service";
+import { LogisticsDirectoryService } from "./shipments/directory.service";
 
 @Module({ controllers: [ShipmentsController, InternalShipmentsController, CouriersController, HealthController], providers: [
   { provide: DATABASE_CONFIG, useFactory: loadDatabaseConfig }, { provide: LOGISTICS_RUNTIME_CONFIG, useFactory: loadLogisticsRuntimeConfig },
-  DatabaseService, TokenService, AuthStatusClient, LogisticsOutboxService, ShipmentsService, ShipmentsConsumer, JwtAuthGuard, RolesGuard, InternalOrdersGuard, CorrelationIdMiddleware,
+  DatabaseService, TokenService, AuthStatusClient, LogisticsOutboxService, LogisticsDirectoryService, ShipmentsService, ShipmentsConsumer, JwtAuthGuard, RolesGuard, InternalOrdersGuard, CorrelationIdMiddleware,
   { provide: APP_FILTER, useClass: HttpExceptionFilter },
 ] })
 export class AppModule implements NestModule { configure(consumer: MiddlewareConsumer): void { consumer.apply(CorrelationIdMiddleware).forRoutes("*"); } }

@@ -1,0 +1,63 @@
+{
+  "completedAt": "2026-10-14T03:02:03.452Z",
+  "project": "departamental-five-phases",
+  "passed": true,
+  "checks": [
+    {
+      "name": "12 independent size/color/material SKUs with branch-specific stock and inclusive reorder alerts",
+      "passed": true,
+      "milliseconds": 770,
+      "variants": 12,
+      "branches": 2
+    },
+    {
+      "name": "six physical/physical last-unit races confirm exactly once in real PostgreSQL",
+      "passed": true,
+      "milliseconds": 3543,
+      "races": 6,
+      "confirmedSales": 6
+    },
+    {
+      "name": "six physical/online last-unit races confirm exactly once with no negative stock",
+      "passed": true,
+      "milliseconds": 911,
+      "races": 6,
+      "confirmedSales": 6
+    },
+    {
+      "name": "Redis HIT serves the same search with Catalog PostgreSQL stopped, then TTL expires",
+      "passed": true,
+      "milliseconds": 11114,
+      "ttlSeconds": 119,
+      "postgresUnavailableDuringHit": true
+    },
+    {
+      "name": "Catalog edit invalidates cached variants and Redis outage falls back to PostgreSQL",
+      "passed": true,
+      "milliseconds": 8165
+    },
+    {
+      "name": "cancellation before the delayed Logistics projection cannot later be dispatched or restore twice",
+      "passed": true,
+      "milliseconds": 25202
+    },
+    {
+      "name": "the absent-shipment cancellation and late completion share a transaction lock",
+      "passed": true,
+      "milliseconds": 278
+    },
+    {
+      "name": "dispatch/cancel races leave stock consistent with the winner",
+      "passed": true,
+      "milliseconds": 4949,
+      "races": 4
+    },
+    {
+      "name": "Realtime can stop while sales continue, then reconnects to the official stock snapshot",
+      "passed": true,
+      "milliseconds": 9714
+    }
+  ],
+  "scope": "Real isolated PostgreSQL, Redis and API races; synthetic inventory only",
+  "secretsExcluded": true
+}

@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     if (!user) return Response.json({ code: "UNAUTHENTICATED", message: "Debes iniciar sesión para continuar.", correlationId }, { status: 401, headers: { "X-Correlation-Id": correlationId } });
     if (user.role !== "ADMIN") return Response.json({ code: "FORBIDDEN", message: "No tienes permisos para consultar Analytics.", correlationId }, { status: 403, headers: { "X-Correlation-Id": correlationId } });
     const url = new URL(request.url);
-    return Response.json(await getAnalyticsDashboard(url.searchParams.get("period") ?? undefined, url.searchParams.get("limit") ?? undefined), { headers: { "Cache-Control": "private, no-store", "X-Correlation-Id": correlationId } });
+    return Response.json(await getAnalyticsDashboard(url.searchParams.get("period") ?? undefined, url.searchParams.get("limit") ?? undefined, url.searchParams.get("metric") ?? undefined), { headers: { "Cache-Control": "private, no-store", "X-Correlation-Id": correlationId } });
   } catch (error) {
     const status = error instanceof AnalyticsDashboardRequestError ? error.status : 503;
     const message = error instanceof AnalyticsDashboardRequestError ? error.message : "No fue posible consultar Analytics.";

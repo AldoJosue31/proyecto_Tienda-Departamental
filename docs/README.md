@@ -1,5 +1,7 @@
 # Especificación del proyecto
 
+El [plan vigente de cierre integral](./plan-cierre-definitivo.md), preparado el 13 de octubre de 2026, organiza en nueve fases los pendientes de la [auditoría inicial](./revision-requisitos-2026-10-13.md). El [informe de las fases 4 a 6](./implementacion-cierre-fases-4-6.md) documenta los reportes, CRM, SMTP local y reparto universitario; incluye cómo demostrarlos en localhost:3105. El [informe de las fases 1 a 3](./implementacion-cierre-fases-1-3.md) conserva la entrega previa de compatibilidad, seguridad, recuperación y precios visibles. El [procedimiento de recuperación](./recuperacion-cierre-fases-1-3.md) documenta checkpoints de datos y mensajes e imágenes exactas. El despliegue definitivo del principal se mantiene en la fase 9; las fases 7–9 siguen pendientes.
+
 La referencia vigente es [Proyecto Universitario Tienda Departamental v2.4](./Proyecto_Universitario_Tienda_Departamental_v2.4.docx), revisada el 6 de octubre de 2026 contra el código y la configuración del repositorio en `1c6a677`. La [versión 2.3](./Proyecto_Universitario_Tienda_Departamental_v2.3.docx) se conserva como antecedente.
 
 La revisión mantiene microservicios, bases independientes, roles y las doce fases del roadmap arquitectónico. Actualiza tecnologías, diagramas, consumidores reales de eventos, Outbox, recursos heredados y límites de escalado. Las doce áreas tienen implementación en código; esto no certifica integración completa, rendimiento ni producción.

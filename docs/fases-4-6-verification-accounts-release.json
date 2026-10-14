@@ -1,0 +1,21 @@
+{
+  "completedAt": "2026-10-09T08:16:44.858Z",
+  "project": "web",
+  "checks": [
+    {
+      "name": "Auth and Notification backups restore successfully and account migrations preserve existing identities and refresh records",
+      "passed": true,
+      "usersCount": 3,
+      "sessionsCount": 931,
+      "authMigrationAppliedToCopy": true,
+      "notificationMigrationAppliedToCopy": true
+    }
+  ],
+  "liveDatabasesMigrated": false,
+  "privacy": {
+    "backupsOutsideGit": true,
+    "credentialsAndUserRowsExcluded": true
+  },
+  "passed": true,
+  "temporaryContainerRemoved": true
+}

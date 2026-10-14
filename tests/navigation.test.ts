@@ -6,7 +6,7 @@ import { isActiveDestination, navigationForRole } from "../src/lib/auth/navigati
 describe("Navegación global por rol", () => {
   it.each([
     ["ADMIN", ["/", "/catalog/manage", "/promotions", "/dashboard", "/operations/sales", "/operations/inventory", "/operations", "/crm", "/users"]],
-    ["EMPLOYEE", ["/", "/operations/sales", "/operations/inventory", "/operations"]],
+    ["EMPLOYEE", ["/", "/operations/sales", "/operations/inventory", "/operations", "/delivery"]],
     ["CUSTOMER", ["/", "/orders"]],
     [null, ["/"]],
   ] as const)("ofrece todos y solo los destinos permitidos para %s, en orden estable", (role, expected) => {

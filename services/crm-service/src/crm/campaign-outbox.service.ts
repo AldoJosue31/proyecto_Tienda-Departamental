@@ -6,6 +6,9 @@ import type { QueryResultRow } from "pg";
 import { CRM_RUNTIME_CONFIG } from "../auth/token.service";
 import type { CrmRuntimeConfig } from "../config/environment";
 import { DatabaseService } from "../database/database.service";
+import { CrmAuthorityService } from "./crm-authority.service";
+import { ApiException } from "../common/api-exception";
+import { inactiveCutoff } from "./inactive-cutoff";
 
 const EVENTS_EXCHANGE = "departamental.events";
 const DEAD_LETTER_EXCHANGE = "departamental.events.dlx";
@@ -33,6 +36,7 @@ export class CampaignOutboxService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly database: DatabaseService,
     @Inject(CRM_RUNTIME_CONFIG) private readonly config: Pick<CrmRuntimeConfig, "environment" | "rabbitmqUrl" | "outboxPublishIntervalMilliseconds">,
+    private readonly authority?: CrmAuthorityService,
   ) {}
 
   onModuleInit(): void {
@@ -87,12 +91,16 @@ export class CampaignOutboxService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async eligible(event: OutboxRow): Promise<boolean> {
+    if(!this.authority)throw new Error("Authoritative eligibility unavailable");
+    const campaigns=await this.database.query<{valid_until:Date;cutoff_at:Date|null;created_at:Date;segment_months:number}>("SELECT valid_until,cutoff_at,created_at,segment_months FROM crm_campaigns WHERE id=$1",[event.campaign_id]);
+    const campaign=campaigns.rows[0];let eligible=false;
+    if(campaign && new Date(campaign.valid_until).getTime()>Date.now()) {
+      const cutoff=campaign.cutoff_at ? new Date(campaign.cutoff_at) : inactiveCutoff(new Date(campaign.created_at),Number(campaign.segment_months));
+      try {const source=await this.authority.activity(event.customer_id);eligible=source.activity.lastPurchaseAt ? new Date(source.activity.lastPurchaseAt)<cutoff : new Date(source.user.createdAt)<=cutoff;}
+      catch(error){if(!(error instanceof ApiException) || error.code!=="CUSTOMER_NOT_AVAILABLE")throw error;}
+    }
+    if(eligible)return true;
     return this.database.withTransaction(async (client) => {
-      const eligibility = await client.query<{ eligible: boolean }>([
-        "SELECT c.last_purchase_at < COALESCE(p.cutoff_at, ((p.created_at AT TIME ZONE 'America/Mexico_City') - make_interval(months => p.segment_months)) AT TIME ZONE 'America/Mexico_City') AND p.valid_until > NOW() AS eligible",
-        "FROM crm_customers c JOIN crm_campaigns p ON p.id = $1 WHERE c.customer_id = $2 FOR UPDATE OF c",
-      ].join("\n"), [event.campaign_id, event.customer_id]);
-      if (eligibility.rows[0]?.eligible) return true;
       await client.query("UPDATE crm_campaign_recipients SET status = 'UNDELIVERABLE', failure_code = 'NO_LONGER_ELIGIBLE' WHERE campaign_id = $1 AND customer_id = $2 AND status = 'PENDING'", [event.campaign_id, event.customer_id]);
       return false;
     });

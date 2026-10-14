@@ -1,3 +1,4 @@
+import { rejectUnlistedOrigins } from "./common/origin-policy";
 import "reflect-metadata";
 import "./config/load-env";
 
@@ -16,7 +17,9 @@ async function bootstrap(): Promise<void> {
     logger: config.environment === "test" ? false : ["log", "warn", "error"],
   });
 
+  app.enableShutdownHooks();
   app.use(helmet());
+  app.use(rejectUnlistedOrigins(config.corsOrigins));
   app.use(json({ limit: "1mb" }));
   app.enableCors({
     origin(
@@ -27,7 +30,7 @@ async function bootstrap(): Promise<void> {
         callback(null, true);
         return;
       }
-      callback(new Error("Origin is not allowed by CORS."));
+      callback(null, false);
     },
     credentials: true,
     methods: ["GET", "POST", "PATCH", "OPTIONS"],

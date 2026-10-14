@@ -11,6 +11,7 @@ export interface DatabaseConfig {
 }
 
 export interface PricingRuntimeConfig extends AuthStatusConfig {
+  catalogServiceUrl: string;
   accessSecret: Buffer;
   corsOrigins: string[];
   environment: string;
@@ -95,6 +96,7 @@ export function loadPricingRuntimeConfig(
 ): PricingRuntimeConfig {
   const environment = env.NODE_ENV?.trim() || "development";
   return { ...loadAuthStatusConfig(env),
+    catalogServiceUrl: catalogUrl(env.CATALOG_SERVICE_URL ?? "http://servicio-catalogo:3002"),
     accessSecret: secret(required(env, "JWT_ACCESS_SECRET")),
     corsOrigins: origins(env, environment),
     environment,
@@ -112,6 +114,12 @@ export function loadPricingRuntimeConfig(
       60_000,
     ),
   };
+}
+
+function catalogUrl(value: string): string {
+  const parsed = new URL(value);
+  if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error("CATALOG_SERVICE_URL must be an HTTP(S) origin without credentials.");
+  return parsed.origin;
 }
 
 export function isRole(value: unknown): value is Role {

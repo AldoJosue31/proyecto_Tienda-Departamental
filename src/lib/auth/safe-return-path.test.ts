@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { safeReturnPath } from "./safe-return-path";
+import { safeLoginReturnPath, safeReturnPath } from "./safe-return-path";
 import { newPasswordSchema, registerSchema } from "./onboarding-schemas";
 
 describe("Role-aware local return destinations", () => {
@@ -11,6 +11,12 @@ describe("Role-aware local return destinations", () => {
 
   it("limits employee navigation to operational areas and administrator navigation to known routes", () => {
     expect(safeReturnPath("/operations/inventory?branch=centro", "EMPLOYEE")).toBe("/operations/inventory?branch=centro");
+    expect(safeReturnPath("/delivery", "EMPLOYEE")).toBe("/delivery");
+    expect(safeLoginReturnPath("/delivery")).toBe("/delivery");
+    expect(safeLoginReturnPath("//attacker.test")).toBe("/");
+    expect(safeLoginReturnPath("/unrecognized")).toBe("/");
+    for (const role of ["CUSTOMER", "ADMIN"] as const) expect(safeReturnPath("/delivery", role)).toBe("/");
+    expect(safeReturnPath("/delivery-malicious", "EMPLOYEE")).toBe("/");
     expect(safeReturnPath("/users?page=2", "ADMIN")).toBe("/users?page=2");
     for (const role of ["CUSTOMER", "EMPLOYEE"] as const) expect(safeReturnPath("/users", role)).toBe("/");
     expect(safeReturnPath("/checkout", "EMPLOYEE")).toBe("/");

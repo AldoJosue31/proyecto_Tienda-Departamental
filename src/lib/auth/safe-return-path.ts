@@ -2,7 +2,7 @@ import type { Role } from "./roles";
 
 const routes: Record<Role, readonly string[]> = {
   ADMIN: ["/catalog/manage", "/promotions", "/dashboard", "/operations", "/crm", "/users", "/account", "/checkout", "/orders"],
-  EMPLOYEE: ["/operations", "/account"],
+  EMPLOYEE: ["/operations", "/delivery", "/account"],
   CUSTOMER: ["/checkout", "/orders", "/account"],
 };
 
@@ -16,4 +16,14 @@ export function safeReturnPath(value: unknown, role: Role = "CUSTOMER"): string 
     if (url.pathname !== "/" && !routes[role].some(prefix => url.pathname === prefix || url.pathname.startsWith(prefix + "/"))) return "/";
     return url.pathname + url.search;
   } catch { return "/"; }
+}
+
+// The login page does not know the role yet. The action validates again using
+// the authenticated role before redirecting, and each destination checks access.
+export function safeLoginReturnPath(value: unknown): string {
+  for (const role of ["ADMIN", "EMPLOYEE", "CUSTOMER"] as const) {
+    const destination = safeReturnPath(value, role);
+    if (destination !== "/") return destination;
+  }
+  return "/";
 }

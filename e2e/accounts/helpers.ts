@@ -52,9 +52,11 @@ export async function signIn(page: Page, email: string, password: string, next =
 }
 export async function capture(page: Page, name: string) {
   mkdirSync(".impeccable/review", { recursive: true });
+  await page.evaluate(() => window.scrollTo({top:0,behavior:"instant"}));
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path: `.impeccable/review/accounts-${name}-desktop.png`, fullPage: true, animations: "disabled" });
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => window.scrollTo({top:0,behavior:"instant"}));
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   await page.screenshot({ path: `.impeccable/review/accounts-${name}-mobile.png`, fullPage: true, animations: "disabled" });
   await page.setViewportSize({ width: 1440, height: 1000 });

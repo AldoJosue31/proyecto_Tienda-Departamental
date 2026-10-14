@@ -6,6 +6,15 @@ _transform: true
 # variables at container startup, keeping credentials out of version control.
 
 plugins:
+  - name: pre-function
+    config:
+      access:
+        - |
+          local origin = kong.request.get_header("Origin")
+          if origin and origin ~= "__CORS_ALLOWED_ORIGIN__" then
+            local id = ngx.var.request_id
+            return kong.response.exit(403, { code = "ORIGIN_NOT_ALLOWED", message = "Origen no autorizado", correlationId = id }, { ["X-Correlation-Id"] = id })
+          end
   - name: correlation-id
     config:
       header_name: X-Correlation-Id
@@ -49,6 +58,12 @@ services:
     write_timeout: 10000
     retries: 1
     routes:
+      # A preflight has no JWT and uses OPTIONS even when the actual route only
+      # accepts POST/PATCH. The global CORS plugin terminates this route.
+      - name: cors-preflight
+        paths: [/]
+        methods: [OPTIONS]
+        strip_path: false
       - name: auth-login
         paths:
           - /auth/login
@@ -247,6 +262,12 @@ services:
     write_timeout: 10000
     retries: 1
     routes:
+      - name: catalog-resolve
+        paths:
+          - /products/resolve
+        methods:
+          - POST
+        strip_path: false
       # The catalog is public for reads, but all mutations require a valid
       # Gateway JWT as well as the Catalog Service's ADMIN guard.
       - name: catalog-read
@@ -352,6 +373,24 @@ services:
     write_timeout: 10000
     retries: 1
     routes:
+      - name: pricing-batch-quotes
+        paths:
+          - /pricing/quotes
+        methods:
+          - POST
+        strip_path: false
+      - name: pricing-cart-quote
+        paths:
+          - /pricing/cart/quote
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify: [exp]
+              run_on_preflight: false
+              maximum_expiration: 900
       - name: pricing-quote
         paths:
           - /pricing/quote
@@ -462,7 +501,7 @@ services:
     routes:
       - name: analytics-reports
         paths:
-          - "~/analytics/(?:sales/by-branch|sales/today|products/top|ticket-average|inventory/by-branch)$"
+          - "~/analytics/(?:sales/by-branch|sales/today|products/top|categories/top|ticket-average|inventory/by-branch)$"
         methods:
           - GET
         strip_path: false
@@ -524,6 +563,20 @@ services:
           - "~/shipments/[^/]+/tracking$"
         methods:
           - PATCH
+        strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+              run_on_preflight: false
+              maximum_expiration: 900
+      - name: logistics-courier-directory
+        paths:
+          - "~/couriers/?$"
+          - "~/couriers/me/shipments$"
+        methods:
+          - GET
         strip_path: false
         plugins:
           - name: jwt

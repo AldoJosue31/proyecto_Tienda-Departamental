@@ -262,7 +262,7 @@ try {
     const missing = await adminBrowser.call("/api/auth/register", { method: "POST", body, csrf: false });
     assert.equal(missing.status, 403); assert.equal(missing.body.code, "INVALID_CSRF_TOKEN"); assert.ok(missing.body.correlationId);
     const cross = await adminBrowser.call("/api/auth/register", { method: "POST", body, origin: "https://foreign.example.test" });
-    assert.equal(cross.status, 403); assert.equal(cross.body.code, "INVALID_ORIGIN");
+    assert.equal(cross.status, 403); assert.equal(cross.body.code, "ORIGIN_NOT_ALLOWED"); assert.ok(cross.body.correlationId);
     for (const role of ["ADMIN", "EMPLOYEE"]) assert.equal((await adminBrowser.call("/api/auth/register", { method: "POST", body: { ...body, role } })).status, 400);
     assert.equal(await identity(body.email), undefined);
     assert.equal((await direct("/auth/register", { method: "POST", body: { ...body, browserNonce: nonce(), role: "ADMIN" } })).status, 400);

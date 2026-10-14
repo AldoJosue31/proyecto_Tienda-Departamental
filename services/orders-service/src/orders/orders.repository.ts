@@ -269,7 +269,7 @@ export class OrdersRepository {
       ].join("\n"),
       [code, message, orderId],
     );
-    await this.audit(client, orderId, actor, "ORDER_REJECTED_OUT_OF_STOCK");
+    await this.audit(client, orderId, actor, code === "PRICE_CHANGED" ? "ORDER_REJECTED_PRICE_CHANGED" : "ORDER_REJECTED_OUT_OF_STOCK");
   }
 
   async cancel(

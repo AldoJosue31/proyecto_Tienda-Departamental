@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Servicio de notificaciones asíncronas para campañas y cupones.",
-  "engines": { "node": ">=22.0.0" },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
@@ -20,7 +22,7 @@
     "amqplib": "^2.0.1",
     "dotenv": "^16.5.0",
     "helmet": "^8.1.0",
-    "nodemailer": "^7.0.12",
+    "nodemailer": "10.1.0",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"

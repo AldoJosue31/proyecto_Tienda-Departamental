@@ -2,13 +2,13 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { LoginForm } from "@/components/auth/login-form";
-import { safeReturnPath } from "@/lib/auth/safe-return-path";
+import { safeLoginReturnPath } from "@/lib/auth/safe-return-path";
 
 import loginProducts from "../../../public/catalog/login-products-v3.png";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { next } = await searchParams;
-  const nextPath = safeReturnPath(next, "ADMIN");
+  const nextPath = safeLoginReturnPath(next);
 
   return (
     <main className="grid min-h-[100dvh] bg-[var(--page)] px-4 py-6 text-[var(--ink)] sm:px-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(26rem,0.9fr)] lg:p-8">

@@ -4,7 +4,7 @@ export interface EventBase { eventId: string; occurredAt: string; correlationId:
 export interface CompletedOrderEvent extends EventBase {
   eventType: "order.completed.v1";
   branchId: string; orderId: string; currency: string; total: number;
-  items: Array<{ productId: string; variantId: string; productName: string; quantity: number; lineTotal: number }>;
+  items: Array<{ productId: string; variantId: string; productName: string; categoryId?: string; quantity: number; lineTotal: number }>;
 }
 export interface CancelledOrderEvent extends EventBase { eventType: "order.cancelled.v1"; orderId: string; }
 export interface StockChangedEvent extends EventBase {
@@ -20,7 +20,12 @@ export interface SalesByBranchResponse {
   lastUpdatedAt: string | null;
 }
 export interface SalesTodayResponse { period: AnalyticsPeriodResponse; currency: string; sales: number; completedOrders: number; lastUpdatedAt: string | null; }
-export interface TicketAverageResponse { period: AnalyticsPeriodResponse; currency: string; ticketAverage: number; completedOrders: number; formula: string; lastUpdatedAt: string | null; }
+export interface TicketAverageResponse { period: AnalyticsPeriodResponse; currency: string; ticketAverage: number; sales: number; completedOrders: number; formula: string; lastUpdatedAt: string | null; }
+export interface TopCategoriesResponse {
+  period: AnalyticsPeriodResponse; currency: string; limit: number; metric: "units" | "sales";
+  categories: Array<{ categoryId: string | null; categoryName: string; nameSource: "CURRENT_CATALOG" | "UNAVAILABLE"; unitsSold: number; sales: number }>;
+  incompleteItems: number; lastUpdatedAt: string | null;
+}
 export interface TopProductsResponse {
   period: AnalyticsPeriodResponse; currency: string; limit: number;
   products: Array<{ productId: string; productName: string; unitsSold: number; sales: number }>;

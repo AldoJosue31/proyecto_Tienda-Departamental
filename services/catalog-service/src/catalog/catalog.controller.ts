@@ -18,6 +18,7 @@ import {
   CreateProductDto,
   CreateVariantDto,
   ProductSearchDto,
+  ResolveProductsDto,
   UpdateProductDto,
   UpdateVariantDto,
 } from "./catalog.dto";
@@ -37,6 +38,10 @@ export class ProductsController {
   search(@Query() query: ProductSearchDto): Promise<ProductSearchResponse> {
     return this.catalogService.search(query);
   }
+
+  @Post("resolve")
+  @HttpCode(HttpStatus.OK)
+  resolve(@Body() body: ResolveProductsDto) { return this.catalogService.getPublicBatch(body.ids); }
 
   @Get(":id")
   getProduct(@Param("id") id: string): Promise<ProductDetailResponse> {

@@ -12,9 +12,9 @@ Esta guía reúne las cuentas semilla para iniciar sesión en la aplicación dur
 
 | Rol | Correo | Contraseña semilla predeterminada |
 | --- | --- | --- |
-| `ADMIN` | `admin@departamental.local` | `AdminLocal!2026` |
-| `EMPLOYEE` | `employee@departamental.local` | `EmployeeLocal!2026` |
-| `CUSTOMER` | `customer@departamental.local` | `CustomerLocal!2026` |
+| `ADMIN` | `admin@departamental.local` | `SEED_ADMIN_PASSWORD (archivo .env privado)` |
+| `EMPLOYEE` | `employee@departamental.local` | `SEED_EMPLOYEE_PASSWORD (archivo .env privado)` |
+| `CUSTOMER` | `customer@departamental.local` | `SEED_CUSTOMER_PASSWORD (archivo .env privado)` |
 
 ## Importante sobre las contraseñas
 

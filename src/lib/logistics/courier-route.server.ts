@@ -22,6 +22,7 @@ export async function getCourierRoute(shipmentId: string): Promise<CourierRoute>
   const shipment = await getPickPackShipment(shipmentId);
   const tracking = shipment.tracking;
   if (!tracking?.location) return { available: false, reason: "Aún no hay una ubicación válida del repartidor." };
+  if (tracking.location.source === "DEMO") return {available:true,reason:"Destino ficticio: Zócalo CDMX. Segmento ilustrativo, sin cálculo de tráfico.",destination:{latitude:19.4326,longitude:-99.1332}};
   const key = process.env.GOOGLE_MAPS_ROUTES_API_KEY?.trim();
   if (!key) return { available: false, reason: "La ruta estimada no está configurada. La última ubicación sigue disponible." };
   try {

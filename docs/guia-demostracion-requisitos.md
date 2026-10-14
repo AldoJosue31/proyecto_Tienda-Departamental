@@ -2,11 +2,13 @@
 
 Esta guía organiza una exposición de aproximadamente 25 a 30 minutos. Cubre la sección B Tienda Departamental de `Proyectos App Web.docx`, los requisitos técnicos generales y los requisitos técnicos específicos de esa tienda en `Requerimientos Técnicos Generales.docx`. Los apartados de clínica y red social corresponden a otros proyectos. CORS y JWT son opcionales en el Word; también se pueden demostrar porque están implementados.
 
-La demostración combina operaciones visibles, resultados esperados y pruebas técnicas. Las capturas y los reportes enlazados documentan la verificación del 8 de octubre de 2026; para acreditar una nueva ejecución, conserva también sus resultados y fecha.
+**Estado del 13 de octubre:** la [matriz inicial](revision-requisitos-2026-10-13.md) conserva los hallazgos anteriores al cierre. El [informe de fases 4–6](implementacion-cierre-fases-4-6.md) explica el pastel literal y los rankings de productos/categorías, CRM con ambos grupos de inactividad, correo capturado por SMTP en Mailpit y reparto móvil con mapa OpenStreetMap. Las posiciones de demostración son ficticias y se identifican en UI; el GPS se prueba con emulación, sin requerir teléfono ni proveedor de pago para este proyecto universitario. El [informe de fases 1–3](implementacion-cierre-fases-1-3.md) conserva las pruebas de compatibilidad, seguridad, recuperación y precios. El principal conserva el conjunto anterior hasta la fase 9; las fases 7–9 siguen pendientes.
+
+La demostración combina operaciones visibles, resultados esperados y pruebas técnicas. El informe nuevo enlaza los reportes y capturas del 13 de octubre. La evidencia anterior conserva su fecha y alcance; no sustituye la certificación integral de las fases 8 y 9.
 
 ## Preparar el entorno
 
-Al preparar esta guía, Docker Desktop estaba detenido. Ábrelo y espera a que su motor esté disponible. Usa el entorno de pruebas que ya tiene datos sintéticos y Mailpit para capturar correos.
+Docker Desktop debe estar iniciado y su motor disponible. Usa el entorno de pruebas que ya tiene datos sintéticos y Mailpit para capturar correos.
 
 En PowerShell:
 
@@ -45,9 +47,9 @@ Ten disponibles dos sesiones de navegador: una de administrador y otra de client
 | Top de productos | Mostrar el ranking después de ventas de varias variantes del mismo producto. | El producto aparece agrupado; la prueba técnica acredita que 6 + 6 unidades superan a otro producto con 9. |
 | Ticket promedio | Comparar el indicador con el total y el número de pedidos contabilizados del periodo. | Ticket promedio = importe vendido / número de pedidos contabilizados, con la moneda y el periodo mostrados. |
 | Pick and Pack | Crear un pedido online y abrir `/operations`. | El pedido pasa por Pendiente, Empacando y Enviado; después puede confirmarse su entrega. |
-| Rutas y seguimiento | Asignar repartidor y dirección, publicar una ubicación de prueba y abrir el seguimiento. | Se muestran repartidor, destino, ruta, última señal y estado de entrega. |
+| Rutas y seguimiento | Asignar una cuenta de empleado y dirección; desde Mi reparto, iniciar Demostración universitaria. | El mapa interactivo muestra marcador ficticio, segmento ilustrativo/destino, última señal y estado de entrega. |
 | Historial de compras | Abrir al cliente en `/crm` después de una compra. | Aparecen artículos, fechas e importes del pedido confirmado, conservando su precio histórico. |
-| Cupón solo para clientes inactivos por tres meses | Previsualizar el segmento de 3 meses, comparar un cliente antiguo con otro reciente y confirmar una campaña. | El antiguo elegible aparece; el reciente queda excluido. Mailpit captura el correo con código y vigencia. |
+| Cupón solo para clientes inactivos por tres meses | Previsualizar los subgrupos de compradores antiguos y altas antiguas sin compras; confirmar una campaña. | Se excluyen compra/alta reciente. Orders revalida compras oficiales; Mailpit captura código y vigencia, y checkout permite canjear el derecho. |
 | API Gateway | Mostrar la ruta de llamadas desde la UI a Next.js y de Next.js a Kong; consultar JSON en el puerto 8005. | Kong deriva las rutas a Auth, Catalog, Inventory, Pricing, Orders y los demás servicios. |
 | REST y comunicación asíncrona | Mostrar una respuesta JSON y una campaña que primero queda pendiente y luego aceptada por SMTP. | Las APIs devuelven JSON; RabbitMQ y los consumidores procesan los eventos de campaña y entrega. |
 | Bases independientes | Mostrar los PostgreSQL separados y ejemplos de clientes API entre servicios. | Cada dominio tiene su propia base; Orders llama APIs de Catalog, Pricing e Inventory y Analytics obtiene Inventory por API privada. |
@@ -55,7 +57,7 @@ Ten disponibles dos sesiones de navegador: una de administrador y otra de client
 | Atomicidad de la última unidad | Ejecutar `verify-five-phases.mjs` y mostrar su prueba de dos órdenes simultáneas. | Solo una compra se confirma, la otra recibe falta de stock y el stock final es cero. |
 | Caché de productos en Redis | Repetir la misma consulta y mostrar las claves de búsqueda de `catalog-redis`. | Redis contiene respuestas con vigencia; la prueba de Catalog comprueba que un acierto evita consultar PostgreSQL. |
 | Descuento programado a las 00 horas | Mostrar una promoción con zona America/Mexico_City y ejecutar la prueba de límites temporales. | Antes del inicio se cobra precio normal, a las 00:00 aplica el descuento y al vencer deja de aplicarse. |
-| Barras y pastel con Chart.js para stock | Mostrar las dos gráficas de stock por sucursal en `/dashboard` y su implementación en `analytics-dashboard.tsx`. | Las gráficas de barras y distribución circular usan los mismos datos de stock y Chart.js. |
+| Barras y pastel con Chart.js para stock | Mostrar las dos gráficas de stock por sucursal en `/dashboard` y abrir sus tablas. | `Bar` y `Pie` sin hueco usan los mismos datos de stock y Chart.js. |
 | CORS y JWT opcionales | Comparar una operación como ADMIN con la misma operación como CUSTOMER o sin sesión. | El backend permite la operación autorizada y rechaza acceso indebido; los orígenes permitidos se configuran en Kong. |
 
 ## Orden sugerido para la exposición
@@ -84,40 +86,21 @@ La [captura del dashboard](screenshots/dashboard-verified.jpg) y la [captura de 
 
 ### 4 Compra online y preparación
 
-En la sesión del cliente, añade al carrito un artículo con existencias de prueba y confirma el pedido. Anota su identificador. En la sesión del administrador o empleado, abre Operación (`/operations`), localiza ese pedido y pulsa Iniciar empaque y posteriormente Marcar como enviado.
+En la sesión del cliente, añade al carrito un artículo con existencias de prueba y confirma el pedido. Anota su identificador. En la sesión del administrador, abre Operación (`/operations`), localiza ese pedido y pulsa Iniciar empaque.
 
-Muestra las tres columnas del tablero y el historial de cambios. Configura el reparto con nombre, UUID y una dirección pública de prueba. Después publica una ubicación para ver mapa, ruta y destino. La ubicación es una señal de prueba emitida mediante API; esto no supone que exista una aplicación móvil de GPS desplegada.
+Muestra las tres columnas del tablero y el historial de cambios. En «Editar asignación de reparto», elige una cuenta de empleado habilitada por su nombre y guarda una dirección pública de prueba. Después pulsa Marcar como enviado. Ya no se requiere copiar ni inventar UUID.
 
-Puedes generar el UUID del repartidor en PowerShell y pegarlo en el formulario:
+En otro navegador o ventana privada, entra con esa cuenta EMPLOYEE y abre **Mi reparto** (`/delivery`). Elige el envío, utiliza Demostración universitaria y pulsa Iniciar publicación. Mantén la pestaña visible: Operación muestra la última señal, su edad y un mapa OpenStreetMap con posición/destino ficticios y segmento ilustrativo. No necesitas claves de Google ni un teléfono real. Detener conserva la última lectura y deja de enviar posiciones; ocultar la pantalla detiene la publicación.
 
-```powershell
-$courierId = [guid]::NewGuid().ToString()
-$courierId
-```
+La opción GPS del navegador solicita permiso. La prueba local utiliza emulación y verifica denegación, desconexión y señal nueva al recuperar red. No se atribuye ese ensayo a una posición física. `verify-close-four-six.mjs` acredita que una señal antigua no sustituye una nueva.
 
-Obtén el UUID del envío desde la petición de detalle del tablero en las herramientas de desarrollo del navegador. Usa el ID del envío, no el ID del pedido. En el mismo PowerShell:
-
-```powershell
-$shipmentId = 'UUID_DEL_ENVIO'
-node scripts/publish-integration-location.mjs $shipmentId $courierId 0
-```
-
-El helper valida el proyecto aislado y publica coordenadas públicas en Ciudad de México. Maps y Routes necesitan las claves locales habilitadas y el origen `http://localhost:3105` autorizado. Una captura de un mapa anterior no sustituye una nueva prueba si esas credenciales cambian.
-
-Para mostrar una señal antigua, utiliza un envío nuevo sin una señal posterior y publica primero edad 600; luego publica edad 0. Las ubicaciones antiguas se descartan cuando ya existe una señal más reciente.
-
-```powershell
-node scripts/publish-integration-location.mjs $shipmentId $courierId 600
-node scripts/publish-integration-location.mjs $shipmentId $courierId 0
-```
-
-Finalmente pulsa Confirmar entrega y muestra el estado entregado. [Mapa verificado](screenshots/tracking-map.jpg).
+Finalmente, desde Mi reparto pulsa Confirmar paquete entregado y acepta la confirmación. Muestra Entregado en Operación y en la cuenta del cliente. El [informe actual de reparto](implementacion-cierre-fases-4-6.md) enlaza la prueba y las capturas nuevas.
 
 ### 5 Historial y campaña CRM
 
-En CRM (`/crm`), abre al cliente que compró y muestra su pedido, artículos e importe. El historial se actualiza después de procesar el evento; espera si la compra es reciente. [Historial verificado](screenshots/crm-history.jpg).
+En CRM (`/crm`), busca al cliente por nombre o identificador y muestra su pedido, artículos, fecha, importe, precio cobrado y ahorro/cupón histórico. Se consultan las compras oficiales por API; pulsa Actualizar si la pantalla conserva una lectura anterior.
 
-Para la segmentación necesitas datos sintéticos con una compra de hace más de tres meses y otro cliente con compra reciente. `verify-final-phases.mjs` prepara clientes y compras históricas de prueba en el entorno aislado. No envejezcas las compras del entorno de negocio para conseguir destinatarios.
+Para la segmentación necesitas comprador antiguo, comprador reciente, alta antigua sin compras y alta reciente. `verify-close-four-six.mjs` prepara los cuatro casos en el entorno aislado y comprueba exclusión de una compra reciente incluso con su evento CRM retrasado. No envejezcas las compras del principal para conseguir destinatarios.
 
 Selecciona 3 meses y muestra la vista previa. Confirma que el comprador reciente no está incluido. Define código nuevo, descuento, alcance y vigencia futura; confirma la campaña. El entorno de integración publica el outbox de CRM cada 60 segundos: durante ese intervalo puede aparecer pendiente.
 
