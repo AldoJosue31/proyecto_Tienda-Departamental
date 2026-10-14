@@ -68,6 +68,14 @@ async function prepare() {
 }
 
 async function verify() {
+  // A fresh CI volume already has every migration applied by its owner image.
+  // Runtime recovery cases need their own idempotent synthetic stock fixture;
+  // migration compatibility is certified separately against restored checkpoints.
+  await databases.inventory.withTransaction(async client => {
+    await client.query("INSERT INTO inventory_branches(id,name) VALUES($1,'Sucursal prueba migración') ON CONFLICT DO NOTHING",[fixtureBranch]);
+    await client.query("INSERT INTO inventory_variant_snapshots(variant_id,product_name,sku,variant_label) VALUES($1,'Registro anterior','MIGRATION-01','Anterior') ON CONFLICT DO NOTHING",[fixtureVariant]);
+    await client.query("INSERT INTO inventory_stock(variant_id,branch_id,on_hand,reserved) VALUES($1,$2,3,0) ON CONFLICT DO NOTHING",[fixtureVariant,fixtureBranch]);
+  });
   const gateway = "http://localhost:8005";
   const web = "http://localhost:3105";
   async function api(path, token, method = "GET", body, additional = {}) {
