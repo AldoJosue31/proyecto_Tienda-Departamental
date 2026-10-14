@@ -174,8 +174,8 @@ async function verify() {
     const updated = await fetch(web + `/api/promotions/${body.promotion.id}`, { method: "PATCH", headers, body: JSON.stringify({ ...input, name: "Integration sale edited" }) }); assert.equal(updated.status, 200);
     const page = await fetch(web + "/promotions", { headers: { Cookie: headers.Cookie } }); assert.equal(page.status, 200); assert.match(await page.text(), /Integration sale edited/);
   });
-  const catalog = await api("/products", token); assert.equal(catalog.status, 200);
-  const product = catalog.body.items.find((item) => item.variants.some((variant) => variant.id === variantId)); assert.ok(product);
+  const catalog = await api("/products/a1000000-0000-4000-8000-000000000001", token); assert.equal(catalog.status, 200);
+  const product = catalog.body.product; assert.ok(product.variants.some(variant => variant.id === variantId));
   const order = { branchId, channel: "PHYSICAL", customerId: customer.user.id, items: [{ productId: product.id, variantId, quantity: 1 }] };
   const socket = io(gateway, { path: "/realtime/socket.io", transports: ["websocket"], withCredentials: true, extraHeaders: { cookie: `departamental_access=${token}`, origin: web } }); sockets.push(socket);
   await new Promise((resolve, reject) => { socket.once("connect", resolve); socket.once("connect_error", reject); setTimeout(() => reject(new Error("Socket connection timeout")), 10000).unref(); });

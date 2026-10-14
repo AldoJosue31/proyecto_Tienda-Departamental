@@ -32,12 +32,11 @@ try {
   await pools.auth.query("INSERT INTO auth_users(id,email,name,password_hash,role,is_active,email_verified_at,verification_source,created_at) SELECT $1,$2,'Cliente de integración 2',password_hash,'CUSTOMER',TRUE,NOW(),'TEST_FIXTURE','2025-01-01'::timestamptz FROM auth_users WHERE email='customer@departamental.local'",[otherId,`coupon-${otherId.slice(0,8)}@example.test`]);
   const customer=(await api("/auth/login",null,"POST",{email,password:env.SEED_CUSTOMER_PASSWORD})).body;assert.ok(customer.accessToken);
   const inventory=(await api("/inventory/branches",token)).body;
-  const branchId=inventory.branches[0].id;
+  const branchId=inventory.branches.find(branch=>branch.id==="b1000000-0000-4000-8000-000000000001").id;
   const stocks=(await api(`/inventory/branches/${branchId}`,token)).body.items;
-  const products=(await api("/products",token)).body.items;
-  const stock=stocks.find(item=>products.some(product=>product.variants.some(variant=>variant.id===item.variantId)));
-  const product=products.find(product=>product.variants.some(variant=>variant.id===stock.variantId));
-  const variant=product.variants.find(variant=>variant.id===stock.variantId),variantId=variant.id;
+  const product=(await api("/products/a1000000-0000-4000-8000-000000000001",token)).body.product;
+  const variant=product.variants.find(variant=>variant.id==="a2000000-0000-4000-8000-000000000001"),variantId=variant.id;
+  assert.ok(stocks.some(stock=>stock.variantId===variantId));
   await pools.inventory.query("UPDATE inventory_stock SET on_hand=50,reserved=0 WHERE branch_id=$1 AND variant_id=$2",[branchId,variantId]);
   const {CrmService}=load("crm","crm/crm.service"),authority=localCrmAuthority(load,env),crm=new CrmService(databases.crm,authority);
   for (const id of [customerId,otherId]) await crm.project({eventId:randomUUID(),eventType:"order.completed.v1",occurredAt:new Date(Date.now()-250*86400000).toISOString(),correlationId:null,orderId:randomUUID(),customerId:id,branchId,currency:"MXN",total:100,items:[]});
