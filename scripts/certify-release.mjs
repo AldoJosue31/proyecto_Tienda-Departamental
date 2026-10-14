@@ -1,4 +1,5 @@
-import {spawnSync} from "node:child_process";
+import {spawnSync,execFileSync} from "node:child_process";
+import assert from "node:assert/strict";
 import {readFileSync,writeFileSync} from "node:fs";
 import {createHash} from "node:crypto";
 
@@ -20,8 +21,20 @@ const commands=[
  ["npx","playwright","test","--config","playwright.phases-seven.config.ts"],
 ];
 if(!process.argv.includes("--skip-stability"))commands.push(["node","scripts/verify-stability.mjs"]);
-const checks=[];
-for(const [command,...args] of commands){const start=Date.now();const result=spawnSync(process.platform==="win32"&&command==="npx"?"cmd.exe":command,process.platform==="win32"&&command==="npx"?["/d","/s","/c",[command,...args].join(" ")]:args,{stdio:"inherit",windowsHide:true,timeout:40*60*1000});checks.push({command:[command,...args].join(" "),passed:result.status===0,milliseconds:Date.now()-start});if(result.status!==0)break;}
+const checks=[],fixtureInitializations=[];
+function initializeAccountFixture(){
+ const container="departamental-five-phases-auth-postgres-1";
+ const run=args=>execFileSync("docker",args,{encoding:"utf8",timeout:20000,stdio:["ignore","pipe","pipe"]}).trim();
+ const state=JSON.parse(run(["inspect",container]))[0];
+ assert.equal(state.Config.Labels["com.docker.compose.project"],"departamental-five-phases");
+ assert.ok(state.NetworkSettings.Ports["5432/tcp"].every(port=>port.HostIp==="127.0.0.1"&&port.HostPort==="55431"));
+ // Different account suites share a loopback IP, so initialize only the
+ // disposable IP counter fixture. Atomicity and restart persistence are
+ // tested inside the suite without clearing counters during those assertions.
+ run(["exec",container,"psql","-U","auth_service","-d","auth_service","-v","ON_ERROR_STOP=1","-c", "DELETE FROM auth_onboarding_rate_limits WHERE scope='IP';"]);
+ fixtureInitializations.push({project:"departamental-five-phases",fixture:"account-suite IP counters",at:new Date().toISOString()});
+}
+for(const [command,...args] of commands){if(args.includes("scripts/verify-accounts-first-five.mjs")||args.includes("playwright.accounts.config.ts"))initializeAccountFixture();const start=Date.now();const result=spawnSync(process.platform==="win32"&&command==="npx"?"cmd.exe":command,process.platform==="win32"&&command==="npx"?["/d","/s","/c",[command,...args].join(" ")]:args,{stdio:"inherit",windowsHide:true,timeout:40*60*1000});checks.push({command:[command,...args].join(" "),passed:result.status===0,milliseconds:Date.now()-start});if(result.status!==0)break;}
 const passed=checks.length===commands.length&&checks.every(check=>check.passed);
-writeFileSync("docs/verification-ci-gate.json",JSON.stringify({completedAt:new Date().toISOString(),passed,environment:process.env.GITHUB_ACTIONS==="true"?"GitHub Actions":"local",gitSha:process.env.GITHUB_SHA??null,pipelineSha256:createHash("sha256").update(readFileSync(import.meta.filename)).digest("hex"),stabilityIncluded:!process.argv.includes("--skip-stability"),checks,secretsExcluded:true},null,2)+"\n");
+writeFileSync("docs/verification-ci-gate.json",JSON.stringify({completedAt:new Date().toISOString(),passed,environment:process.env.GITHUB_ACTIONS==="true"?"GitHub Actions":"local",gitSha:process.env.GITHUB_SHA??null,pipelineSha256:createHash("sha256").update(readFileSync(import.meta.filename)).digest("hex"),stabilityIncluded:!process.argv.includes("--skip-stability"),fixtureInitializations,checks,secretsExcluded:true},null,2)+"\n");
 if(!passed)process.exitCode=1;
