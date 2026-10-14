@@ -1,0 +1,93 @@
+{
+  "completedAt": "2026-10-14T07:43:23.351Z",
+  "passed": true,
+  "environment": "GitHub Actions",
+  "gitSha": "2ea6dbe1379e34e7cbc59a1bc2ea67c5a1c15415",
+  "pipelineSha256": "aa97680ae1470ab45b9aa1dbc540283012698ada0bfd716f58cac635515bbddd",
+  "stabilityIncluded": true,
+  "fixtureInitializations": [
+    {
+      "project": "departamental-five-phases",
+      "fixture": "account-suite IP counters",
+      "at": "2026-10-14T07:04:03.090Z"
+    },
+    {
+      "project": "departamental-five-phases",
+      "fixture": "account-suite IP counters",
+      "at": "2026-10-14T07:05:41.265Z"
+    }
+  ],
+  "checks": [
+    {
+      "command": "node scripts/verify-close-first-three.mjs",
+      "passed": true,
+      "milliseconds": 29529
+    },
+    {
+      "command": "node scripts/verify-accounts-first-five.mjs",
+      "passed": true,
+      "milliseconds": 79296
+    },
+    {
+      "command": "node scripts/verify-five-phases.mjs",
+      "passed": true,
+      "milliseconds": 11462
+    },
+    {
+      "command": "node scripts/verify-final-phases.mjs",
+      "passed": true,
+      "milliseconds": 7357
+    },
+    {
+      "command": "npx playwright test --config playwright.accounts.config.ts",
+      "passed": true,
+      "milliseconds": 18827
+    },
+    {
+      "command": "node scripts/verify-accounts-races.mjs",
+      "passed": true,
+      "milliseconds": 7869
+    },
+    {
+      "command": "node scripts/audit-requirements.mjs",
+      "passed": true,
+      "milliseconds": 1081
+    },
+    {
+      "command": "node scripts/audit-projection-dlq.mjs --recover-valid",
+      "passed": true,
+      "milliseconds": 334
+    },
+    {
+      "command": "node scripts/audit-domain-dlq.mjs --recover-valid",
+      "passed": true,
+      "milliseconds": 6316
+    },
+    {
+      "command": "node scripts/verify-close-four-six.mjs",
+      "passed": true,
+      "milliseconds": 22930
+    },
+    {
+      "command": "npx playwright test --config playwright.phases-four-six.config.ts",
+      "passed": true,
+      "milliseconds": 33084
+    },
+    {
+      "command": "node scripts/verify-close-seven.mjs",
+      "passed": true,
+      "milliseconds": 38274
+    },
+    {
+      "command": "npx playwright test --config playwright.phases-seven.config.ts",
+      "passed": true,
+      "milliseconds": 28105
+    },
+    {
+      "command": "node scripts/verify-stability.mjs",
+      "passed": true,
+      "milliseconds": 1800061
+    }
+  ],
+  "secretsExcluded": true
+}

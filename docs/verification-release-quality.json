@@ -1,11 +1,11 @@
 {
-  "completedAt": "2026-10-14T06:11:30.100Z",
-  "passed": false,
-  "testCount": 220,
+  "completedAt": "2026-10-14T06:17:10.436Z",
+  "passed": true,
+  "testCount": 364,
   "results": [
     {
       "project": "web",
-      "verifiedAt": "2026-10-14T06:07:37.769Z",
+      "verifiedAt": "2026-10-14T06:17:10.433Z",
       "checks": [
         {
           "command": "run lint -- src tests scripts e2e playwright.accounts.config.ts playwright.phases-four-six.config.ts playwright.phases-seven.config.ts playwright.principal.config.ts",
@@ -17,10 +17,15 @@
         },
         {
           "command": "test",
-          "passed": false
+          "passed": true,
+          "testCount": 144
+        },
+        {
+          "command": "run build",
+          "passed": true
         }
       ],
-      "passed": false
+      "passed": true
     },
     {
       "project": "auth",

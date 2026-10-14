@@ -150,15 +150,15 @@ Trabajo:
 
 Trabajo:
 
-- [ ] Preparar datos sintéticos reproducibles con varias sucursales y una prenda con tallas S/M/L, colores y materiales; cada variante tiene SKU y stock propios.
-- [ ] Verificar crear/editar variantes, movimientos, punto de pedido, reservas y stock disponible desde UI. Alertar cuando disponible sea igual o menor al mínimo; mostrar AGOTADO a cero.
-- [ ] Probar carrera física/física y física/online sobre la última unidad usando PostgreSQL real: exactamente una venta confirmada y sin cantidades negativas.
-- [ ] Verificar Redis con búsqueda repetida, TTL, invalidación al editar catálogo y prueba de HIT que evita SQL. La caída de Redis permite degradar a PostgreSQL sin convertir la caché en fuente de inventario.
-- [ ] Medir varias ventas→Dashboard: objetivo de p95 ≤3 s en el entorno local saludable; documentar muestra y condiciones. Durante desconexión, indicar retraso y recuperar snapshot automáticamente; no prometer ese tiempo bajo fallo de red.
-- [ ] Verificar reconexión, eventos duplicados/invertidos y cambio rápido de sucursal; todos los estados se ordenan por revisión y no regresan.
-- [ ] Completar recorridos de CUSTOMER y EMPLOYEE: búsqueda/filtros, variante, bolsa por usuario, cotización, checkout, pedidos propios, cancelación válida y seguimiento; mantener filtros y retorno de navegación.
-- [ ] Probar cancelación frente a despacho, incluyendo proyección tardía de Logistics. No restituir stock/cupón de un pedido despachado por una carrera entre servicios.
-- [ ] Recorrer la venta física con precio vigente y cliente opcional, conservando el contrato de modalidad; no generar preparación/envío por una venta PHYSICAL.
+- [x] Preparar datos sintéticos reproducibles con varias sucursales y una prenda con tallas S/M/L, colores y materiales; cada variante tiene SKU y stock propios.
+- [x] Verificar crear/editar variantes, movimientos, punto de pedido, reservas y stock disponible desde UI. Alertar cuando disponible sea igual o menor al mínimo; mostrar AGOTADO a cero.
+- [x] Probar carrera física/física y física/online sobre la última unidad usando PostgreSQL real: exactamente una venta confirmada y sin cantidades negativas.
+- [x] Verificar Redis con búsqueda repetida, TTL, invalidación al editar catálogo y prueba de HIT que evita SQL. La caída de Redis permite degradar a PostgreSQL sin convertir la caché en fuente de inventario.
+- [x] Medir varias ventas→Dashboard: objetivo de p95 ≤3 s en el entorno local saludable; documentar muestra y condiciones. Durante desconexión, indicar retraso y recuperar snapshot automáticamente; no prometer ese tiempo bajo fallo de red.
+- [x] Verificar reconexión, eventos duplicados/invertidos y cambio rápido de sucursal; todos los estados se ordenan por revisión y no regresan.
+- [x] Completar recorridos de CUSTOMER y EMPLOYEE: búsqueda/filtros, variante, bolsa por usuario, cotización, checkout, pedidos propios, cancelación válida y seguimiento; mantener filtros y retorno de navegación.
+- [x] Probar cancelación frente a despacho, incluyendo proyección tardía de Logistics. No restituir stock/cupón de un pedido despachado por una carrera entre servicios.
+- [x] Recorrer la venta física con precio vigente y cliente opcional, conservando el contrato de modalidad; no generar preparación/envío por una venta PHYSICAL.
 
 **Criterio de cierre:** venta física y compra online terminan desde la interfaz con importes, stock, Dashboard, CRM y Logistics consistentes. Los casos concurrentes y las compensaciones no duplican venta, descuento ni reposición. La demostración no requiere editar SQL ni invocar APIs manuales para las tareas ordinarias.
 
@@ -168,13 +168,13 @@ Trabajo:
 
 Trabajo:
 
-- [ ] Ejecutar lint, TypeScript, pruebas y build de web y los diez servicios; validar Compose y compatibilidad de migraciones.
-- [ ] Integrar en CI los runners conjuntos de cuentas, negocio, navegador y auditor HTTP, además de los escenarios nuevos. Ejecutar secuencialmente los runners que alteran fixtures o reinician servicios.
-- [ ] Ejecutar registro/verificación, invitación/desactivación, compra física/online, carrera, descuentos, cupones, rankings, preparación, GPS, entrega e historial en la misma versión candidata.
-- [ ] Probar fallos controlados de PostgreSQL, Redis, RabbitMQ, Analytics, Notification, Pricing y Realtime exclusivamente en aislado; verificar recuperación, outbox/DLQ, reconciliación y deduplicación.
-- [ ] Hacer una prueba de estabilidad con carga definida durante al menos 30 minutos y conservar tiempos, errores, salud y pendientes. No interpretar esta prueba como garantía universal de disponibilidad.
-- [ ] Revisar desktop/móvil, teclado, foco, validaciones, contraste, etiquetas de gráficas y estados vacíos/degradados en las pantallas afectadas.
-- [ ] Renovar reportes/capturas con fecha, versión y escenario; sanitizar contraseñas, tokens, enlaces de alta, datos privados y ubicaciones personales.
+- [x] Ejecutar lint, TypeScript, pruebas y build de web y los diez servicios; validar Compose y compatibilidad de migraciones.
+- [x] Integrar en CI los runners conjuntos de cuentas, negocio, navegador y auditor HTTP, además de los escenarios nuevos. Ejecutar secuencialmente los runners que alteran fixtures o reinician servicios.
+- [x] Ejecutar registro/verificación, invitación/desactivación, compra física/online, carrera, descuentos, cupones, rankings, preparación, GPS, entrega e historial en la misma versión candidata.
+- [x] Probar fallos controlados de PostgreSQL, Redis, RabbitMQ, Analytics, Notification, Pricing y Realtime exclusivamente en aislado; verificar recuperación, outbox/DLQ, reconciliación y deduplicación.
+- [x] Hacer una prueba de estabilidad con carga definida durante al menos 30 minutos y conservar tiempos, errores, salud y pendientes. No interpretar esta prueba como garantía universal de disponibilidad.
+- [x] Revisar desktop/móvil, teclado, foco, validaciones, contraste, etiquetas de gráficas y estados vacíos/degradados en las pantallas afectadas.
+- [x] Renovar reportes/capturas con fecha, versión y escenario; sanitizar contraseñas, tokens, enlaces de alta, datos privados y ubicaciones personales.
 
 **Criterio de cierre:** batería completa aprobada, sin fallos funcionales/seguridad pendientes de los requisitos, recuperación comprobada y evidencia actual del SMTP local, mapa interactivo y reparto universitario. El pipeline debe impedir promover una versión que falle, conservando los reportes para diagnóstico.
 
@@ -184,13 +184,13 @@ Trabajo:
 
 Trabajo:
 
-- [ ] Tomar respaldo fresco en el punto consistente ensayado en fase 1, coordinando escrituras, tareas y mensajes; registrar estado del principal, checkpoints de colas y operaciones pendientes inmediatamente antes de actualizar.
-- [ ] Aplicar las migraciones ensayadas y desplegar el conjunto de imágenes exacto de la fase 8, con configuración/secretos del destino y preservación de datos.
-- [ ] Comprobar las operaciones reales del principal: login, roles, Inventario, catálogo, precios, Dashboard, pedidos, CRM y Logistics. No basta que los contenedores estén saludables.
-- [ ] Repetir las comprobaciones no destructivas y un recorrido de validación con cuentas, artículos y destinatarios designados para pruebas; registrar y conciliar esos movimientos. Las carreras y caídas deliberadas permanecen en aislado.
-- [ ] Comprobar Mailpit SMTP local, mapa OpenStreetMap y reparto DEMO contra la configuración universitaria del principal; conservar señal ficticia y límites de emulación explícitos.
-- [ ] Validar conservación de datos, pendientes y coherencia de proyecciones tras el despliegue. Aplicar el procedimiento de recuperación si falla una condición de cierre.
-- [ ] Actualizar guía de demostración, variables requeridas, arranque, respaldo, recuperación y matriz final. Conservar los reportes previos como historia sin atribuirles la certificación nueva.
+- [x] Tomar respaldo fresco en el punto consistente ensayado en fase 1, coordinando escrituras, tareas y mensajes; registrar estado del principal, checkpoints de colas y operaciones pendientes inmediatamente antes de actualizar.
+- [x] Aplicar las migraciones ensayadas y desplegar el conjunto de imágenes exacto de la fase 8, con configuración/secretos del destino y preservación de datos.
+- [x] Comprobar las operaciones reales del principal: login, roles, Inventario, catálogo, precios, Dashboard, pedidos, CRM y Logistics. No basta que los contenedores estén saludables.
+- [x] Repetir las comprobaciones no destructivas y un recorrido de validación con cuentas, artículos y destinatarios designados para pruebas; registrar y conciliar esos movimientos. Las carreras y caídas deliberadas permanecen en aislado.
+- [x] Comprobar Mailpit SMTP local, mapa OpenStreetMap y reparto DEMO contra la configuración universitaria del principal; conservar señal ficticia y límites de emulación explícitos.
+- [x] Validar conservación de datos, pendientes y coherencia de proyecciones tras el despliegue. Aplicar el procedimiento de recuperación si falla una condición de cierre.
+- [x] Actualizar guía de demostración, variables requeridas, arranque, respaldo, recuperación y matriz final. Conservar los reportes previos como historia sin atribuirles la certificación nueva.
 
 **Criterio de cierre:** todos los requisitos de la matriz siguiente funcionan en la versión desplegada con el alcance universitario acordado. SMTP local, mapa y recorrido DEMO tienen pruebas explícitas; no se afirma GPS físico ni entrega de correo externo. La app permite los recorridos de cada rol desde UI, y hay evidencias técnicas actuales de arquitectura, concurrencia, caché y seguridad.
 
@@ -233,13 +233,17 @@ Estas dependencias locales se configuran y comprueban durante el plan. La simula
 
 ## Definición final de listo
 
-- [ ] Fases 1–9 cerradas con evidencia, no solo código.
-- [ ] Todos los requisitos de la matriz aprobados en la versión final.
-- [ ] Auditor HTTP del principal sin fallos; APIs y navegador con roles correctos.
-- [ ] Lint, tipos, build, pruebas de aceptación y CI aprobados para la misma versión.
-- [ ] SMTP local, mapa interactivo y señal DEMO comprobados con configuraciones universitarias finales.
-- [ ] Datos previos preservados; migraciones, respaldo y recuperación ensayados.
-- [ ] Funciones comunes operables desde la app; errores y retrasos explicados en UI.
-- [ ] Guía y reportes actuales, sin secretos ni dependencias pendientes ocultas.
+- [x] Fases 1–9 cerradas con evidencia, no solo código.
+- [x] Todos los requisitos de la matriz aprobados en la versión final.
+- [x] Auditor HTTP del principal sin fallos; APIs y navegador con roles correctos.
+- [x] Lint, tipos, build, pruebas de aceptación y CI aprobados para la misma versión.
+- [x] SMTP local, mapa interactivo y señal DEMO comprobados con configuraciones universitarias finales.
+- [x] Datos previos preservados; migraciones, respaldo y recuperación ensayados.
+- [x] Funciones comunes operables desde la app; errores y retrasos explicados en UI.
+- [x] Guía y reportes actuales, sin secretos ni dependencias pendientes ocultas.
 
 Cada implementación actualizará el estado de su fase, archivos afectados, migraciones, pruebas, evidencia y cualquier impedimento concreto. Este documento no marca como ejecutado el trabajo futuro.
+
+## Cierre verificado — 14 de octubre de 2026
+
+Fases 1–9 cerradas en el alcance universitario acordado. Versión desplegada fases-7-9-20261013-be87fd10ff60; aplicación del commit 2ea6dbe1379e34e7cbc59a1bc2ea67c5a1c15415. [Acta y evidencia final](entrega-definitiva-fases-7-9.md). CI remoto aprobado, estabilidad local/remota de 30 minutos, 24 contenedores exactos y siete recorridos del principal conciliados. SMTP se captura en Mailpit; las posiciones DEMO son ficticias y GPS se prueba por emulación.

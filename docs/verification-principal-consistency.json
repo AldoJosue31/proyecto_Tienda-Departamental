@@ -1,0 +1,52 @@
+{
+  "completedAt": "2026-10-14T08:23:21.164Z",
+  "releaseId": "fases-7-9-20261013-be87fd10ff60",
+  "project": "web",
+  "passed": true,
+  "checks": [
+    {
+      "name": "owned online order, cancelled order and physical ticket match UI",
+      "passed": true
+    },
+    {
+      "name": "designated receipts and purchases reconcile to 9/10/9 units; cancellation restores exactly once and other branch stays at 10",
+      "passed": true
+    },
+    {
+      "name": "delivery has authorized employee and timestamp; position remains explicitly DEMO",
+      "passed": true
+    },
+    {
+      "name": "CRM contains the owned completed purchase",
+      "passed": true
+    },
+    {
+      "name": "one designated inactive recipient received actual local SMTP; owned discounted order cancelled and coupon restored; physical ticket has no shipment",
+      "passed": true
+    }
+  ],
+  "designatedMovements": {
+    "receipts": 6,
+    "initialUnitsPerVariantPerBranch": 10,
+    "onlineOrders": 3,
+    "cancelledOnlineOrders": 2,
+    "physicalTickets": 1,
+    "deliveredOnlineOrders": 1,
+    "couponCampaigns": 1,
+    "smtpCouponRecipients": 1,
+    "discountedOrders": 1,
+    "couponsRestored": 1,
+    "remainingBranchUnits": [
+      9,
+      10,
+      9
+    ],
+    "otherBranchUnits": [
+      10,
+      10,
+      10
+    ]
+  },
+  "scope": "Only designated synthetic articles and SMTP recipient; prior-data preservation was verified before writers resumed",
+  "secretsExcluded": true
+}

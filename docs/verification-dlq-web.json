@@ -1,17 +1,15 @@
 {
-  "completedAt": "2026-10-13T16:02:00.045Z",
+  "completedAt": "2026-10-14T08:27:04.139Z",
   "project": "web",
   "recoveryEnabled": false,
   "privacy": "No credentials, identities or payloads exported",
   "queue": "analytics.projections.v1.dlq",
-  "initial": 2,
-  "valid": 2,
+  "initial": 0,
+  "valid": 0,
   "invalid": 0,
   "replayed": 0,
-  "retained": 2,
-  "types": {
-    "order.completed.v1": 2
-  },
+  "retained": 0,
+  "types": {},
   "confirmedBeforeAck": true,
   "invalidPayloadsRetained": true,
   "passed": true

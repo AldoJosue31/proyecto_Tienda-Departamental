@@ -2,39 +2,28 @@
 
 Esta guía organiza una exposición de aproximadamente 25 a 30 minutos. Cubre la sección B Tienda Departamental de `Proyectos App Web.docx`, los requisitos técnicos generales y los requisitos técnicos específicos de esa tienda en `Requerimientos Técnicos Generales.docx`. Los apartados de clínica y red social corresponden a otros proyectos. CORS y JWT son opcionales en el Word; también se pueden demostrar porque están implementados.
 
-**Estado del 13 de octubre:** la [matriz inicial](revision-requisitos-2026-10-13.md) conserva los hallazgos anteriores al cierre. El [informe de fases 4–6](implementacion-cierre-fases-4-6.md) explica el pastel literal y los rankings de productos/categorías, CRM con ambos grupos de inactividad, correo capturado por SMTP en Mailpit y reparto móvil con mapa OpenStreetMap. Las posiciones de demostración son ficticias y se identifican en UI; el GPS se prueba con emulación, sin requerir teléfono ni proveedor de pago para este proyecto universitario. El [informe de fases 1–3](implementacion-cierre-fases-1-3.md) conserva las pruebas de compatibilidad, seguridad, recuperación y precios. El principal conserva el conjunto anterior hasta la fase 9; las fases 7–9 siguen pendientes.
+**Entrega final del 14 de octubre de 2026:** las fases 1–9 están cerradas con el alcance universitario acordado. El [acta final](entrega-definitiva-fases-7-9.md) y el [plan cerrado](plan-cierre-definitivo.md) enlazan CI aprobado, estabilidad de 30 minutos, pruebas de inventario/ventas y siete recorridos del principal. La versión desplegada es fases-7-9-20261013-be87fd10ff60; las imágenes coinciden exactamente con la certificación local. Los informes de [fases 1–3](implementacion-cierre-fases-1-3.md) y [4–6](implementacion-cierre-fases-4-6.md) conservan sus fechas y alcance históricos.
 
-La demostración combina operaciones visibles, resultados esperados y pruebas técnicas. El informe nuevo enlaza los reportes y capturas del 13 de octubre. La evidencia anterior conserva su fecha y alcance; no sustituye la certificación integral de las fases 8 y 9.
+## Preparar la exposición en el principal
 
-## Preparar el entorno
+Docker Desktop debe estar iniciado. Desde la carpeta web, ejecutar:
 
-Docker Desktop debe estar iniciado y su motor disponible. Usa el entorno de pruebas que ya tiene datos sintéticos y Mailpit para capturar correos.
+~~~powershell
+docker compose -p web --env-file .env -f compose.yaml -f compose.university.yaml -f compose.release-fases-7-9.yaml up -d --no-build --wait
+docker exec web-rabbitmq-1 rabbitmq-diagnostics -q check_running
+~~~
 
-En PowerShell:
+No reconstruir imágenes ni borrar volúmenes para preparar la presentación. La app está en http://localhost:3005, Gateway en http://localhost:8000 y Mailpit en http://localhost:18000. El servidor antiguo de desarrollo de 3000 y las bases legacy quedaron fuera del entorno activo.
 
-```powershell
-Set-Location 'C:/Users/Aldo/Documents/Proyectos/ApliacionWeb/web'
-$env:Path = 'C:/Users/Aldo/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin;' + $env:Path
-docker info --format '{{.ServerVersion}}'
-node scripts/setup-integration.mjs
-$demoArgs = @('-p', 'departamental-five-phases', '--env-file', '.env.integration', '-f', 'compose.yaml', '-f', 'compose.integration.yaml')
-docker compose @demoArgs up -d --wait
-docker compose @demoArgs ps
-```
+Los usuarios iniciales son admin@departamental.local, employee@departamental.local y customer@departamental.local. Sus contraseñas están en las variables SEED_ADMIN_PASSWORD, SEED_EMPLOYEE_PASSWORD y SEED_CUSTOMER_PASSWORD del archivo privado .env. No se publican en esta guía. Usa perfiles/contextos separados para ADMIN y CUSTOMER, y también para principal/aislado: las cookies de localhost se comparten entre puertos y los dos entornos usan secretos distintos.
 
-La configuración existente se conserva. Si Docker indica que faltan imágenes, repite `up` agregando `--build`. No borres volúmenes para preparar la exposición.
+El artículo Entrega universitaria conservado en el principal tiene tres variantes S/M/L con color/material propios. Tras la validación quedó con 9/10/9 unidades en una sucursal y 10/10/10 en la otra. Puedes crear otro artículo, registrar recepciones y ajustar el punto de pedido desde Gestionar catálogo e Inventario; son tareas de UI. No volver a ejecutar el bootstrap de aceptación como una operación ordinaria: sus movimientos ya están conciliados y auditados.
 
-Abre estas direcciones:
+SMTP se acepta y captura realmente en Mailpit. En Mi reparto, el empleado publica Demostración universitaria; el mapa usa teselas reales de OpenStreetMap y señala coordenadas/destino ficticios. GPS se valida mediante emulación de navegador; no se certifica un teléfono físico ni un buzón externo.
 
-| Recurso | Dirección |
-| --- | --- |
-| Aplicación de demostración | http://localhost:3105 |
-| Gateway de demostración | http://localhost:8005 |
-| Bandeja de captura SMTP | http://localhost:18025 |
+## Pruebas que alteran servicios: únicamente en aislado
 
-Los puertos 3005 y 8000 pertenecen al entorno de negocio. Las ventas, ajustes de stock, campañas y paradas indicadas aquí se realizan exclusivamente en el proyecto `departamental-five-phases`.
-
-Ten disponibles dos sesiones de navegador: una de administrador y otra de cliente. Los usuarios iniciales son `admin@departamental.local`, `employee@departamental.local` y `customer@departamental.local`. Sus contraseñas de este entorno están en las variables `SEED_ADMIN_PASSWORD`, `SEED_EMPLOYEE_PASSWORD` y `SEED_CUSTOMER_PASSWORD` de `.env.integration`; no presupongas que son las contraseñas por defecto.
+Las carreras, apagados y recuperación se ejecutan exclusivamente en departamental-five-phases, con .env.integration y compose.integration.yaml: app 3105, Gateway 8005, Mailpit 18025. La batería es node scripts/certify-release.mjs; incluye los 30 minutos obligatorios. Nunca trasladar sus puertos/probes al principal. Para demostrar fallos durante una exposición, usar ese entorno y el procedimiento de recuperación indicado; no ejecutar down -v ni purgar DLQ.
 
 ## Matriz de requisitos y evidencia
 
@@ -54,7 +43,7 @@ Ten disponibles dos sesiones de navegador: una de administrador y otra de client
 | REST y comunicación asíncrona | Mostrar una respuesta JSON y una campaña que primero queda pendiente y luego aceptada por SMTP. | Las APIs devuelven JSON; RabbitMQ y los consumidores procesan los eventos de campaña y entrega. |
 | Bases independientes | Mostrar los PostgreSQL separados y ejemplos de clientes API entre servicios. | Cada dominio tiene su propia base; Orders llama APIs de Catalog, Pricing e Inventory y Analytics obtiene Inventory por API privada. |
 | Contenedores independientes | Mostrar `docker compose ps`; detener y restaurar solo Analytics en el entorno de prueba. | Los otros contenedores siguen activos y el catálogo sigue disponible. El reporte puede señalar indisponibilidad temporal. |
-| Atomicidad de la última unidad | Ejecutar `verify-five-phases.mjs` y mostrar su prueba de dos órdenes simultáneas. | Solo una compra se confirma, la otra recibe falta de stock y el stock final es cero. |
+| Atomicidad de la última unidad | Ejecutar `verify-close-seven.mjs` y mostrar su prueba de dos órdenes simultáneas. | Solo una compra se confirma, la otra recibe falta de stock y el stock final es cero. |
 | Caché de productos en Redis | Repetir la misma consulta y mostrar las claves de búsqueda de `catalog-redis`. | Redis contiene respuestas con vigencia; la prueba de Catalog comprueba que un acierto evita consultar PostgreSQL. |
 | Descuento programado a las 00 horas | Mostrar una promoción con zona America/Mexico_City y ejecutar la prueba de límites temporales. | Antes del inicio se cobra precio normal, a las 00:00 aplica el descuento y al vencer deja de aplicarse. |
 | Barras y pastel con Chart.js para stock | Mostrar las dos gráficas de stock por sucursal en `/dashboard` y abrir sus tablas. | `Bar` y `Pie` sin hueco usan los mismos datos de stock y Chart.js. |
@@ -201,3 +190,13 @@ Incluye:
 6. [PR 3 fusionado](https://github.com/AldoJosue31/proyecto_Tienda-Departamental/pull/3) y los controles aprobados de GitHub Actions.
 
 La verificación registrada incluye 188 pruebas unitarias, 27 comprobaciones de integración y nueve de navegador. Consulta [el informe final](implementacion-fases-6-8.md) para los límites de SMTP y las dependencias de Maps. No presentes una captura SMTP local como envío probado a una dirección real.
+
+## Evidencia final para la exposición
+
+- [Siete recorridos del principal](verification-principal-browser.json): alta y confirmación SMTP, compra/cancelación, caja, preparación, mapa/entrega, historial y cupón.
+- [Conciliación del principal](verification-principal-consistency.json): seis recepciones, tres compras online con dos cancelaciones, un ticket físico, una entrega y cupón restituido; no quedan reservas.
+- [Inventario y concurrencia](verification-close-seven.json): doce SKU, seis carreras física/física y seis física/online sobre PostgreSQL real, Redis, cancelación/despacho y recuperación.
+- [Latencia visible](verification-inventory-browser-latency.json): 12 ventas, p95 1.222 ms, reconexión y AGOTADO.
+- [CI de la versión desplegada](verification-remote-ci.json) y [estabilidad local](verification-stability.json): treinta minutos y cero errores.
+- [Despliegue y conservación](verification-principal-deployment.json), [restauración/migraciones](verification-release-images-fases-7-9.json) y [archivo de imágenes](verification-release-archive-fases-7-9.json).
+- Capturas actuales: docs/screenshots/principal-*, en desktop y móvil.

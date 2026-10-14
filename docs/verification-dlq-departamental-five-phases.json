@@ -1,7 +1,7 @@
 {
-  "completedAt": "2026-10-14T00:27:44.471Z",
+  "completedAt": "2026-10-14T06:37:42.549Z",
   "project": "departamental-five-phases",
-  "recoveryEnabled": false,
+  "recoveryEnabled": true,
   "privacy": "No credentials, identities or payloads exported",
   "queue": "analytics.projections.v1.dlq",
   "initial": 0,

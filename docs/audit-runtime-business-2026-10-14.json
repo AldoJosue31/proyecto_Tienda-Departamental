@@ -1,0 +1,543 @@
+{
+  "completedAt": "2026-10-14T08:27:18.805Z",
+  "timezone": "America/Mexico_City",
+  "environment": "business",
+  "project": "web",
+  "gateway": "http://localhost:8000",
+  "origin": "http://localhost:3005",
+  "scope": "Runtime HTTP reads, temporary authentication sessions, Docker status and Redis cache inspection. No end-to-end sales or message delivery.",
+  "checks": [
+    {
+      "name": "active containers running and healthy",
+      "passed": true,
+      "count": 24,
+      "legacyContainers": 2
+    },
+    {
+      "name": "public catalog JSON via Gateway with allowed CORS",
+      "passed": true,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "unlisted origin does not receive CORS permission or server error",
+      "passed": true,
+      "status": 403,
+      "json": true,
+      "code": "ORIGIN_NOT_ALLOWED",
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "JWT required /auth/me",
+      "passed": true,
+      "status": 401,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "JWT required /inventory",
+      "passed": true,
+      "status": 401,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "JWT required /analytics/sales/today",
+      "passed": true,
+      "status": 401,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "JWT required /customers",
+      "passed": true,
+      "status": 401,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "JWT required /shipments",
+      "passed": true,
+      "status": 401,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "JWT required /promotions",
+      "passed": true,
+      "status": 401,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "admin login",
+      "passed": true,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /auth/me",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /inventory",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /analytics/sales/today",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /promotions",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /orders",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /shipments",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /customers",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /auth/users",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "customer login",
+      "passed": true,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "customer access /inventory",
+      "passed": true,
+      "expected": 403,
+      "status": 403,
+      "json": true,
+      "code": "FORBIDDEN",
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "customer access /analytics/sales/today",
+      "passed": true,
+      "expected": 403,
+      "status": 403,
+      "json": true,
+      "code": "FORBIDDEN",
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "customer access /customers",
+      "passed": true,
+      "expected": 403,
+      "status": 403,
+      "json": true,
+      "code": "FORBIDDEN",
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "customer access /auth/users",
+      "passed": true,
+      "expected": 403,
+      "status": 403,
+      "json": true,
+      "code": "FORBIDDEN",
+      "allowOrigin": "http://localhost:3005",
+      "correlationId": true
+    },
+    {
+      "name": "Redis contains search responses with TTL",
+      "passed": true,
+      "keys": 2,
+      "sampleTtlSeconds": 66
+    }
+  ],
+  "containers": [
+    {
+      "service": "aplicacion-web",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:53:27.952472668Z",
+      "imageId": "sha256:8786ad661621948c7890b75ad013c22c28d6667431b5fdcfbddb6bdf1acc7e27",
+      "networks": [
+        "web_edge"
+      ]
+    },
+    {
+      "service": "pasarela-api",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:53:27.322277458Z",
+      "imageId": "sha256:a52d42e371d6406a7f018f80dd2c698746b582569b2fc1c3147002f6f8468643",
+      "networks": [
+        "web_analytics-internal",
+        "web_auth-internal",
+        "web_catalog-internal",
+        "web_crm-internal",
+        "web_edge",
+        "web_inventory-internal",
+        "web_logistics-internal",
+        "web_orders-internal",
+        "web_pricing-internal",
+        "web_realtime-internal"
+      ]
+    },
+    {
+      "service": "servicio-pedidos",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:53:26.507269202Z",
+      "imageId": "sha256:7f98c4148d3054cbc7fc665582e72991cfe0e7d2e0bed1c4930f91758488e66b",
+      "networks": [
+        "web_auth-internal",
+        "web_catalog-internal",
+        "web_events-internal",
+        "web_inventory-internal",
+        "web_logistics-internal",
+        "web_orders-data",
+        "web_orders-internal",
+        "web_pricing-internal"
+      ]
+    },
+    {
+      "service": "servicio-inventario",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:53:25.073689369Z",
+      "imageId": "sha256:2eed5b2ddfee58776a03d789d10636e6afa88924836c916935f3fc20e7f5864c",
+      "networks": [
+        "web_auth-internal",
+        "web_events-internal",
+        "web_inventory-data",
+        "web_inventory-internal"
+      ]
+    },
+    {
+      "service": "servicio-analitica",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:53:23.944533419Z",
+      "imageId": "sha256:fc28ea39af4c557111d3340beac5f239723830500c0a27c3d6ed3d0b61799755",
+      "networks": [
+        "web_analytics-data",
+        "web_analytics-internal",
+        "web_auth-internal",
+        "web_catalog-internal",
+        "web_events-internal",
+        "web_inventory-internal",
+        "web_orders-internal"
+      ]
+    },
+    {
+      "service": "servicio-notificaciones",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:53:23.700902867Z",
+      "imageId": "sha256:02273a3b0ae5f40df81467e990c2294865c976192d9106b2cf705762313517f0",
+      "networks": [
+        "web_auth-internal",
+        "web_events-internal",
+        "web_notification-data",
+        "web_notification-egress",
+        "web_notification-internal"
+      ]
+    },
+    {
+      "service": "servicio-precios",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:53:22.495250421Z",
+      "imageId": "sha256:fc07b9732293392802ad6f923a2b60915ec2c1814fc55ec78db5a6a188f5085a",
+      "networks": [
+        "web_auth-internal",
+        "web_catalog-internal",
+        "web_events-internal",
+        "web_orders-internal",
+        "web_pricing-data",
+        "web_pricing-internal"
+      ]
+    },
+    {
+      "service": "servicio-tiempo-real",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:53:22.483077133Z",
+      "imageId": "sha256:71ec6eb501e73b936da707fd2a6bc56de0a4713fbbfb54e9e837b5190f19b84a",
+      "networks": [
+        "web_auth-internal",
+        "web_events-internal",
+        "web_realtime-internal"
+      ]
+    },
+    {
+      "service": "servicio-logistica",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:53:22.482428591Z",
+      "imageId": "sha256:2a02e26c9b1b412a4e02d9b3041515b68f49d1aa9316d606a0dcf07eadbd0824",
+      "networks": [
+        "web_auth-internal",
+        "web_events-internal",
+        "web_logistics-data",
+        "web_logistics-internal"
+      ]
+    },
+    {
+      "service": "servicio-clientes",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:53:22.479833023Z",
+      "imageId": "sha256:eb45676b868338b5ebbcce253551d67868d1a51425144c4c5fa5f1d6dc539e21",
+      "networks": [
+        "web_auth-internal",
+        "web_crm-data",
+        "web_crm-internal",
+        "web_events-internal",
+        "web_orders-internal",
+        "web_pricing-internal"
+      ]
+    },
+    {
+      "service": "servicio-catalogo",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:53:22.452927481Z",
+      "imageId": "sha256:32e7734dfbeadc759863f723ca6b63e1d1b0d7f2eb4152205e1665417327226d",
+      "networks": [
+        "web_auth-internal",
+        "web_catalog-data",
+        "web_catalog-internal"
+      ]
+    },
+    {
+      "service": "servicio-autenticacion",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:53:22.450917551Z",
+      "imageId": "sha256:5fcf810d37e9630a1f0406b101118a742488855fd62dff2e35084fd2579e98bf",
+      "networks": [
+        "web_auth-data",
+        "web_auth-internal",
+        "web_events-internal"
+      ]
+    },
+    {
+      "service": "catalog-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:47:37.956374889Z",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "networks": [
+        "web_catalog-data"
+      ]
+    },
+    {
+      "service": "auth-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:47:37.924862256Z",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "networks": [
+        "web_auth-data"
+      ]
+    },
+    {
+      "service": "catalog-redis",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:47:37.923406067Z",
+      "imageId": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+      "networks": [
+        "web_catalog-data"
+      ]
+    },
+    {
+      "service": "crm-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:47:37.861484468Z",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "networks": [
+        "web_crm-data"
+      ]
+    },
+    {
+      "service": "pricing-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:47:37.828349935Z",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "networks": [
+        "web_pricing-data"
+      ]
+    },
+    {
+      "service": "logistics-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:47:37.765592285Z",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "networks": [
+        "web_logistics-data"
+      ]
+    },
+    {
+      "service": "orders-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:47:37.695833605Z",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "networks": [
+        "web_orders-data"
+      ]
+    },
+    {
+      "service": "analytics-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:47:37.648379694Z",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "networks": [
+        "web_analytics-data"
+      ]
+    },
+    {
+      "service": "notification-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:47:37.375750268Z",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "networks": [
+        "web_notification-data"
+      ]
+    },
+    {
+      "service": "inventory-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:47:37.375698665Z",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "networks": [
+        "web_inventory-data"
+      ]
+    },
+    {
+      "service": "rabbitmq",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:47:37.119145126Z",
+      "imageId": "sha256:5b6a50b2f1dbd987bb1a6a9e20b152910c3dc8ae32e1c9060b543ecd9250f6b9",
+      "networks": [
+        "web_events-internal"
+      ]
+    },
+    {
+      "service": "smtp-capture",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:47:36.869226993Z",
+      "imageId": "sha256:b1f1be18af530d939a11ee8820b379e0c88eeec204d904bfad68862adced3a5a",
+      "networks": [
+        "web_notification-egress"
+      ]
+    },
+    {
+      "service": "postgres",
+      "state": "exited",
+      "health": "unhealthy",
+      "createdAt": "2026-09-02T08:52:32.023548768Z",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "networks": [
+        "web_legacy-internal"
+      ]
+    },
+    {
+      "service": "redis",
+      "state": "exited",
+      "health": "unhealthy",
+      "createdAt": "2026-09-02T08:52:32.005435126Z",
+      "imageId": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+      "networks": [
+        "web_legacy-internal"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "completedAt": "2026-10-14T07:06:15.688Z",
+  "project": "departamental-five-phases",
+  "passed": true,
+  "recoveryEnabled": true,
+  "checks": [
+    {
+      "queue": "logistics.order-events.v1.dlq",
+      "initial": 0,
+      "valid": 0,
+      "invalid": 0,
+      "replayed": 0,
+      "retained": 0,
+      "confirmedBeforeAck": true,
+      "invalidPayloadsRetained": true,
+      "passed": true
+    },
+    {
+      "queue": "crm.order-projections.v1.dlq",
+      "initial": 0,
+      "valid": 0,
+      "invalid": 0,
+      "replayed": 0,
+      "retained": 0,
+      "confirmedBeforeAck": true,
+      "invalidPayloadsRetained": true,
+      "passed": true
+    },
+    {
+      "queue": "crm.campaign-delivery-status.v1.dlq",
+      "initial": 0,
+      "valid": 0,
+      "invalid": 0,
+      "replayed": 0,
+      "retained": 0,
+      "confirmedBeforeAck": true,
+      "invalidPayloadsRetained": true,
+      "passed": true
+    },
+    {
+      "queue": "notification.coupon-emails.v1.dlq",
+      "initial": 0,
+      "valid": 0,
+      "invalid": 0,
+      "replayed": 0,
+      "retained": 0,
+      "confirmedBeforeAck": true,
+      "invalidPayloadsRetained": true,
+      "passed": true
+    }
+  ],
+  "secretsAndPayloadsExcluded": true
+}

@@ -1,0 +1,109 @@
+{
+  "completedAt": "2026-10-14T07:13:38.253Z",
+  "passed": true,
+  "environment": "local",
+  "gitSha": "2ea6dbe1379e34e7cbc59a1bc2ea67c5a1c15415",
+  "pipelineSha256": "cf8b0effc8b52e238ca869c32c1fdd05a6fc64c4e149760a666be0cfa63dbafc",
+  "stabilityIncluded": true,
+  "fixtureInitializations": [
+    {
+      "project": "departamental-five-phases",
+      "fixture": "account-suite IP counters",
+      "at": "2026-10-14T06:33:55.111Z"
+    },
+    {
+      "project": "departamental-five-phases",
+      "fixture": "account-suite IP counters",
+      "at": "2026-10-14T06:36:32.724Z"
+    }
+  ],
+  "checks": [
+    {
+      "command": "node scripts/verify-close-first-three.mjs",
+      "passed": true,
+      "milliseconds": 52214
+    },
+    {
+      "command": "node scripts/verify-accounts-first-five.mjs",
+      "passed": true,
+      "milliseconds": 109367
+    },
+    {
+      "command": "node scripts/verify-five-phases.mjs",
+      "passed": true,
+      "milliseconds": 27766
+    },
+    {
+      "command": "node scripts/verify-final-phases.mjs",
+      "passed": true,
+      "milliseconds": 19444
+    },
+    {
+      "command": "npx playwright test --config playwright.accounts.config.ts",
+      "passed": true,
+      "milliseconds": 49048
+    },
+    {
+      "command": "node scripts/verify-accounts-races.mjs",
+      "passed": true,
+      "milliseconds": 13404
+    },
+    {
+      "command": "node scripts/audit-requirements.mjs",
+      "passed": true,
+      "milliseconds": 6208
+    },
+    {
+      "command": "node scripts/audit-projection-dlq.mjs --recover-valid",
+      "passed": true,
+      "milliseconds": 1179
+    },
+    {
+      "command": "node scripts/audit-domain-dlq.mjs --recover-valid",
+      "passed": true,
+      "milliseconds": 5012
+    },
+    {
+      "command": "node scripts/verify-close-four-six.mjs",
+      "passed": true,
+      "milliseconds": 91035
+    },
+    {
+      "command": "npx playwright test --config playwright.phases-four-six.config.ts",
+      "passed": true,
+      "milliseconds": 53404
+    },
+    {
+      "command": "node scripts/verify-close-seven.mjs",
+      "passed": true,
+      "milliseconds": 47132
+    },
+    {
+      "command": "npx playwright test --config playwright.phases-seven.config.ts",
+      "passed": true,
+      "milliseconds": 49408
+    },
+    {
+      "command": "node scripts/verify-stability.mjs",
+      "passed": true,
+      "milliseconds": 1800038,
+      "report": "docs/verification-stability.json"
+    }
+  ],
+  "secretsExcluded": true,
+  "initialStabilityAttempt": {
+    "command": "node scripts/verify-stability.mjs",
+    "passed": false,
+    "milliseconds": 12732,
+    "failure": "Incorrect CRM diagnostic table name"
+  },
+  "executedPipelineSha256": "cf8b0effc8b52e238ca869c32c1fdd05a6fc64c4e149760a666be0cfa63dbafc",
+  "finalPipelineSha256": "aa97680ae1470ab45b9aa1dbc540283012698ada0bfd716f58cac635515bbddd",
+  "resume": {
+    "reason": "Only the stability diagnostic query and CI pacing changed; the 13 business/browser/security runners passed sequentially on the unchanged image set before the full 30-minute rerun",
+    "imageSetUnchanged": true,
+    "businessRunnersUnchanged": true,
+    "originalChecksPreserved": true
+  },
+  "noRestartsObservedDuringStability": true
+}

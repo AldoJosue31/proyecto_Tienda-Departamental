@@ -1,0 +1,63 @@
+{
+  "completedAt": "2026-10-14T08:23:09.350Z",
+  "passed": true,
+  "project": "web",
+  "scope": "Designated synthetic university fixture in principal; no destructive faults or concurrency load",
+  "checks": [
+    {
+      "name": "principal CUSTOMER registers and explicitly confirms email accepted by local SMTP",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 6308
+    },
+    {
+      "name": "principal CUSTOMER buys online, views tracking and cancels a second purchase through UI",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 17019
+    },
+    {
+      "name": "principal EMPLOYEE completes a physical ticket with no customer selected",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 4214
+    },
+    {
+      "name": "principal ADMIN assigns a courier and advances Pendiente to Empacando and Enviado",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 6645
+    },
+    {
+      "name": "principal EMPLOYEE publishes DEMO, ADMIN sees actual OpenStreetMap tiles, and delivery is confirmed",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 12325
+    },
+    {
+      "name": "principal CUSTOMER sees delivered status and ADMIN opens Dashboard and CRM history",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 13052
+    },
+    {
+      "name": "principal CRM sends a coupon only to the designated inactive group, captures SMTP and redeems then cancels",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 16856
+    }
+  ],
+  "privacy": {
+    "tracesVideosPasswordsTokensExcluded": true
+  },
+  "resumedScenarios": {
+    "reports": [
+      "docs/verification-principal-browser-initial.json",
+      "docs/verification-principal-browser-resume-four.json",
+      "docs/verification-principal-browser-resume-five.json"
+    ],
+    "reason": "Corrected test locators to the actual controls and resumed the persisted designated scenario without creating duplicate sales",
+    "applicationRuntimeUnchanged": true
+  },
+  "releaseId": "fases-7-9-20261013-be87fd10ff60"
+}

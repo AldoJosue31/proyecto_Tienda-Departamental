@@ -1,0 +1,73 @@
+{
+  "completedAt": "2026-10-14T08:32:25.655Z",
+  "passed": true,
+  "phases": [
+    7,
+    8,
+    9
+  ],
+  "releaseId": "fases-7-9-20261013-be87fd10ff60",
+  "applicationGitSha": "2ea6dbe1379e34e7cbc59a1bc2ea67c5a1c15415",
+  "principal": "http://localhost:3005",
+  "exactHealthyContainers": 24,
+  "legacyContainersStopped": true,
+  "qualityTests": 364,
+  "httpChecks": 24,
+  "principalBrowserScenarios": 7,
+  "inventoryProjectionRows": 92,
+  "inventoryProjectionMatchesAllOfficialStock": true,
+  "designatedMovements": {
+    "receipts": 6,
+    "initialUnitsPerVariantPerBranch": 10,
+    "onlineOrders": 3,
+    "cancelledOnlineOrders": 2,
+    "physicalTickets": 1,
+    "deliveredOnlineOrders": 1,
+    "couponCampaigns": 1,
+    "smtpCouponRecipients": 1,
+    "discountedOrders": 1,
+    "couponsRestored": 1,
+    "remainingBranchUnits": [
+      9,
+      10,
+      9
+    ],
+    "otherBranchUnits": [
+      10,
+      10,
+      10
+    ]
+  },
+  "stabilityLocal": {
+    "concurrency": 5,
+    "webRequestsPerRound": 1,
+    "intervalMilliseconds": 10000,
+    "rounds": 179,
+    "requests": 1074,
+    "errors": 0,
+    "p95Milliseconds": 87
+  },
+  "ci": "https://github.com/AldoJosue31/proyecto_Tienda-Departamental/actions/runs/38525332057",
+  "verificationHarness": {
+    "modifiedFile": "e2e/principal/flows.spec.ts",
+    "sha256": "12ff5e1bf780fd676688522bb90e92eaecd6fe52d3a96263900dca7d3f6163d3",
+    "lintAndTypesPassed": true,
+    "applicationSourceUnchanged": true
+  },
+  "reports": [
+    "docs/verification-release-quality.json",
+    "docs/verification-dependency-security.json",
+    "docs/verification-ci-gate.json",
+    "docs/verification-stability.json",
+    "docs/verification-remote-ci.json",
+    "docs/verification-release-images-fases-7-9.json",
+    "docs/verification-release-archive-fases-7-9.json",
+    "docs/verification-principal-deployment.json",
+    "docs/verification-principal-browser.json",
+    "docs/verification-principal-consistency.json",
+    "docs/verification-dlq-web.json",
+    "docs/verification-domain-dlq-web.json"
+  ],
+  "scope": "University local SMTP capture, real OpenStreetMap tiles, DEMO and browser GPS emulation; no external mailbox or physical phone certification",
+  "secretsExcluded": true
+}

@@ -1,0 +1,35 @@
+{
+  "completedAt": "2026-10-14T08:16:12.306Z",
+  "passed": false,
+  "project": "web",
+  "scope": "Designated synthetic university fixture in principal; no destructive faults or concurrency load",
+  "checks": [
+    {
+      "name": "principal ADMIN assigns a courier and advances Pendiente to Empacando and Enviado",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 6645
+    },
+    {
+      "name": "principal EMPLOYEE publishes DEMO, ADMIN sees actual OpenStreetMap tiles, and delivery is confirmed",
+      "status": "timedOut",
+      "passed": false,
+      "milliseconds": 120148
+    },
+    {
+      "name": "principal CUSTOMER sees delivered status and ADMIN opens Dashboard and CRM history",
+      "status": "skipped",
+      "passed": false,
+      "milliseconds": 0
+    },
+    {
+      "name": "principal CRM sends a coupon only to the designated inactive group, captures SMTP and redeems then cancels",
+      "status": "skipped",
+      "passed": false,
+      "milliseconds": 0
+    }
+  ],
+  "privacy": {
+    "tracesVideosPasswordsTokensExcluded": true
+  }
+}

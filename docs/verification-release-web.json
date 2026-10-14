@@ -1,7 +1,7 @@
 {
   "project": "web",
-  "startedAt": "2026-10-13T10:36:41.490Z",
-  "completedAt": "2026-10-13T10:49:17.544Z",
+  "startedAt": "2026-10-14T07:39:19.037Z",
+  "completedAt": "2026-10-14T07:41:17.696Z",
   "passed": true,
   "liveDatabasesMigrated": false,
   "images": [
@@ -136,78 +136,78 @@
       "domain": "auth",
       "database": "auth_service",
       "bytes": 98438,
-      "sha256": "de783d2421a5357abe39822e77e77f05ae5410bc42add56422907d7992600f94",
+      "sha256": "4b52c27e6500cfd48d7e414d398a858b82832278e6890525a9cef84c46f4df76",
       "tablesPreserved": 2
     },
     {
       "domain": "catalog",
       "database": "catalog_service",
       "bytes": 22487,
-      "sha256": "38c46fc13b9b7e30995ef0a72f0a59d24f493120b0312645e80da99e38cfdf63",
+      "sha256": "629b17d8adfce5ad74f6aff085bdded88c4328e597af24e4f07cddb71d9b3758",
       "tablesPreserved": 5
     },
     {
       "domain": "inventory",
       "database": "inventory_service",
-      "bytes": 41000,
-      "sha256": "35f4c8486a4d33f9f627e3498977f0c25435793979c1dc975bda5d1817fac3b8",
+      "bytes": 41038,
+      "sha256": "eb2022fd9b468f842bb16607090c1232a9583f33f0a3c72012c5ecd4a5756887",
       "tablesPreserved": 9
     },
     {
       "domain": "pricing",
       "database": "pricing_service",
       "bytes": 19236,
-      "sha256": "56c8f4c56366981ca4abd51a4a6e17c7139361c67fbae333c960faba3d12ec20",
+      "sha256": "26e90549e1e0653700e17cd9bdca0a737b3a2498fd0d70dfe4423ccb4ec602a7",
       "tablesPreserved": 6
     },
     {
       "domain": "orders",
       "database": "orders_service",
       "bytes": 25977,
-      "sha256": "a3122ddd2ce01281c7bd5ff67016feabe2231cadc5633ae9df7de3507d2ad238",
+      "sha256": "50b2062ae685fe4c5e95dbbd21f04bfc900bb4d0776f89c4ab5bd9d9b4728a8a",
       "tablesPreserved": 5
     },
     {
       "domain": "analytics",
       "database": "analytics_service",
-      "bytes": 17622,
-      "sha256": "babcee592d6d8504a7035921d040676ccb11dd432338fa378a9a61f2a3eef634",
+      "bytes": 17623,
+      "sha256": "b34f2a8256f77b607ea8999a6af99bf531d6840e189654190a00e60adf53f4e9",
       "tablesPreserved": 7
     },
     {
       "domain": "logistics",
       "database": "logistics_service",
       "bytes": 24445,
-      "sha256": "1b2ad72e9b71db2ea4f8ad1f5115649d0d28a478361817edcafc4649e325de97",
+      "sha256": "29c13c177beb279a51d180fbc7a3222fb68a680330adffb5437bd1a2ed388c0b",
       "tablesPreserved": 6
     },
     {
       "domain": "crm",
       "database": "crm_service",
       "bytes": 25107,
-      "sha256": "a35647f5979cd149628773f081ca0a37af6800d5024faad63c664909e5edefea",
+      "sha256": "b17f81787d780e5bf36d7f6aa7969c407da548d6a928c1726f70abf5d9e90b1a",
       "tablesPreserved": 8
     },
     {
       "domain": "notification",
       "database": "notification_service",
       "bytes": 10587,
-      "sha256": "d4ee69f3b2aa440d38b4891016dfd43acafcee39079cc28f24fa90aeb18151e2",
+      "sha256": "46ed15b8f534aa1dbc49d3e9d848c5d86011439dcfaa661038c93c794b72cfd8",
       "tablesPreserved": 3
     },
     {
       "domain": "legacy",
       "database": "departamental",
       "bytes": 20414,
-      "sha256": "3e92794daa6a2dfd244172803ff6df2c995c6120835fffdf5d94a8408ea6cdf3",
+      "sha256": "631f62a20e4be890e91a43e82eac0ce2fa5369c02793465c94423e9e70224146",
       "tablesPreserved": 8
     }
   ],
   "volumes": [
     {
       "service": "rabbitmq",
-      "bytes": 203602,
-      "sha256": "6c8264bd2d93475d2b198d3f86ebd7dfc25dc23c503f162ceca7ebf6bbf67c64",
+      "bytes": 265889,
+      "sha256": "8246f0a6f7a8c18fc5c23e425207b31c46af98a9df00c020c1a9ee6814a5bcfe",
       "hostname": "b807706f5fa7",
       "imageId": "sha256:5b6a50b2f1dbd987bb1a6a9e20b152910c3dc8ae32e1c9060b543ecd9250f6b9"
     }
@@ -350,10 +350,31 @@
       "messages": 0
     }
   ],
-  "backupDirectory": "C:\\Users\\Aldo\\Documents\\Proyectos\\ApliacionWeb\\.codex-backups\\integral-release\\2026-10-13T10-36-41-487Z",
+  "stage": "broker-checkpoint",
+  "writersHeldForDeployment": true,
+  "heldContainers": [
+    "b807706f5fa724b68a79e7a2ae615568bebffd7b8afd6fc4d6c055da2ed3e343",
+    "65a714a0010b43de7b6b3ae59f899b0093b1605ebc23af7abae3e74c30528c85",
+    "b12f8a6f9ad7fdb300526c1951e8ff6d2278cbc0ffac3753860f93b76ff066ba",
+    "ab530800398a47b1c32a47eed192d689041864f335011e39925a903fcae7dde5",
+    "6f197e48c42ce38cd559d434a822d20d36168efed774b06dd67fdf55dc1d830b",
+    "6074187d6c476095e3c14b838b1cf55302c2ad3d6d3a0489526d244f0f3727ef",
+    "d8701b935fa4b436ddf972dc5845598ba90bc027fea394e75c9678607cea0283",
+    "895a565bde069c8f5ba28c01e4ab51636f2537512077195212551b1431a13469",
+    "f530f34b29edfae7aac72e2d3318e1a273cded0997bfdade517322765d619b93",
+    "7222238c6d4d44a8dd9bd54368aed72e71414508874e943c1af7bb8b4cf37a18",
+    "590d87dac7977c0219d74b5acf9385097a9229fb7b483d2b04dd87954d72bca2",
+    "d04b34e1dcf38076cd68af5ba45a6ec09a79c05e56251fff90800e0adc0904a2",
+    "b5714bf5e6fe9315f56e05dcf41c0e43d7ee571a87d3fb5d50516e6d25756a3b"
+  ],
+  "backupDirectory": "private-local/.codex-backups\\integral-release\\2026-10-14T07-39-19-026Z",
   "privacy": {
     "secretsExcluded": true,
     "privateBackupsOutsideGit": true
   },
-  "stage": "complete"
+  "previousWritersAlreadyHeld": {
+    "verifiedAt": "2026-10-14T07:43:31.441Z",
+    "count": 13,
+    "allStopped": true
+  }
 }

@@ -1,0 +1,542 @@
+{
+  "completedAt": "2026-10-14T07:06:09.035Z",
+  "timezone": "America/Mexico_City",
+  "environment": "integration",
+  "project": "departamental-five-phases",
+  "gateway": "http://localhost:8005",
+  "origin": "http://localhost:3105",
+  "scope": "Runtime HTTP reads, temporary authentication sessions, Docker status and Redis cache inspection. No end-to-end sales or message delivery.",
+  "checks": [
+    {
+      "name": "active containers running and healthy",
+      "passed": true,
+      "count": 24,
+      "legacyContainers": 0
+    },
+    {
+      "name": "public catalog JSON via Gateway with allowed CORS",
+      "passed": true,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "unlisted origin does not receive CORS permission or server error",
+      "passed": true,
+      "status": 403,
+      "json": true,
+      "code": "ORIGIN_NOT_ALLOWED",
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "JWT required /auth/me",
+      "passed": true,
+      "status": 401,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "JWT required /inventory",
+      "passed": true,
+      "status": 401,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "JWT required /analytics/sales/today",
+      "passed": true,
+      "status": 401,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "JWT required /customers",
+      "passed": true,
+      "status": 401,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "JWT required /shipments",
+      "passed": true,
+      "status": 401,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "JWT required /promotions",
+      "passed": true,
+      "status": 401,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "admin login",
+      "passed": true,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /auth/me",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /inventory",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /analytics/sales/today",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /promotions",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /orders",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /shipments",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /customers",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "admin access /auth/users",
+      "passed": true,
+      "expected": 200,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "customer login",
+      "passed": true,
+      "status": 200,
+      "json": true,
+      "code": null,
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "customer access /inventory",
+      "passed": true,
+      "expected": 403,
+      "status": 403,
+      "json": true,
+      "code": "FORBIDDEN",
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "customer access /analytics/sales/today",
+      "passed": true,
+      "expected": 403,
+      "status": 403,
+      "json": true,
+      "code": "FORBIDDEN",
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "customer access /customers",
+      "passed": true,
+      "expected": 403,
+      "status": 403,
+      "json": true,
+      "code": "FORBIDDEN",
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "customer access /auth/users",
+      "passed": true,
+      "expected": 403,
+      "status": 403,
+      "json": true,
+      "code": "FORBIDDEN",
+      "allowOrigin": "http://localhost:3105",
+      "correlationId": true
+    },
+    {
+      "name": "Redis contains search responses with TTL",
+      "passed": true,
+      "keys": 2,
+      "sampleTtlSeconds": 120
+    }
+  ],
+  "containers": [
+    {
+      "service": "aplicacion-web",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.900157155Z",
+      "imageId": "sha256:7b36cc77b4b18e561902912f9a7335f16c29a4031f9e91023d68d2c5614d6444",
+      "networks": [
+        "departamental-five-phases_edge"
+      ]
+    },
+    {
+      "service": "pasarela-api",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.85243443Z",
+      "imageId": "sha256:eb7a5012242e0a97ebc02e78055992a3d9a72a70d12f8b39963b37cc9ca5c13d",
+      "networks": [
+        "departamental-five-phases_analytics-internal",
+        "departamental-five-phases_auth-internal",
+        "departamental-five-phases_catalog-internal",
+        "departamental-five-phases_crm-internal",
+        "departamental-five-phases_edge",
+        "departamental-five-phases_inventory-internal",
+        "departamental-five-phases_logistics-internal",
+        "departamental-five-phases_orders-internal",
+        "departamental-five-phases_pricing-internal",
+        "departamental-five-phases_realtime-internal"
+      ]
+    },
+    {
+      "service": "servicio-notificaciones",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.798485436Z",
+      "imageId": "sha256:2d808caedda86c1b88ea8f42270d56dc107c69596e281833b91ac9ed44cd0756",
+      "networks": [
+        "departamental-five-phases_auth-internal",
+        "departamental-five-phases_events-internal",
+        "departamental-five-phases_notification-data",
+        "departamental-five-phases_notification-egress",
+        "departamental-five-phases_notification-internal",
+        "departamental-five-phases_notification-probe"
+      ]
+    },
+    {
+      "service": "servicio-pedidos",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.784670896Z",
+      "imageId": "sha256:01b320f1c12e4aeff0f9fdb6368f287ea658a000445af5032607ce17e256310e",
+      "networks": [
+        "departamental-five-phases_auth-internal",
+        "departamental-five-phases_catalog-internal",
+        "departamental-five-phases_events-internal",
+        "departamental-five-phases_inventory-internal",
+        "departamental-five-phases_logistics-internal",
+        "departamental-five-phases_orders-data",
+        "departamental-five-phases_orders-internal",
+        "departamental-five-phases_orders-probe",
+        "departamental-five-phases_pricing-internal"
+      ]
+    },
+    {
+      "service": "servicio-clientes",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.78013019Z",
+      "imageId": "sha256:f6eab87cdcc7193508d043ce664c87f3fd415449ad042e6378a1d7cdd9cf1894",
+      "networks": [
+        "departamental-five-phases_auth-internal",
+        "departamental-five-phases_crm-data",
+        "departamental-five-phases_crm-internal",
+        "departamental-five-phases_crm-probe",
+        "departamental-five-phases_events-internal",
+        "departamental-five-phases_orders-internal",
+        "departamental-five-phases_pricing-internal"
+      ]
+    },
+    {
+      "service": "servicio-logistica",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.78003652Z",
+      "imageId": "sha256:66cf9d1e9bf5a0d2f59fcc61f3b5cd16410e2aeeb495cc40539c9e7ed28f2f69",
+      "networks": [
+        "departamental-five-phases_auth-internal",
+        "departamental-five-phases_events-internal",
+        "departamental-five-phases_logistics-data",
+        "departamental-five-phases_logistics-internal",
+        "departamental-five-phases_logistics-probe"
+      ]
+    },
+    {
+      "service": "servicio-analitica",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.773747151Z",
+      "imageId": "sha256:48147ff1e73b93b1aa89cda45d0a99bbb5f8264ba173801588beea3beed532fe",
+      "networks": [
+        "departamental-five-phases_analytics-data",
+        "departamental-five-phases_analytics-internal",
+        "departamental-five-phases_analytics-probe",
+        "departamental-five-phases_auth-internal",
+        "departamental-five-phases_catalog-internal",
+        "departamental-five-phases_events-internal",
+        "departamental-five-phases_inventory-internal",
+        "departamental-five-phases_orders-internal"
+      ]
+    },
+    {
+      "service": "servicio-autenticacion",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.771780319Z",
+      "imageId": "sha256:8caf9572854547c872d5c0eccb0f72e4293b7bd771b9737b1fd11f312feb4a24",
+      "networks": [
+        "departamental-five-phases_auth-data",
+        "departamental-five-phases_auth-internal",
+        "departamental-five-phases_auth-probe",
+        "departamental-five-phases_events-internal"
+      ]
+    },
+    {
+      "service": "servicio-inventario",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.764696055Z",
+      "imageId": "sha256:b9e3f78abf2a382448e60b951113901b017863ba9265d6693de37415bd1b60de",
+      "networks": [
+        "departamental-five-phases_auth-internal",
+        "departamental-five-phases_events-internal",
+        "departamental-five-phases_inventory-data",
+        "departamental-five-phases_inventory-internal",
+        "departamental-five-phases_inventory-probe"
+      ]
+    },
+    {
+      "service": "servicio-catalogo",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.76420014Z",
+      "imageId": "sha256:7f06c34e9e23fe33a21467f062686dca8c7153f978dd6f8ed7bfcc09d093d761",
+      "networks": [
+        "departamental-five-phases_auth-internal",
+        "departamental-five-phases_catalog-data",
+        "departamental-five-phases_catalog-internal",
+        "departamental-five-phases_catalog-probe"
+      ]
+    },
+    {
+      "service": "servicio-precios",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.746553705Z",
+      "imageId": "sha256:4b65d0ff16f1639d7927c1112c11105d3c14c3b446bda50db2f7674877024947",
+      "networks": [
+        "departamental-five-phases_auth-internal",
+        "departamental-five-phases_catalog-internal",
+        "departamental-five-phases_events-internal",
+        "departamental-five-phases_orders-internal",
+        "departamental-five-phases_pricing-data",
+        "departamental-five-phases_pricing-internal",
+        "departamental-five-phases_pricing-probe"
+      ]
+    },
+    {
+      "service": "servicio-tiempo-real",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.741479672Z",
+      "imageId": "sha256:59fb917b4a58363077e21954fc615165da1eb4c3cf94f76817f15f9223aad119",
+      "networks": [
+        "departamental-five-phases_auth-internal",
+        "departamental-five-phases_events-internal",
+        "departamental-five-phases_realtime-internal"
+      ]
+    },
+    {
+      "service": "crm-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.641273271Z",
+      "imageId": "sha256:81bd698b4594e751a3269e4dcd3e03a4a0ec0daf7b72e7aa1abd43cce9887542",
+      "networks": [
+        "departamental-five-phases_crm-data",
+        "departamental-five-phases_crm-probe"
+      ]
+    },
+    {
+      "service": "logistics-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.641254433Z",
+      "imageId": "sha256:81bd698b4594e751a3269e4dcd3e03a4a0ec0daf7b72e7aa1abd43cce9887542",
+      "networks": [
+        "departamental-five-phases_logistics-data",
+        "departamental-five-phases_logistics-probe"
+      ]
+    },
+    {
+      "service": "inventory-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.640967767Z",
+      "imageId": "sha256:81bd698b4594e751a3269e4dcd3e03a4a0ec0daf7b72e7aa1abd43cce9887542",
+      "networks": [
+        "departamental-five-phases_inventory-data",
+        "departamental-five-phases_inventory-probe"
+      ]
+    },
+    {
+      "service": "analytics-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.640529188Z",
+      "imageId": "sha256:81bd698b4594e751a3269e4dcd3e03a4a0ec0daf7b72e7aa1abd43cce9887542",
+      "networks": [
+        "departamental-five-phases_analytics-data",
+        "departamental-five-phases_analytics-probe"
+      ]
+    },
+    {
+      "service": "auth-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.640453534Z",
+      "imageId": "sha256:81bd698b4594e751a3269e4dcd3e03a4a0ec0daf7b72e7aa1abd43cce9887542",
+      "networks": [
+        "departamental-five-phases_auth-data",
+        "departamental-five-phases_auth-probe"
+      ]
+    },
+    {
+      "service": "notification-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.640325447Z",
+      "imageId": "sha256:81bd698b4594e751a3269e4dcd3e03a4a0ec0daf7b72e7aa1abd43cce9887542",
+      "networks": [
+        "departamental-five-phases_notification-data",
+        "departamental-five-phases_notification-probe"
+      ]
+    },
+    {
+      "service": "catalog-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.640091986Z",
+      "imageId": "sha256:81bd698b4594e751a3269e4dcd3e03a4a0ec0daf7b72e7aa1abd43cce9887542",
+      "networks": [
+        "departamental-five-phases_catalog-data",
+        "departamental-five-phases_catalog-probe"
+      ]
+    },
+    {
+      "service": "orders-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.629355487Z",
+      "imageId": "sha256:81bd698b4594e751a3269e4dcd3e03a4a0ec0daf7b72e7aa1abd43cce9887542",
+      "networks": [
+        "departamental-five-phases_orders-data",
+        "departamental-five-phases_orders-probe"
+      ]
+    },
+    {
+      "service": "smtp-capture",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.627795958Z",
+      "imageId": "sha256:28ccd879e7d68e36c5c45680c3c691849fd2b2684e3b802163a3349a65887265",
+      "networks": [
+        "departamental-five-phases_notification-egress"
+      ]
+    },
+    {
+      "service": "rabbitmq",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.627292962Z",
+      "imageId": "sha256:2214b2ab489a7df5bd3ad3361717375c32df86f1fe8cf465760733c27cd38759",
+      "networks": [
+        "departamental-five-phases_broker-probe",
+        "departamental-five-phases_events-internal"
+      ]
+    },
+    {
+      "service": "pricing-postgres",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.62683298Z",
+      "imageId": "sha256:81bd698b4594e751a3269e4dcd3e03a4a0ec0daf7b72e7aa1abd43cce9887542",
+      "networks": [
+        "departamental-five-phases_pricing-data",
+        "departamental-five-phases_pricing-probe"
+      ]
+    },
+    {
+      "service": "catalog-redis",
+      "state": "running",
+      "health": "healthy",
+      "createdAt": "2026-10-14T07:02:53.626795289Z",
+      "imageId": "sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058",
+      "networks": [
+        "departamental-five-phases_catalog-data"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "verifiedAt": "2026-10-14T07:46:20.261Z",
+  "passed": true,
+  "gitSha": "2ea6dbe1379e34e7cbc59a1bc2ea67c5a1c15415",
+  "runId": 38525332057,
+  "url": "https://github.com/AldoJosue31/proyecto_Tienda-Departamental/actions/runs/38525332057",
+  "workflow": "Application checks",
+  "jobs": [
+    {
+      "name": "release-integration",
+      "conclusion": "success"
+    },
+    {
+      "name": "services (notification)",
+      "conclusion": "success"
+    },
+    {
+      "name": "web",
+      "conclusion": "success"
+    },
+    {
+      "name": "services (crm)",
+      "conclusion": "success"
+    },
+    {
+      "name": "services (orders)",
+      "conclusion": "success"
+    },
+    {
+      "name": "services (catalog)",
+      "conclusion": "success"
+    },
+    {
+      "name": "services (pricing)",
+      "conclusion": "success"
+    },
+    {
+      "name": "services (inventory)",
+      "conclusion": "success"
+    },
+    {
+      "name": "services (realtime)",
+      "conclusion": "success"
+    },
+    {
+      "name": "services (analytics)",
+      "conclusion": "success"
+    },
+    {
+      "name": "services (logistics)",
+      "conclusion": "success"
+    },
+    {
+      "name": "services (auth)",
+      "conclusion": "success"
+    }
+  ],
+  "certificationCommands": 14,
+  "stability": {
+    "elapsedMilliseconds": 1800005,
+    "requests": 1080,
+    "errors": 0,
+    "p95Milliseconds": 31
+  },
+  "artifactDirectory": "docs/ci-release-2ea6dbe",
+  "scope": "Same application commit; CI builds its own images. Principal uses the exact locally certified image set.",
+  "secretsExcluded": true
+}
