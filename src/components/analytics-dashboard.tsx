@@ -52,8 +52,7 @@ export function AnalyticsDashboardView({ initialAnalytics }: { initialAnalytics:
     <section className="mt-8" aria-labelledby="analytics-title" aria-busy={analytics.isFetching}>
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
         <div className="max-w-2xl">
-          <div className="flex items-center gap-2 text-sm font-medium text-[var(--accent-strong)]"><IconChartBar size={18} aria-hidden="true" />Indicadores de desempeño</div>
-          <h2 id="analytics-title" className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Ventas e inventario en contexto</h2>
+          <h2 id="analytics-title" className="text-2xl font-semibold tracking-[-0.03em]">Ventas e inventario en contexto</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Proyecciones independientes de Analytics Service. Los pedidos siguen operando aunque el reporte tenga retraso.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2" aria-label="Controles del reporte">

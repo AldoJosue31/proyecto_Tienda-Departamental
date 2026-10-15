@@ -8,7 +8,6 @@ import {
   IconPackage,
   IconPlus,
   IconRefresh,
-  IconShoppingBag,
   IconTrash,
 } from "@tabler/icons-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -244,8 +243,7 @@ export function PhysicalSalesDesk({
     <section aria-labelledby="physical-sales-title" aria-busy={sale.isPending}>
       <div className="flex flex-col justify-between gap-5 border-b border-[var(--line)] pb-7 lg:flex-row lg:items-end">
         <div className="max-w-2xl">
-          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--accent-strong)]"><IconShoppingBag size={18} aria-hidden="true" />Operación de sucursal</div>
-          <h1 id="physical-sales-title" className="mt-2 text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Venta física</h1>
+          <h1 id="physical-sales-title" className="text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Venta física</h1>
           <p className="mt-3 text-pretty text-sm leading-6 text-[var(--muted)]">Registra un ticket por sucursal. La confirmación consulta el precio vigente y consume existencias desde Orders e Inventory.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]" aria-live="polite">

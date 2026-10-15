@@ -14,7 +14,7 @@ describe("centro de cuenta de CUSTOMER", () => {
     expect(page).toContain("roleLabel[user.role]");
   });
 
-  it("orienta a acciones reales y omite identificadores técnicos o funcionalidades inexistentes", () => {
+  it("orienta a acciones reales, muestra el ID del cliente y omite funcionalidades inexistentes", () => {
     const account = read("src/components/customer-account.tsx");
 
     expect(account).toContain("Compras y entregas");
@@ -22,7 +22,8 @@ describe("centro de cuenta de CUSTOMER", () => {
     expect(account).toContain('href="/"');
     expect(account).toContain("Correo de acceso");
     expect(account).toContain("cerrar esta sesión desde el encabezado");
-    expect(account).not.toContain("user.id");
+    expect(account).toContain("ID del cliente (UID)");
+    expect(account).toContain("{user.id}");
     expect(account).not.toContain("Editar perfil");
     expect(account).not.toContain("Ubicación del repartidor");
   });

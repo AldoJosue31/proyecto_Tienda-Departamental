@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { IconCalendarClock, IconEdit, IconPlus, IconRefresh } from "@tabler/icons-react";
+import { IconEdit, IconPlus, IconRefresh } from "@tabler/icons-react";
 import type { CatalogPage } from "@/lib/catalog/types";
 import { promotionInputSchema, type Promotion, type PromotionInput } from "@/lib/pricing/promotions-schema";
 import { utcToZonedDateTime, zonedDateTimeToUtc } from "@/lib/pricing/zoned-date-time";
@@ -32,7 +32,7 @@ export function PromotionsWorkspace({ initial }: { initial: { promotions: Promot
     onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["promotions"] }); setEditing(null); setEditorVersion((value) => value + 1); },
   });
   return <section className="platform-page" aria-labelledby="promotions-title">
-    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="flex items-center gap-2 text-sm font-semibold text-[var(--accent-strong)]"><IconCalendarClock size={18} aria-hidden="true" />Precios y campañas</p><h1 id="promotions-title" className="mt-3 text-3xl font-semibold tracking-[-0.04em]">Promociones programadas</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">Define descuentos y sus horarios. Cada campaña se activa y termina automáticamente en su zona horaria.</p></div><button type="button" onClick={() => { save.reset(); setEditing(null); setEditorVersion((value) => value + 1); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white"><IconPlus size={17} aria-hidden="true" />Nueva promoción</button></div>
+    <div className="flex flex-wrap items-end justify-between gap-4"><div><h1 id="promotions-title" className="text-3xl font-semibold tracking-[-0.04em]">Promociones programadas</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">Define descuentos y sus horarios. Cada campaña se activa y termina automáticamente en su zona horaria.</p></div><button type="button" onClick={() => { save.reset(); setEditing(null); setEditorVersion((value) => value + 1); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white"><IconPlus size={17} aria-hidden="true" />Nueva promoción</button></div>
     <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_1.1fr]">
       <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 sm:p-6" aria-busy={list.isFetching}>
         <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">Campañas</h2><button type="button" aria-label="Actualizar promociones" disabled={list.isFetching} onClick={() => void list.refetch()} className="grid size-11 place-items-center rounded-xl hover:bg-[var(--surface-muted)] disabled:opacity-50"><IconRefresh size={18} aria-hidden="true" /></button></div>

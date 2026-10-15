@@ -5,7 +5,6 @@ import {
   IconAlertTriangle,
   IconArrowDown,
   IconArrowUp,
-  IconBoxSeam,
   IconPackage,
   IconRefresh,
   IconSearch,
@@ -137,8 +136,7 @@ export function InventoryReplenishmentDesk({
     <section className="platform-page" aria-busy={inventory.isFetching || movement.isPending}>
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
         <div className="max-w-2xl">
-          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--accent-strong)]"><IconBoxSeam size={18} aria-hidden="true" />Inventory Service</div>
-          <h1 className="mt-2 text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Reabastecimiento y ajustes</h1>
+          <h1 className="text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Reabastecimiento y ajustes</h1>
           <p className="mt-3 text-pretty text-sm leading-6 text-[var(--muted)]">Registra entradas y correcciones con una variante oficial de Catalog. Cada movimiento queda auditado y actualiza el stock por sucursal.</p>
         </div>
         <div className="flex flex-wrap items-end gap-3">

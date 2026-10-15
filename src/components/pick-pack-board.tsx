@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconAlertTriangle, IconBoxSeam, IconChevronRight, IconCircleCheck, IconClipboardCheck, IconClock, IconListDetails, IconPackage, IconRefresh, IconTruckDelivery } from "@tabler/icons-react";
+import { IconAlertTriangle, IconBoxSeam, IconChevronRight, IconCircleCheck, IconClock, IconListDetails, IconPackage, IconRefresh, IconTruckDelivery } from "@tabler/icons-react";
 import { useState } from "react";
 import { sileo } from "sileo";
 import type { PickPackDashboard, PickPackShipment, PickPackShipmentDetail, PickPackStatusInput } from "@/lib/logistics/pick-pack-types";
@@ -47,7 +47,7 @@ export function PickPackBoard({ initialDashboard, maps }: { initialDashboard: Pi
 
   return <section className="min-w-0" aria-labelledby="pick-pack-title" aria-busy={board.isFetching}>
     <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-      <div className="max-w-2xl"><div className="flex items-center gap-2 text-sm font-semibold text-[var(--accent-strong)]"><IconClipboardCheck size={18} aria-hidden="true" />Logistics Service</div><h1 id="pick-pack-title" className="mt-2 text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Pick &amp; Pack</h1><p className="mt-3 text-pretty text-sm leading-6 text-[var(--muted)]">Consulta los envíos operativos, prepara cada pedido y registra el avance con transiciones verificadas.</p></div>
+      <div className="max-w-2xl"><h1 id="pick-pack-title" className="text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Pick &amp; Pack</h1><p className="mt-3 text-pretty text-sm leading-6 text-[var(--muted)]">Consulta los envíos operativos, prepara cada pedido y registra el avance con transiciones verificadas.</p></div>
       <div className="flex flex-wrap items-center gap-2"><p className="mr-1 text-sm text-[var(--muted)]" aria-live="polite">{data ? `Sincronizado ${formatDate(data.refreshedAt)}` : "Conectando a operación"}</p><button type="button" onClick={() => void board.refetch()} disabled={board.isFetching} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold transition-colors hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-50"><IconRefresh className={board.isFetching ? "animate-spin motion-reduce:animate-none" : undefined} size={17} aria-hidden="true" />Actualizar</button></div>
     </div>
     <p className="mt-3 text-sm text-[var(--muted)]">El tablero se sincroniza cada 15 segundos. Las cancelaciones no aparecen en preparación.</p>
