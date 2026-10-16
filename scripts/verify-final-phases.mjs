@@ -1,3 +1,4 @@
+import {localCrmAuthority} from "./verification-authority.mjs";
 import assert from "node:assert/strict";
 import { randomUUID,createHmac } from "node:crypto";
 import { readFileSync,writeFileSync } from "node:fs";
@@ -27,38 +28,37 @@ try {
   const admin=(await api("/auth/login",null,"POST",{email:"admin@departamental.local",password:env.SEED_ADMIN_PASSWORD})).body;assert.ok(admin.accessToken);
   const token=admin.accessToken;
   const customerId=randomUUID(),otherId=randomUUID(),email=`coupon-${customerId.slice(0,8)}@example.test`;
-  await pools.auth.query("INSERT INTO auth_users(id,email,name,password_hash,role,is_active) SELECT $1,$2,'Cliente de integración',password_hash,'CUSTOMER',TRUE FROM auth_users WHERE email='customer@departamental.local'",[customerId,email]);
-  await pools.auth.query("INSERT INTO auth_users(id,email,name,password_hash,role,is_active) SELECT $1,$2,'Cliente de integración 2',password_hash,'CUSTOMER',TRUE FROM auth_users WHERE email='customer@departamental.local'",[otherId,`coupon-${otherId.slice(0,8)}@example.test`]);
+  await pools.auth.query("INSERT INTO auth_users(id,email,name,password_hash,role,is_active,email_verified_at,verification_source,created_at) SELECT $1,$2,'Cliente de integración',password_hash,'CUSTOMER',TRUE,NOW(),'TEST_FIXTURE','2025-01-01'::timestamptz FROM auth_users WHERE email='customer@departamental.local'",[customerId,email]);
+  await pools.auth.query("INSERT INTO auth_users(id,email,name,password_hash,role,is_active,email_verified_at,verification_source,created_at) SELECT $1,$2,'Cliente de integración 2',password_hash,'CUSTOMER',TRUE,NOW(),'TEST_FIXTURE','2025-01-01'::timestamptz FROM auth_users WHERE email='customer@departamental.local'",[otherId,`coupon-${otherId.slice(0,8)}@example.test`]);
   const customer=(await api("/auth/login",null,"POST",{email,password:env.SEED_CUSTOMER_PASSWORD})).body;assert.ok(customer.accessToken);
   const inventory=(await api("/inventory/branches",token)).body;
-  const branchId=inventory.branches[0].id;
+  const branchId=inventory.branches.find(branch=>branch.id==="b1000000-0000-4000-8000-000000000001").id;
   const stocks=(await api(`/inventory/branches/${branchId}`,token)).body.items;
-  const products=(await api("/products",token)).body.items;
-  const stock=stocks.find(item=>products.some(product=>product.variants.some(variant=>variant.id===item.variantId)));
-  const product=products.find(product=>product.variants.some(variant=>variant.id===stock.variantId));
-  const variant=product.variants.find(variant=>variant.id===stock.variantId),variantId=variant.id;
+  const product=(await api("/products/a1000000-0000-4000-8000-000000000001",token)).body.product;
+  const variant=product.variants.find(variant=>variant.id==="a2000000-0000-4000-8000-000000000001"),variantId=variant.id;
+  assert.ok(stocks.some(stock=>stock.variantId===variantId));
   await pools.inventory.query("UPDATE inventory_stock SET on_hand=50,reserved=0 WHERE branch_id=$1 AND variant_id=$2",[branchId,variantId]);
-  const {CrmService}=load("crm","crm/crm.service"),crm=new CrmService(databases.crm);
+  const {CrmService}=load("crm","crm/crm.service"),authority=localCrmAuthority(load,env),crm=new CrmService(databases.crm,authority);
   for (const id of [customerId,otherId]) await crm.project({eventId:randomUUID(),eventType:"order.completed.v1",occurredAt:new Date(Date.now()-250*86400000).toISOString(),correlationId:null,orderId:randomUUID(),customerId:id,branchId,currency:"MXN",total:100,items:[]});
   const code="FINAL"+randomUUID().slice(0,8).toUpperCase();
   const input={months:3,couponCode:code,validUntil:new Date(Date.now()+86400000).toISOString(),discountType:"PERCENTAGE",discountValue:20,targetScope:"VARIANT",targetId:variantId};
   let campaign;
   await check("CRM confirmation persists explicit coupon definition and request idempotency",async()=>{
-    const headers={Cookie:`departamental_access=${token}`,"Content-Type":"application/json","Idempotency-Key":randomUUID()};
+    const headers={Cookie:`departamental_access=${token}`,Origin:web,"Content-Type":"application/json","Idempotency-Key":randomUUID()};
     const response=await fetch(web+"/api/crm/campaigns",{method:"POST",headers,body:JSON.stringify(input)});assert.equal(response.status,202);campaign=(await response.json()).campaign;
     const replay=await fetch(web+"/api/crm/campaigns",{method:"POST",headers,body:JSON.stringify(input)});assert.equal((await replay.json()).campaign.id,campaign.id);
     const changed=await fetch(web+"/api/crm/campaigns",{method:"POST",headers,body:JSON.stringify({...input,discountValue:30})});assert.equal(changed.status,409);
   });
   const {CampaignOutboxService}=load("crm","crm/campaign-outbox.service");
   process.env.JWT_ACCESS_SECRET=env.JWT_ACCESS_SECRET;process.env.PRICING_SERVICE_URL="http://localhost:3304";
-  const outbox=new CampaignOutboxService(databases.crm,{environment:"integration",rabbitmqUrl:`amqp://departamental:${env.RABBITMQ_PASSWORD}@localhost:55672`,outboxPublishIntervalMilliseconds:60000});
+  const outbox=new CampaignOutboxService(databases.crm,{environment:"integration",rabbitmqUrl:`amqp://departamental:${env.RABBITMQ_PASSWORD}@localhost:55672`,outboxPublishIntervalMilliseconds:60000},authority);
   await outbox.flush();await outbox.onModuleDestroy();
   await check("coupon right exists before real SMTP capture and accepted status reaches CRM",async()=>{
     await until(async()=>{const row=(await pools.notification.query("SELECT status FROM notification_deliveries WHERE campaign_id=$1 AND customer_id=$2",[campaign.id,customerId])).rows[0];return row?.status==="SENT";});
     assert.equal((await pools.pricing.query("SELECT status FROM pricing_coupon_rights WHERE campaign_id=$1 AND customer_id=$2",[campaign.id,customerId])).rows[0].status,"AVAILABLE");
     await until(async()=>(await crm.campaign(campaign.id)).campaign.sentCount>=2);
-    const messages=await (await fetch("http://localhost:18025/api/v1/messages")).json();const message=messages.messages.find(message=>message.Subject.includes(code));assert.ok(message);
-    const detail=await (await fetch("http://localhost:18025/api/v1/message/"+message.ID)).json();assert.match(detail.Text,new RegExp(code));assert.ok(detail.To.some(recipient=>recipient.Address===email || recipient.Address.startsWith("coupon-")));
+    const messages=await (await fetch("http://localhost:18025/api/v1/messages?limit=1000")).json();const message=messages.messages.find(message=>message.Subject.includes(code) && message.To.some(recipient=>recipient.Address===email));assert.ok(message);
+    const detail=await (await fetch("http://localhost:18025/api/v1/message/"+message.ID)).json();assert.match(detail.Text,new RegExp(code));assert.ok(detail.To.some(recipient=>recipient.Address===email));
   });
   await check("public clients cannot issue rights or impersonate a coupon owner",async()=>{
     assert.equal((await api("/internal/coupons/issue",token,"POST",{})).status,404);
@@ -81,9 +81,10 @@ try {
     assert.equal((await pools.pricing.query("SELECT valid_until FROM pricing_coupon_campaigns WHERE id=$1",[campaign.id])).rows[0].valid_until.toISOString(),input.validUntil);
   });
   await check("checkout BFF verifies the coupon and replays the same confirmed order",async()=>{
-    const headers={Cookie:`departamental_access=${customer.accessToken}`,"Content-Type":"application/json"};
+    const headers={Cookie:`departamental_access=${customer.accessToken}`,Origin:web,"Content-Type":"application/json"};
     const preview=await fetch(web+"/api/checkout/coupon",{method:"POST",headers,body:JSON.stringify({code,items:order.items})});assert.equal(preview.status,200);assert.ok((await preview.json()).discountTotal>0);
     headers["Idempotency-Key"]=randomUUID();
+    const displayed=await fetch(web+"/api/pricing/cart",{method:"POST",headers,body:JSON.stringify({items:order.items,couponCode:code})});assert.equal(displayed.status,200);order.expectedTotal=(await displayed.json()).total;
     const create=await fetch(web+"/api/checkout",{method:"POST",headers,body:JSON.stringify(order)});assert.equal(create.status,201);confirmed=(await create.json()).order;
     const replay=await fetch(web+"/api/checkout",{method:"POST",headers,body:JSON.stringify(order)});assert.equal((await replay.json()).order.id,confirmed.id);
     await until(async()=>(await api("/shipments",customer.accessToken)).body.shipments.some(shipment=>shipment.orderId===confirmed.id));
@@ -91,7 +92,8 @@ try {
   await check("stock failure releases the reserved coupon without a second use",async()=>{
     const issued={campaignId:randomUUID(),customerId,code:"FAIL"+randomUUID().slice(0,8).toUpperCase(),discountType:"PERCENTAGE",discountValue:10,targetScope:"ALL",validUntil:input.validUntil};assert.equal((await privateApi("issue",issued,"crm")).status,201);
     await pools.inventory.query("UPDATE inventory_stock SET on_hand=0,reserved=0 WHERE branch_id=$1 AND variant_id=$2",[branchId,variantId]);
-    const failed=await api("/orders",customer.accessToken,"POST",{...order,couponCode:issued.code},{"Idempotency-Key":randomUUID()});assert.equal(failed.body.code,"OUT_OF_STOCK");
+    const fresh=await api("/pricing/cart/quote",customer.accessToken,"POST",{items:order.items,couponCode:issued.code});assert.equal(fresh.status,200);
+    const failed=await api("/orders",customer.accessToken,"POST",{...order,couponCode:issued.code,expectedTotal:fresh.body.total},{"Idempotency-Key":randomUUID()});assert.equal(failed.body.code,"OUT_OF_STOCK");
     assert.equal((await pools.pricing.query("SELECT status FROM pricing_coupon_rights WHERE campaign_id=$1 AND customer_id=$2",[issued.campaignId,customerId])).rows[0].status,"AVAILABLE");
     await pools.inventory.query("UPDATE inventory_stock SET on_hand=20,reserved=0 WHERE branch_id=$1 AND variant_id=$2",[branchId,variantId]);
   });
@@ -127,7 +129,9 @@ try {
   await check("logistics tracks packing, courier location, dispatch and delivery with role restrictions",async()=>{
     const denied=await api(`/shipments/${shipment.id}/status`,customer.accessToken,"PATCH",{status:"PACKING",version:shipment.version});assert.equal(denied.status,403);
     let result=await api(`/shipments/${shipment.id}/status`,token,"PATCH",{status:"PACKING",version:shipment.version});assert.equal(result.status,200);shipment=result.body.shipment;
-    const courierId=randomUUID();result=await api(`/shipments/${shipment.id}/tracking`,token,"PATCH",{courierId,courierName:"Repartidor de prueba",deliveryAddress:"Zócalo, Ciudad de México, México",version:shipment.version});assert.equal(result.status,200);shipment=result.body.shipment;
+    const courierId=randomUUID();
+    await pools.auth.query("INSERT INTO auth_users(id,email,name,password_hash,role,is_active,onboarding_status,email_verified_at,verification_source) SELECT $1,$2,'Repartidor de regresión',password_hash,'EMPLOYEE',TRUE,'READY',NOW(),'TEST_FIXTURE' FROM auth_users WHERE email='employee@departamental.local'",[courierId,`courier-regression-${courierId.slice(0,12)}@example.test`]);
+    result=await api(`/shipments/${shipment.id}/tracking`,token,"PATCH",{courierId,courierName:"Repartidor de prueba",deliveryAddress:"Zócalo, Ciudad de México, México",version:shipment.version});assert.equal(result.status,200);shipment=result.body.shipment;
     result=await api(`/shipments/${shipment.id}/status`,token,"PATCH",{status:"SHIPPED",version:shipment.version});assert.equal(result.status,200);shipment=result.body.shipment;
     assert.equal((await api(`/couriers/${courierId}/location`,token,"POST",{shipmentId:shipment.id,latitude:95,longitude:-99.13})).status,400);
     assert.equal((await api(`/couriers/${courierId}/location`,token,"POST",{shipmentId:shipment.id,latitude:19.435,longitude:-99.14,recordedAt:new Date(Date.now()-600000).toISOString()})).status,201);

@@ -1,0 +1,380 @@
+{
+  "project": "web",
+  "startedAt": "2026-10-14T07:39:19.037Z",
+  "completedAt": "2026-10-14T07:41:17.696Z",
+  "passed": true,
+  "liveDatabasesMigrated": false,
+  "images": [
+    {
+      "service": "aplicacion-web",
+      "imageId": "sha256:3902a01160c904739abce37045b6b4b9cbc8ae9a3b6df77eca2370b2bae7c213",
+      "createdAt": "2026-10-12T22:00:00.091080475Z"
+    },
+    {
+      "service": "servicio-inventario",
+      "imageId": "sha256:5d69ba66b7b928e39188aded80cf656248dbdedbfccbb62195b5b0aae240d5cc",
+      "createdAt": "2026-10-12T21:58:54.685269335Z"
+    },
+    {
+      "service": "servicio-catalogo",
+      "imageId": "sha256:4685f4e057aaa35143cf55bbe7d783091f8366f7dbc3c6f9ba6430e852bcd29f",
+      "createdAt": "2026-10-12T21:58:54.604994916Z"
+    },
+    {
+      "service": "pasarela-api",
+      "imageId": "sha256:fae6651c027dfa6cea0b19d88282f2aecd3e395c096382c688d5a60a5457ca07",
+      "createdAt": "2026-10-08T15:54:58.316221884Z"
+    },
+    {
+      "service": "servicio-pedidos",
+      "imageId": "sha256:280ea57aeca3a27e27de9e242b8cd7d2b04c6226675df7e3b6dd6f5995ff7f01",
+      "createdAt": "2026-10-08T15:54:53.670468238Z"
+    },
+    {
+      "service": "servicio-notificaciones",
+      "imageId": "sha256:f59a771395d67495bf9465bc194b7fc08dd0782a04d6d4800b1960d81dbed8b2",
+      "createdAt": "2026-10-08T15:54:49.537392881Z"
+    },
+    {
+      "service": "servicio-clientes",
+      "imageId": "sha256:776825558e52fda9854de742f720fab4de854bee86071c00fd67963a16b20f47",
+      "createdAt": "2026-10-08T15:54:49.419571104Z"
+    },
+    {
+      "service": "servicio-precios",
+      "imageId": "sha256:901aef1a753677b54dea557e01b38ad32832883cc4343394ae764c9cf6ee65cc",
+      "createdAt": "2026-10-08T15:54:49.415576545Z"
+    },
+    {
+      "service": "servicio-analitica",
+      "imageId": "sha256:e3fa55834c690a298643785955951aebc463af364bb7e5a0014aec5228923dab",
+      "createdAt": "2026-10-08T10:15:58.101560008Z"
+    },
+    {
+      "service": "servicio-tiempo-real",
+      "imageId": "sha256:a71d41d4382c148eba808be8009af87bee27b37b6e14b097f83813d9b2549d6f",
+      "createdAt": "2026-10-08T10:15:57.108262934Z"
+    },
+    {
+      "service": "servicio-logistica",
+      "imageId": "sha256:26623d7b4a7dc50c42d3cb4ebaf1e3ee99273509e4a06a477e457e06ce127198",
+      "createdAt": "2026-10-07T06:20:02.877476085Z"
+    },
+    {
+      "service": "servicio-autenticacion",
+      "imageId": "sha256:9b8c508cb99d9a26c4749ede561cb64c641066e43a880e090b9a91b58658ddc8",
+      "createdAt": "2026-10-07T06:20:02.877085661Z"
+    },
+    {
+      "service": "notification-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-09-04T23:53:32.153771743Z"
+    },
+    {
+      "service": "crm-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-09-04T23:05:53.47064581Z"
+    },
+    {
+      "service": "logistics-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-09-04T02:02:30.329313547Z"
+    },
+    {
+      "service": "analytics-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-09-03T18:38:51.054684571Z"
+    },
+    {
+      "service": "rabbitmq",
+      "imageId": "sha256:5b6a50b2f1dbd987bb1a6a9e20b152910c3dc8ae32e1c9060b543ecd9250f6b9",
+      "createdAt": "2026-09-03T08:27:24.296775605Z"
+    },
+    {
+      "service": "orders-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-09-03T07:12:09.61727222Z"
+    },
+    {
+      "service": "postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-09-02T08:52:32.023548768Z"
+    },
+    {
+      "service": "redis",
+      "imageId": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+      "createdAt": "2026-09-02T08:52:32.005435126Z"
+    },
+    {
+      "service": "auth-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-09-02T08:52:31.784390549Z"
+    },
+    {
+      "service": "catalog-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-09-02T08:52:31.732278126Z"
+    },
+    {
+      "service": "catalog-redis",
+      "imageId": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+      "createdAt": "2026-09-02T08:52:31.731314382Z"
+    },
+    {
+      "service": "pricing-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-09-02T08:52:31.664262464Z"
+    },
+    {
+      "service": "inventory-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-09-02T08:52:31.664229463Z"
+    }
+  ],
+  "databases": [
+    {
+      "domain": "auth",
+      "database": "auth_service",
+      "bytes": 98438,
+      "sha256": "4b52c27e6500cfd48d7e414d398a858b82832278e6890525a9cef84c46f4df76",
+      "tablesPreserved": 2
+    },
+    {
+      "domain": "catalog",
+      "database": "catalog_service",
+      "bytes": 22487,
+      "sha256": "629b17d8adfce5ad74f6aff085bdded88c4328e597af24e4f07cddb71d9b3758",
+      "tablesPreserved": 5
+    },
+    {
+      "domain": "inventory",
+      "database": "inventory_service",
+      "bytes": 41038,
+      "sha256": "eb2022fd9b468f842bb16607090c1232a9583f33f0a3c72012c5ecd4a5756887",
+      "tablesPreserved": 9
+    },
+    {
+      "domain": "pricing",
+      "database": "pricing_service",
+      "bytes": 19236,
+      "sha256": "26e90549e1e0653700e17cd9bdca0a737b3a2498fd0d70dfe4423ccb4ec602a7",
+      "tablesPreserved": 6
+    },
+    {
+      "domain": "orders",
+      "database": "orders_service",
+      "bytes": 25977,
+      "sha256": "50b2062ae685fe4c5e95dbbd21f04bfc900bb4d0776f89c4ab5bd9d9b4728a8a",
+      "tablesPreserved": 5
+    },
+    {
+      "domain": "analytics",
+      "database": "analytics_service",
+      "bytes": 17623,
+      "sha256": "b34f2a8256f77b607ea8999a6af99bf531d6840e189654190a00e60adf53f4e9",
+      "tablesPreserved": 7
+    },
+    {
+      "domain": "logistics",
+      "database": "logistics_service",
+      "bytes": 24445,
+      "sha256": "29c13c177beb279a51d180fbc7a3222fb68a680330adffb5437bd1a2ed388c0b",
+      "tablesPreserved": 6
+    },
+    {
+      "domain": "crm",
+      "database": "crm_service",
+      "bytes": 25107,
+      "sha256": "b17f81787d780e5bf36d7f6aa7969c407da548d6a928c1726f70abf5d9e90b1a",
+      "tablesPreserved": 8
+    },
+    {
+      "domain": "notification",
+      "database": "notification_service",
+      "bytes": 10587,
+      "sha256": "46ed15b8f534aa1dbc49d3e9d848c5d86011439dcfaa661038c93c794b72cfd8",
+      "tablesPreserved": 3
+    },
+    {
+      "domain": "legacy",
+      "database": "departamental",
+      "bytes": 20414,
+      "sha256": "631f62a20e4be890e91a43e82eac0ce2fa5369c02793465c94423e9e70224146",
+      "tablesPreserved": 8
+    }
+  ],
+  "volumes": [
+    {
+      "service": "rabbitmq",
+      "bytes": 265889,
+      "sha256": "8246f0a6f7a8c18fc5c23e425207b31c46af98a9df00c020c1a9ee6814a5bcfe",
+      "hostname": "b807706f5fa7",
+      "imageId": "sha256:5b6a50b2f1dbd987bb1a6a9e20b152910c3dc8ae32e1c9060b543ecd9250f6b9"
+    }
+  ],
+  "checks": [
+    {
+      "name": "all application writers stopped and broker has no unacknowledged jobs",
+      "passed": true,
+      "queues": 17,
+      "pendingMessages": 2
+    },
+    {
+      "name": "all domain databases and consistent durable RabbitMQ storage backed up",
+      "passed": true,
+      "databases": 10
+    },
+    {
+      "name": "auth restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 2
+    },
+    {
+      "name": "catalog restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 5
+    },
+    {
+      "name": "inventory restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 9
+    },
+    {
+      "name": "pricing restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 6
+    },
+    {
+      "name": "orders restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 5
+    },
+    {
+      "name": "analytics restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 7
+    },
+    {
+      "name": "logistics restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 6
+    },
+    {
+      "name": "crm restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 8
+    },
+    {
+      "name": "notification restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 3
+    },
+    {
+      "name": "legacy restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 8
+    },
+    {
+      "name": "durable broker restoration preserves queues and pending message counts",
+      "passed": true,
+      "pendingMessages": 2
+    }
+  ],
+  "brokerCheckpoint": [
+    {
+      "name": "notification.coupon-emails.v1",
+      "messages": 0
+    },
+    {
+      "name": "inventory.order-cancelled.v1.retry",
+      "messages": 0
+    },
+    {
+      "name": "crm.campaign-delivery-status.v1.dlq",
+      "messages": 0
+    },
+    {
+      "name": "logistics.order-events.v1.dlq",
+      "messages": 0
+    },
+    {
+      "name": "analytics.projections.v1",
+      "messages": 0
+    },
+    {
+      "name": "realtime.inventory-stock.v1",
+      "messages": 0
+    },
+    {
+      "name": "analytics.projections.v1.dlq",
+      "messages": 2
+    },
+    {
+      "name": "realtime.courier-tracking.v1",
+      "messages": 0
+    },
+    {
+      "name": "logistics.order-events.v1",
+      "messages": 0
+    },
+    {
+      "name": "inventory.order-cancelled.v1.dlq",
+      "messages": 0
+    },
+    {
+      "name": "crm.order-projections.v1.dlq",
+      "messages": 0
+    },
+    {
+      "name": "crm.order-projections.v1",
+      "messages": 0
+    },
+    {
+      "name": "inventory.order-cancelled.v1",
+      "messages": 0
+    },
+    {
+      "name": "crm.campaign-delivery-status.v1",
+      "messages": 0
+    },
+    {
+      "name": "notification.coupon-emails.v1.dlq",
+      "messages": 0
+    },
+    {
+      "name": "realtime.courier-tracking.v1.dlq",
+      "messages": 0
+    },
+    {
+      "name": "realtime.inventory-stock.v1.dlq",
+      "messages": 0
+    }
+  ],
+  "stage": "broker-checkpoint",
+  "writersHeldForDeployment": true,
+  "heldContainers": [
+    "b807706f5fa724b68a79e7a2ae615568bebffd7b8afd6fc4d6c055da2ed3e343",
+    "65a714a0010b43de7b6b3ae59f899b0093b1605ebc23af7abae3e74c30528c85",
+    "b12f8a6f9ad7fdb300526c1951e8ff6d2278cbc0ffac3753860f93b76ff066ba",
+    "ab530800398a47b1c32a47eed192d689041864f335011e39925a903fcae7dde5",
+    "6f197e48c42ce38cd559d434a822d20d36168efed774b06dd67fdf55dc1d830b",
+    "6074187d6c476095e3c14b838b1cf55302c2ad3d6d3a0489526d244f0f3727ef",
+    "d8701b935fa4b436ddf972dc5845598ba90bc027fea394e75c9678607cea0283",
+    "895a565bde069c8f5ba28c01e4ab51636f2537512077195212551b1431a13469",
+    "f530f34b29edfae7aac72e2d3318e1a273cded0997bfdade517322765d619b93",
+    "7222238c6d4d44a8dd9bd54368aed72e71414508874e943c1af7bb8b4cf37a18",
+    "590d87dac7977c0219d74b5acf9385097a9229fb7b483d2b04dd87954d72bca2",
+    "d04b34e1dcf38076cd68af5ba45a6ec09a79c05e56251fff90800e0adc0904a2",
+    "b5714bf5e6fe9315f56e05dcf41c0e43d7ee571a87d3fb5d50516e6d25756a3b"
+  ],
+  "backupDirectory": "private-local/.codex-backups\\integral-release\\2026-10-14T07-39-19-026Z",
+  "privacy": {
+    "secretsExcluded": true,
+    "privateBackupsOutsideGit": true
+  },
+  "previousWritersAlreadyHeld": {
+    "verifiedAt": "2026-10-14T07:43:31.441Z",
+    "count": 13,
+    "allStopped": true
+  }
+}

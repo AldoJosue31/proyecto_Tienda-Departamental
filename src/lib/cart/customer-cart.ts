@@ -19,6 +19,26 @@ export function customerCartStorageKey(customerId: string) {
   return `departamental.customer-cart.v1:${encodeURIComponent(customerId)}`;
 }
 
+export const GUEST_CART_KEY = "departamental.guest-cart.v1";
+export function loadShoppingCart(storage: Pick<Storage, "getItem" | "setItem" | "removeItem">, customerId: string | null, guestEnabled: boolean): CustomerCartLine[] {
+  if (!customerId && !guestEnabled) return [];
+  const read = (key: string) => {
+    try { return normalizeCustomerCart(JSON.parse(storage.getItem(key) || "[]")); }
+    catch { return []; }
+  };
+  if (!customerId) return read(GUEST_CART_KEY);
+  const current = read(customerCartStorageKey(customerId)), guest = read(GUEST_CART_KEY);
+  if (!guest.length) return current;
+  const combined = normalizeCustomerCart([...current, ...guest]);
+  try {
+    // Persist the destination before removing the anonymous selection. A second
+    // mount (including Strict Mode) reads the merged cart without adding twice.
+    storage.setItem(customerCartStorageKey(customerId), JSON.stringify(combined));
+    storage.removeItem(GUEST_CART_KEY);
+  } catch { /* The in-memory selection remains usable if storage is restricted. */ }
+  return combined;
+}
+
 export function normalizeCustomerCart(value: unknown): CustomerCartLine[] {
   if (!Array.isArray(value)) return [];
 

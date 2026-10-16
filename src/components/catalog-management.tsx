@@ -14,7 +14,7 @@ function FieldError({ message }: { message?: string }) { return message ? <p cla
 function Outcome({ message, status }: { message?: string; status?: "success" | "error" }) { return message ? <p role={status === "error" ? "alert" : "status"} className={`mt-4 rounded-xl px-3 py-2.5 text-sm ${status === "error" ? "bg-[var(--danger-surface)] text-[var(--danger)]" : "bg-[var(--success-surface)] text-[var(--success)]"}`}>{message}</p> : null; }
 function AttributeLine({ variant }: { variant: CatalogVariant }) { const values = [variant.size && `Talla: ${variant.size}`, variant.color && `Color: ${variant.color}`, variant.material && `Material: ${variant.material}`].filter(Boolean); return <p className="mt-1 text-xs text-[var(--muted)]">{values.length ? values.join(" · ") : "Sin atributos adicionales"}</p>; }
 
-export function CatalogManagement({ products }: { products: CatalogProductSummary[] }) {
+export function CatalogManagement({ products, search, total }: { products: CatalogProductSummary[]; search: string; total: number }) {
   const router = useRouter();
   const [productState, productAction] = useActionState(createCatalogProduct, initialCatalogActionState);
   const [variantState, variantAction] = useActionState(createCatalogVariant, initialCatalogActionState);
@@ -26,6 +26,11 @@ export function CatalogManagement({ products }: { products: CatalogProductSummar
   return <section className="platform-page">
     <p className="text-sm font-semibold text-[var(--accent-strong)]">Administración de catálogo</p>
     <h1 className="mt-3 max-w-2xl text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Productos y variantes con atributos reales.</h1>
+    <form action="/catalog/manage" className="mt-5 flex flex-wrap items-end gap-3">
+      <label className="min-w-0 flex-1"><span className="text-sm font-semibold">Buscar producto o SKU</span><input name="q" defaultValue={search} maxLength={200} className="mt-2 h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm" /></label>
+      <button type="submit" className="min-h-11 rounded-xl border border-[var(--line)] px-4 text-sm font-semibold">Buscar catálogo</button>
+      <p className="w-full text-sm text-[var(--muted)]">{products.length} de {total} productos. Acota la búsqueda para encontrar la variante que deseas administrar.</p>
+    </form>
     <p className="mt-3 max-w-2xl text-pretty leading-7 text-[var(--muted)]">Catalog es la fuente de SKU, talla, color y material. Inventory usa el identificador de la variante y conserva sólo el snapshot necesario para operar por sucursal.</p>
     <div className="mt-9 grid gap-6 xl:grid-cols-2">
       <ProductForm state={productState} action={productAction} />

@@ -99,6 +99,7 @@ export class CourierTrackingConsumer implements OnModuleInit, OnModuleDestroy {
   private isLocation(value: unknown): value is CourierLocationUpdatedEvent["location"] {
     if (typeof value !== "object" || value === null) return false;
     const location = value as Record<string, unknown>;
+    if (location.source !== undefined && !["DEVICE","DEMO","MANUAL"].includes(String(location.source))) return false;
     return typeof location.latitude === "number" && Number.isFinite(location.latitude) && location.latitude >= -90 && location.latitude <= 90
       && typeof location.longitude === "number" && Number.isFinite(location.longitude) && location.longitude >= -180 && location.longitude <= 180
       && typeof location.recordedAt === "string" && !Number.isNaN(Date.parse(location.recordedAt));

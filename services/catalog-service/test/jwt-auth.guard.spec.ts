@@ -8,10 +8,13 @@ import {
   createEphemeralTestSecret,
   type CatalogRuntimeConfig,
 } from "../src/config/environment";
+import type { AuthStatusClient } from "../src/auth/auth-status.client";
 import { TokenService } from "../src/auth/token.service";
 
 function tokenConfig(): CatalogRuntimeConfig {
   return {
+    authServiceUrl: "http://auth.test:3001",
+    authStatusInternalServiceKey: createEphemeralTestSecret(),
     accessSecret: Buffer.from(createEphemeralTestSecret(), "utf8"),
     corsOrigins: ["http://localhost:3000"],
     environment: "test",
@@ -21,7 +24,7 @@ function tokenConfig(): CatalogRuntimeConfig {
 }
 
 describe("Catalog JWT validation", () => {
-  it("accepts the same HS256 issuer and role claims produced by Auth", () => {
+  it("accepts the same HS256 issuer and role claims produced by Auth", async () => {
     const config = tokenConfig();
     const token = sign(
       { role: "ADMIN" },
@@ -35,7 +38,7 @@ describe("Catalog JWT validation", () => {
       },
     );
     const tokens = new TokenService(config);
-    const guard = new JwtAuthGuard(tokens);
+    const guard = new JwtAuthGuard(tokens, { isActive: vi.fn().mockResolvedValue(true) } as unknown as AuthStatusClient);
     const request = {
       header: vi.fn().mockReturnValue(`Bearer ${token}`),
     };
@@ -43,7 +46,7 @@ describe("Catalog JWT validation", () => {
       switchToHttp: () => ({ getRequest: () => request }),
     };
 
-    expect(guard.canActivate(context as never)).toBe(true);
+    expect(await guard.canActivate(context as never)).toBe(true);
     expect(request).toMatchObject({
       authUser: {
         id: "a03effa0-6d5f-483d-b130-d3cf4b82f21d",

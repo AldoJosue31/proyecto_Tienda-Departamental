@@ -10,7 +10,7 @@ import type { SessionUser } from "@/lib/auth/roles";
 
 export function AppShell({ user, children }: { user: SessionUser | null; children: ReactNode }) {
   return (
-    <CustomerCartProvider customerId={user?.role === "CUSTOMER" ? user.id : null}>
+    <CustomerCartProvider customerId={user?.role === "CUSTOMER" ? user.id : null} guestEnabled={user === null}>
       <div className="min-h-[100dvh] bg-[var(--page)] text-[var(--ink)]">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-[var(--surface)] focus:p-3">Saltar al contenido</a>
       {user && <SessionRefresher />}
@@ -23,7 +23,7 @@ export function AppShell({ user, children }: { user: SessionUser | null; childre
               {user ? <>
                 <AccountMenu user={user} />
                 <CustomerBagLink />
-              </> : <Link href="/login?next=/" className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)]">Iniciar sesión</Link>}
+              </> : <><Link href="/login?next=/" className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)]">Iniciar sesión</Link><CustomerBagLink /></>}
             </div>
           </div>
         </div>

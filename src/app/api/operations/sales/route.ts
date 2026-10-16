@@ -8,8 +8,9 @@ export const runtime = "nodejs";
 
 const idempotencyKey = /^[A-Za-z0-9._:-]{1,200}$/;
 const requestSchema = z.object({
+  expectedTotal: z.number().finite().min(0).max(999999999999.99),
   branchId: z.string().uuid(),
-  customerId: z.string().uuid(),
+  customerId: z.string().uuid().optional(),
   items: z.array(z.object({
     productId: z.string().uuid(),
     variantId: z.string().uuid(),

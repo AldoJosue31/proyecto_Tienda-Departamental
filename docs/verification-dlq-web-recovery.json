@@ -1,0 +1,19 @@
+{
+  "completedAt": "2026-10-14T07:56:57.332Z",
+  "project": "web",
+  "recoveryEnabled": true,
+  "privacy": "No credentials, identities or payloads exported",
+  "queue": "analytics.projections.v1.dlq",
+  "initial": 2,
+  "valid": 2,
+  "invalid": 0,
+  "replayed": 2,
+  "retained": 0,
+  "types": {
+    "order.completed.v1": 2
+  },
+  "confirmedBeforeAck": true,
+  "invalidPayloadsRetained": true,
+  "passed": true,
+  "provenance": "Original recovery result captured before the subsequent read-only zero-DLQ audit"
+}

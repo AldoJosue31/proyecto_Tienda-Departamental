@@ -1,0 +1,16 @@
+# Optional local SMTP capture for the university demonstration in the principal.
+# Apply only during phase 9 with the coordinated release, base Compose and .env.
+# The isolated environment already has its own SMTP capture in compose.integration.yaml.
+services:
+  smtp-capture:
+    image: axllent/mailpit:v1.27.10
+    ports: ["127.0.0.1:18000:8025"]
+    networks: [notification-egress]
+  servicio-notificaciones:
+    environment:
+      NOTIFICATION_DELIVERY_MODE: smtp
+      SMTP_URL: smtp://smtp-capture:1025
+      NOTIFICATION_FROM_EMAIL: promociones@example.test
+    depends_on:
+      smtp-capture:
+        condition: service_started

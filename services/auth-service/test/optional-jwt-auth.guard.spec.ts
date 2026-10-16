@@ -74,6 +74,7 @@ describe("OptionalJwtAuthGuard", () => {
       role: user.role,
       exp: 1_900_000_000,
       jti: "a527a2ee-b7a9-4e3d-92e7-0aea5809963f",
+      uv: 0,
     });
     vi.mocked(users.findActiveById).mockResolvedValue(user);
 

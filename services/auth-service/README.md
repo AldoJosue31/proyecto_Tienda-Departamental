@@ -78,9 +78,9 @@ El seed se bloquea cuando `NODE_ENV=production`. Para desarrollo local crea, si 
 
 | Rol | Correo | Contraseña local predeterminada |
 | --- | --- | --- |
-| `ADMIN` | `admin@departamental.local` | `AdminLocal!2026` |
-| `EMPLOYEE` | `employee@departamental.local` | `EmployeeLocal!2026` |
-| `CUSTOMER` | `customer@departamental.local` | `CustomerLocal!2026` |
+| `ADMIN` | `admin@departamental.local` | `SEED_ADMIN_PASSWORD (archivo .env privado)` |
+| `EMPLOYEE` | `employee@departamental.local` | `SEED_EMPLOYEE_PASSWORD (archivo .env privado)` |
+| `CUSTOMER` | `customer@departamental.local` | `SEED_CUSTOMER_PASSWORD (archivo .env privado)` |
 
 Las contraseñas de seed no se imprimen ni se escriben como hashes en logs. No habilites `RUN_SEED` fuera del entorno local.
 

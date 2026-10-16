@@ -32,7 +32,8 @@ export class AuthService {
     metadata: SessionMetadata,
   ): Promise<LoginResponse> {
     const user = await this.usersRepository.findByEmail(email);
-    const isValid = user?.isActive
+    const ready = user?.isActive && user.onboardingStatus === 'READY' && user.emailVerifiedAt !== null && user.passwordHash;
+    const isValid = ready && user?.passwordHash
       ? await this.passwordService.verify(password, user.passwordHash)
       : false;
 
@@ -50,14 +51,18 @@ export class AuthService {
   ): Promise<LoginResponse> {
     const tokenHash = this.tokenService.hashRefreshToken(rawRefreshToken);
 
-    return this.database.withTransaction(async (client) => {
+    const result = await this.database.withTransaction(async (client) => {
+      // Match the user -> token lock order of account deactivation.
+      const userId = await this.refreshTokensRepository.findUserIdByHash(client, tokenHash);
+      if (!userId) return null;
+      const user = await this.usersRepository.findActiveByIdForSession(client, userId);
       const stored = await this.refreshTokensRepository.findByHashForUpdate(
         client,
         tokenHash,
       );
 
       if (!stored) {
-        throw this.invalidRefreshToken();
+        return null;
       }
 
       if (stored.revokedAt || stored.expiresAt.getTime() <= Date.now()) {
@@ -65,17 +70,13 @@ export class AuthService {
         if (stored.revokedAt) {
           await this.refreshTokensRepository.revokeFamily(client, stored.familyId);
         }
-        throw this.invalidRefreshToken();
+        return null;
       }
 
-      const user = await this.usersRepository.findActiveByIdForSession(
-        client,
-        stored.userId,
-      );
       if (!user) {
         // A disabled or deleted account must not receive a replacement token.
         await this.refreshTokensRepository.revokeFamily(client, stored.familyId);
-        throw this.invalidRefreshToken();
+        return null;
       }
 
       const replacement = this.tokenService.issueReplacementRefreshToken(
@@ -90,6 +91,9 @@ export class AuthService {
 
       return this.toSessionResponse(user, replacement);
     });
+    // Throw after COMMIT so family revocations survive the rejected refresh.
+    if (!result) throw this.invalidRefreshToken();
+    return result;
   }
 
   async logout(
@@ -135,6 +139,10 @@ export class AuthService {
   ): Promise<LoginResponse> {
     const refreshToken = this.tokenService.issueRefreshToken();
     await this.database.withTransaction(async (client) => {
+      const current = await this.usersRepository.findActiveByIdForSession(client, user.id);
+      if (!current || current.role !== user.role || (current.authVersion ?? 0) !== (user.authVersion ?? 0)) {
+        throw new ApiException(401, 'INVALID_CREDENTIALS', 'Credenciales inválidas');
+      }
       await this.refreshTokensRepository.create(client, user.id, refreshToken, metadata);
     });
     return this.toSessionResponse(user, refreshToken);
@@ -161,6 +169,7 @@ export class AuthService {
       email: user.email,
       name: user.name,
       role: user.role,
+      authVersion: user.authVersion,
     };
   }
 

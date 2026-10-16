@@ -8,7 +8,7 @@ export const ORDER_CHANNELS = ["ONLINE", "PHYSICAL"] as const;
 export type OrderChannel = (typeof ORDER_CHANNELS)[number];
 export interface ShipmentItem { productId: string; variantId: string; productName: string; sku: string; variantLabel: string; quantity: number; lineTotal: number; }
 export type TrackingFreshness = "RECENT" | "STALE" | "UNAVAILABLE";
-export interface CourierLocation { latitude: number; longitude: number; recordedAt: string; }
+export interface CourierLocation { latitude: number; longitude: number; recordedAt: string; source?: "DEVICE" | "DEMO" | "MANUAL"; }
 export interface ShipmentTracking {
   courier: { id: string; name: string };
   location: CourierLocation | null;
@@ -16,6 +16,8 @@ export interface ShipmentTracking {
   deliveryAddress: string;
 }
 export interface Shipment {
+  courierId?: string | null;
+  deliveredAt?: string | null;
   id: string; orderId: string; customerId: string; branchId: string; channel: OrderChannel | null; currency: string; total: number; items: ShipmentItem[];
   status: ShipmentStatus; version: number; packedAt: string | null; shippedAt: string | null; cancelledAt: string | null; createdAt: string; updatedAt: string;
 }
@@ -27,7 +29,7 @@ export interface ShipmentCancellationResponse { result: "CANCELLED" | "NOT_PROJE
 export interface ShipmentActor { id: string; role: Extract<Role, "ADMIN" | "EMPLOYEE">; correlationId: string | null; }
 export interface ShipmentReadActor { id: string; role: Role; correlationId: string | null; }
 export interface TrackingAssignmentRequest { courierId: unknown; courierName: unknown; deliveryAddress: unknown; version: unknown; }
-export interface CourierLocationRequest { shipmentId: unknown; latitude: unknown; longitude: unknown; recordedAt?: unknown; }
+export interface CourierLocationRequest { shipmentId: unknown; latitude: unknown; longitude: unknown; recordedAt?: unknown; source?: unknown; }
 export interface CourierLocationResponse { courierId: string; location: CourierLocation; }
 
 export type LogisticsEvent = CompletedOrderEvent | CancelledOrderEvent;

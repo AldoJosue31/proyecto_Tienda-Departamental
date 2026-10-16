@@ -1,0 +1,35 @@
+{
+  "completedAt": "2026-10-14T06:40:11.944Z",
+  "passed": true,
+  "project": "departamental-five-phases",
+  "scope": "University local SMTP, interactive map and browser GPS emulation; no physical phone claimed",
+  "checks": [
+    {
+      "name": "Dashboard renders real pie, both ranking metrics and accessible data on desktop and mobile",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 10505
+    },
+    {
+      "name": "CRM presents names, separate inactivity cohorts and the historical coupon discount",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 3165
+    },
+    {
+      "name": "Employee selector uses accounts and the interactive OpenStreetMap marks demo coordinates",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 3814
+    },
+    {
+      "name": "Mobile courier starts and stops demo publication, explains permission denial and recovers offline GPS",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 25065
+    }
+  ],
+  "privacy": {
+    "tracesVideosPasswordsTokensExcluded": true
+  }
+}

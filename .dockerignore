@@ -4,6 +4,12 @@ node_modules
 .env
 .env.*
 coverage
+.impeccable
+.codex-test-results
+playwright-report
 services
 *.tsbuildinfo
 npm-debug.log
+docs
+~$*
+.DS_Store

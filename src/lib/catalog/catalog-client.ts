@@ -108,3 +108,10 @@ export async function getCatalogProduct(productId: string, signal?: AbortSignal)
     signal?.removeEventListener("abort", abortFromQuery);
   }
 }
+
+export async function getCatalogProducts(ids: string[], signal?: AbortSignal): Promise<CatalogProductDetail[]> {
+  const response = await fetch("/api/catalog/resolve", { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !Array.isArray(body?.products)) throw new CatalogRequestError(body?.message ?? "No fue posible verificar los artículos.", response.status, response.headers.get("X-Correlation-Id") ?? makeCorrelationId());
+  return body.products;
+}

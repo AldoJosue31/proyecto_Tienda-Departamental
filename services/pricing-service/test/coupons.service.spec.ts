@@ -7,7 +7,7 @@ function service(overrides:Record<string,unknown>={}, promotion=100) {
   const right={status:"AVAILABLE",valid_until:new Date(Date.now()+60000),discount_type:"PERCENTAGE",discount_value:"20",target_scope:"ALL",target_id:null,...overrides};
   const query=vi.fn().mockResolvedValue({rows:[right]});
   const database={withTransaction:(fn:(client:{query:typeof query})=>unknown)=>fn({query})};
-  return new CouponsService(database as never,{quote:vi.fn().mockResolvedValue({effectivePrice:promotion})} as never);
+  return new CouponsService(database as never,{quoteMany:vi.fn().mockImplementation(async(lines:Array<{variantId:string}>)=>({quotes:lines.map(line=>({variantId:line.variantId,effectivePrice:promotion})),validUntil:new Date(Date.now()+30000).toISOString()}))} as never);
 }
 describe("Coupon rules",()=>{
   it("uses the better promotion without stacking",async()=>{await expect(service({},70).quote({code:"REGRESA",customerId,lines:[line]})).resolves.toMatchObject({prices:[{unitPrice:70}],discountTotal:60});});

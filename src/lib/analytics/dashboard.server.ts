@@ -12,9 +12,10 @@ const productSchema = z.object({ productId: z.string().uuid(), productName: z.st
 const inventorySchema = z.object({ branchId: z.string().uuid(), branchName: z.string().min(1), onHand: z.number().int().nonnegative(), reserved: z.number().int().nonnegative(), available: z.number().int().nonnegative() });
 const syncedSchema = z.object({ lastUpdatedAt: z.string().datetime().nullable() });
 const salesTodaySchema = syncedSchema.extend({ currency: z.string().length(3), sales: z.number().nonnegative(), completedOrders: z.number().int().nonnegative() });
-const ticketAverageSchema = syncedSchema.extend({ currency: z.string().length(3), ticketAverage: z.number().nonnegative(), completedOrders: z.number().int().nonnegative(), formula: z.string().min(1), period: z.object({ code: periodSchema }) });
+const ticketAverageSchema = syncedSchema.extend({ currency: z.string().length(3), sales: z.number().nonnegative(), ticketAverage: z.number().nonnegative(), completedOrders: z.number().int().nonnegative(), formula: z.string().min(1), period: z.object({ code: periodSchema }) });
 const salesByBranchSchema = syncedSchema.extend({ currency: z.string().length(3), period: z.object({ code: periodSchema }), branches: z.array(branchSchema) });
 const topProductsSchema = syncedSchema.extend({ currency: z.string().length(3), period: z.object({ code: periodSchema }), limit: z.union([z.literal(5), z.literal(10), z.literal(20)]), products: z.array(productSchema) });
+const topCategoriesSchema = syncedSchema.extend({ currency:z.string().length(3),period:z.object({code:periodSchema}),limit:z.union([z.literal(5),z.literal(10),z.literal(20)]),metric:z.enum(["units","sales"]),incompleteItems:z.number().int().nonnegative(),categories:z.array(z.object({categoryId:z.string().uuid().nullable(),categoryName:z.string().min(1),nameSource:z.enum(["CURRENT_CATALOG","UNAVAILABLE"]),unitsSold:z.number().int().positive(),sales:z.number().nonnegative()})) });
 const inventoryByBranchSchema = syncedSchema.extend({ branches: z.array(inventorySchema), synchronization: z.object({ complete: z.boolean(), completedAt: z.string().datetime().nullable(), importedRows: z.number().int().nonnegative(), expectedRows: z.number().int().nonnegative(), retryPending: z.boolean() }) });
 
 export class AnalyticsDashboardRequestError extends Error {
@@ -38,17 +39,19 @@ async function request<T>(path: string, schema: z.ZodType<T>, token: string): Pr
   }
 }
 
-export async function getAnalyticsDashboard(periodValue?: string, limitValue?: string): Promise<AnalyticsDashboard> {
+export async function getAnalyticsDashboard(periodValue?: string, limitValue?: string, metricValue?: string): Promise<AnalyticsDashboard> {
   const token = (await cookies()).get(ACCESS_TOKEN_COOKIE)?.value;
   if (!token) throw new AnalyticsDashboardRequestError("Debes iniciar sesión para consultar Analytics.", 401, crypto.randomUUID());
   const period = normalizedPeriod(periodValue); const limit = normalizedLimit(limitValue);
+  const metric = metricValue === "sales" ? "sales" : "units";
   const params = new URLSearchParams({ period });
-  const [salesToday, ticketAverage, salesByBranch, topProducts, inventoryByBranch] = await Promise.all([
+  const [salesToday, ticketAverage, salesByBranch, topProducts, inventoryByBranch, topCategories] = await Promise.all([
     request("/analytics/sales/today", salesTodaySchema, token),
     request(`/analytics/ticket-average?${params}`, ticketAverageSchema, token),
     request(`/analytics/sales/by-branch?${params}`, salesByBranchSchema, token),
-    request(`/analytics/products/top?${new URLSearchParams({ period, limit: String(limit) })}`, topProductsSchema, token),
+    request(`/analytics/products/top?${new URLSearchParams({ period, limit: String(limit), metric })}`, topProductsSchema, token),
     request("/analytics/inventory/by-branch", inventoryByBranchSchema, token),
+    request(`/analytics/categories/top?${new URLSearchParams({period,limit:String(limit),metric})}`,topCategoriesSchema,token),
   ]);
   return {
     salesToday,
@@ -56,5 +59,6 @@ export async function getAnalyticsDashboard(periodValue?: string, limitValue?: s
     salesByBranch: { ...salesByBranch, period: salesByBranch.period.code },
     topProducts: { ...topProducts, period: topProducts.period.code },
     inventoryByBranch,
+    topCategories: { ...topCategories, period: topCategories.period.code },
   };
 }

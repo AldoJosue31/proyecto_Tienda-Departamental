@@ -1,0 +1,40 @@
+{
+  "completedAt": "2026-10-13T17:34:12.198Z",
+  "passed": true,
+  "project": "departamental-five-phases",
+  "checks": [
+    {
+      "name": "discounted checkout rejects a changed price and recovers a lost confirmation without duplicate charge",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 15592
+    },
+    {
+      "name": "customer registers from checkout, confirms by SMTP, signs in and buys without losing the guest bag",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 8682
+    },
+    {
+      "name": "ADMIN invites with safe retry, resends, and disables then enables an employee who chose a password",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 14012
+    },
+    {
+      "name": "confirmation in another browser requires a new password and reused links show recovery",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 5836
+    },
+    {
+      "name": "mobile forms handle missing links, keyboard validation, offline retry and generic resends",
+      "status": "passed",
+      "passed": true,
+      "milliseconds": 1447
+    }
+  ],
+  "privacy": {
+    "tracesVideosPasswordsTokensExcluded": true
+  }
+}

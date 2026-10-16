@@ -19,6 +19,7 @@ export interface AccessTokenClaims {
   role: Role;
   exp: number;
   jti: string;
+  uv: number;
 }
 
 @Injectable()
@@ -27,7 +28,7 @@ export class TokenService {
 
   issueAccessToken(user: PublicUser): IssuedAccessToken {
     const token = sign(
-      { role: user.role },
+      { role: user.role, uv: user.authVersion ?? 0 },
       this.config.accessSecret,
       {
         algorithm: "HS256",
@@ -78,6 +79,7 @@ export class TokenService {
         role: decoded.role,
         exp: decoded.exp,
         jti: decoded.jti,
+        uv: decoded.uv ?? 0,
       };
     } catch {
       throw new ApiException(401, "UNAUTHORIZED", "Token de acceso inválido o vencido");
@@ -90,6 +92,7 @@ export class TokenService {
     role: Role;
     exp: number;
     jti: string;
+    uv?: number;
   } {
     return (
       payload.iss === AUTH_JWT_ISSUER &&
@@ -97,6 +100,7 @@ export class TokenService {
       isRole(payload.role) &&
       typeof payload.exp === "number" &&
       typeof payload.jti === "string"
+      && (payload.uv === undefined || (Number.isSafeInteger(payload.uv) && payload.uv >= 0))
     );
   }
 }

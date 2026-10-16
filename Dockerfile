@@ -4,6 +4,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# Cache production dependencies independently from application source changes.
+FROM dependencies AS production-dependencies
+RUN npm prune --omit=dev --ignore-scripts
+
 FROM node:22-alpine AS build
 
 WORKDIR /app
@@ -21,9 +25,11 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
 COPY --chown=node:node --from=build /app/package.json ./package.json
-COPY --chown=node:node --from=build /app/node_modules ./node_modules
+COPY --chown=node:node --from=production-dependencies /app/node_modules ./node_modules
 COPY --chown=node:node --from=build /app/public ./public
 COPY --chown=node:node --from=build /app/.next ./.next
+COPY --chown=node:node --from=build /app/scripts/secured-web-server.mjs /app/scripts/web-client-ip.mjs /app/scripts/web-mutation-origin.mjs ./scripts/
+RUN test -s ./scripts/secured-web-server.mjs && test -s ./scripts/web-client-ip.mjs && test -s ./.next/BUILD_ID && node --check ./scripts/secured-web-server.mjs
 USER node
 EXPOSE 3000
 

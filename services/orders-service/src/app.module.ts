@@ -1,3 +1,4 @@
+import { AuthStatusClient } from "./auth/auth-status.client";
 import type { MiddlewareConsumer } from "@nestjs/common";
 import { Module, type NestModule } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
@@ -19,15 +20,17 @@ import { OrdersRepository } from "./orders/orders.repository";
 import { OrdersService } from "./orders/orders.service";
 import { PricingClient } from "./orders/pricing.client";
 import { CouponStateController, CouponStateGuard } from "./orders/coupon-state.controller";
+import { OrdersReportController, OrdersReportGuard } from "./orders/report.controller";
 
 @Module({
-  controllers: [OrdersController, CouponStateController, HealthController],
+  controllers: [OrdersController, CouponStateController, OrdersReportController, HealthController],
   providers: [
     { provide: DATABASE_CONFIG, useFactory: loadDatabaseConfig },
     { provide: ORDERS_RUNTIME_CONFIG, useFactory: loadOrdersRuntimeConfig },
     DatabaseService,
     OrdersOutboxService,
     TokenService,
+    AuthStatusClient,
     OrdersRepository,
     CatalogClient,
     PricingClient,
@@ -35,6 +38,7 @@ import { CouponStateController, CouponStateGuard } from "./orders/coupon-state.c
     LogisticsClient,
     OrdersService,
     CouponStateGuard,
+    OrdersReportGuard,
     JwtAuthGuard,
     RolesGuard,
     CorrelationIdMiddleware,

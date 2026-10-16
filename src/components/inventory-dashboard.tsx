@@ -132,19 +132,25 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics, gat
         return merged.applied ? merged.dashboard : current;
       });
     };
-    const useFallback = () => {
+    const activateFallback = () => {
       setRealtimeStatus("fallback");
-      void updateDashboard(activeBranchId.current);
+      if (navigator.onLine) void updateDashboard(activeBranchId.current);
     };
+    const offline = () => { pendingRequest.current?.abort(); socket.disconnect(); activateFallback(); };
+    const online = () => { socket.connect(); void updateDashboard(activeBranchId.current); };
+    window.addEventListener("offline", offline);
+    window.addEventListener("online", online);
 
     socket.on("connect", () => { setRealtimeStatus("connected"); void updateDashboard(activeBranchId.current); });
-    socket.on("disconnect", useFallback);
-    socket.on("connect_error", useFallback);
+    socket.on("disconnect", activateFallback);
+    socket.on("connect_error", activateFallback);
     socket.on("stock.updated", refreshCurrentBranch);
     return () => {
+      window.removeEventListener("offline", offline);
+      window.removeEventListener("online", online);
       socket.off("connect");
-      socket.off("disconnect", useFallback);
-      socket.off("connect_error", useFallback);
+      socket.off("disconnect", activateFallback);
+      socket.off("connect_error", activateFallback);
       socket.off("stock.updated", refreshCurrentBranch);
       socket.disconnect();
     };
@@ -152,7 +158,7 @@ export function InventoryDashboardView({ initialDashboard, initialAnalytics, gat
 
   useEffect(() => {
     if (realtimeStatus === "connected") return;
-    const timer = setInterval(() => void updateDashboard(activeBranchId.current), 5000);
+    const timer = setInterval(() => { if (navigator.onLine) void updateDashboard(activeBranchId.current); }, 5000);
     return () => clearInterval(timer);
   }, [realtimeStatus, updateDashboard]);
 

@@ -8,11 +8,11 @@ import type { PickPackDashboard, PickPackShipmentDetail, PickPackStatusInput, Pi
 
 const statusSchema = z.enum(["PENDING", "PACKING", "SHIPPED", "DELIVERED", "CANCELLED"]);
 const itemSchema = z.object({ productId: z.string().uuid(), variantId: z.string().uuid(), productName: z.string().min(1), sku: z.string().min(1), variantLabel: z.string().min(1), quantity: z.number().int().positive(), lineTotal: z.number().nonnegative() });
-const shipmentSchema = z.object({ id: z.string().uuid(), orderId: z.string().uuid(), customerId: z.string().uuid(), branchId: z.string().uuid(), currency: z.string().length(3), total: z.number().nonnegative(), items: z.array(itemSchema), status: statusSchema, version: z.number().int().positive(), packedAt: z.string().datetime().nullable(), shippedAt: z.string().datetime().nullable(), cancelledAt: z.string().datetime().nullable(), createdAt: z.string().datetime(), updatedAt: z.string().datetime() });
+const shipmentSchema = z.object({courierId:z.string().uuid().nullable().optional(),deliveredAt:z.string().datetime().nullable().optional(), id: z.string().uuid(), orderId: z.string().uuid(), customerId: z.string().uuid(), branchId: z.string().uuid(), currency: z.string().length(3), total: z.number().nonnegative(), items: z.array(itemSchema), status: statusSchema, version: z.number().int().positive(), packedAt: z.string().datetime().nullable(), shippedAt: z.string().datetime().nullable(), cancelledAt: z.string().datetime().nullable(), createdAt: z.string().datetime(), updatedAt: z.string().datetime() });
 const transitionSchema = z.object({ id: z.string().uuid(), fromStatus: statusSchema.nullable(), toStatus: statusSchema, actorId: z.string().uuid().nullable(), actorRole: z.enum(["ADMIN", "EMPLOYEE", "CUSTOMER"]).nullable(), source: z.enum(["ORDER_EVENT", "OPERATIONS", "SYSTEM"]), createdAt: z.string().datetime() });
 const trackingSchema = z.object({
   courier: z.object({ id: z.string().uuid(), name: z.string().min(1) }),
-  location: z.object({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180), recordedAt: z.string().datetime() }).nullable(),
+  location: z.object({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180), recordedAt: z.string().datetime(),source:z.enum(["DEVICE","DEMO","MANUAL"]).optional() }).nullable(),
   locationFreshness: z.enum(["RECENT", "STALE", "UNAVAILABLE"]),
   deliveryAddress: z.string().min(1),
 });

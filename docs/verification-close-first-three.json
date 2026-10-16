@@ -1,0 +1,77 @@
+{
+  "completedAt": "2026-10-14T06:33:54.378Z",
+  "project": "departamental-five-phases",
+  "passed": true,
+  "checks": [
+    {
+      "name": "compatible Auth identity contracts and roles",
+      "passed": true,
+      "milliseconds": 35
+    },
+    {
+      "name": "CORS rejects GET POST OPTIONS without 500 and permits valid preflight",
+      "passed": true,
+      "milliseconds": 27
+    },
+    {
+      "name": "cookie BFF rejects missing, forged and cross-site Origin before mutation",
+      "passed": true,
+      "milliseconds": 24
+    },
+    {
+      "name": "PostgreSQL data networks are restricted to domain owners",
+      "passed": true,
+      "milliseconds": 4298
+    },
+    {
+      "name": "batch quote uses Catalog prices and rejects forged browser amounts",
+      "passed": true,
+      "milliseconds": 46
+    },
+    {
+      "name": "catalog details and cart show the same effective price",
+      "passed": true,
+      "milliseconds": 195
+    },
+    {
+      "name": "changed displayed total rejects before any stock reservation",
+      "passed": true,
+      "milliseconds": 62
+    },
+    {
+      "name": "new confirmation charges displayed amount and replay preserves snapshot",
+      "passed": true,
+      "milliseconds": 134
+    },
+    {
+      "name": "Pricing process survives PostgreSQL interruption and reconnects",
+      "passed": true,
+      "milliseconds": 7691
+    },
+    {
+      "name": "Docker restart policy restores a crashed Pricing process",
+      "passed": true,
+      "milliseconds": 6149
+    },
+    {
+      "name": "sales persist outbox during broker outage and publish after recovery",
+      "passed": true,
+      "milliseconds": 13717
+    },
+    {
+      "name": "unavailable Analytics and Notification do not stop catalog or sales",
+      "passed": true,
+      "milliseconds": 11617
+    },
+    {
+      "name": "valid Analytics event retries a database outage and projects once",
+      "passed": true,
+      "milliseconds": 5456
+    },
+    {
+      "name": "retired Next scheduler is absent and legacy has no active consumer",
+      "passed": true,
+      "milliseconds": 268
+    }
+  ]
+}

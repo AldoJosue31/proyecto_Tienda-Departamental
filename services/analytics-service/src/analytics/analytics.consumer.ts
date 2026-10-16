@@ -1,5 +1,6 @@
+import { consumeReliably } from "../common/consume-reliably";
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
-import { connect, type Channel, type ChannelModel, type ConsumeMessage } from "amqplib";
+import { connect, type ConfirmChannel, type ChannelModel, type ConsumeMessage } from "amqplib";
 import { ANALYTICS_RUNTIME_CONFIG } from "../auth/token.service";
 import type { AnalyticsRuntimeConfig } from "../config/environment";
 import { AnalyticsService } from "./analytics.service";
@@ -16,7 +17,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export class AnalyticsConsumer implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AnalyticsConsumer.name);
   private connection: ChannelModel | null = null;
-  private channel: Channel | null = null;
+  private channel: ConfirmChannel | null = null;
   private readyCallback?: () => void;
   isReady(): boolean { return this.channel !== null; }
   whenReady(callback: () => void): void { this.readyCallback = callback; if (this.isReady()) callback(); }
@@ -25,18 +26,16 @@ export class AnalyticsConsumer implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy(): Promise<void> { this.channel = null; const connection = this.connection; this.connection = null; if (connection) await connection.close().catch(() => undefined); }
   private async connect(): Promise<void> {
     try {
-      const connection = await connect(this.config.rabbitmqUrl); const channel = await connection.createChannel();
+      const connection = await connect(this.config.rabbitmqUrl); const channel = await connection.createConfirmChannel();
       connection.on("error", () => this.clear(connection)); connection.on("close", () => this.clear(connection)); channel.on("error", () => this.clear(connection)); channel.on("close", () => this.clear(connection));
       await channel.assertExchange(EVENTS_EXCHANGE, "topic", { durable: true }); await channel.assertExchange(DEAD_LETTER_EXCHANGE, "topic", { durable: true });
       await channel.assertQueue(DLQ, { durable: true }); for (const key of ROUTING_KEYS) await channel.bindQueue(DLQ, DEAD_LETTER_EXCHANGE, key);
       await channel.assertQueue(QUEUE, { durable: true, arguments: { "x-dead-letter-exchange": DEAD_LETTER_EXCHANGE } }); for (const key of ROUTING_KEYS) await channel.bindQueue(QUEUE, EVENTS_EXCHANGE, key);
-      this.connection = connection; await channel.consume(QUEUE, (message) => void this.consume(channel, message), { noAck: false }); this.channel = channel; this.readyCallback?.();
+      await channel.prefetch(10); this.connection = connection; await channel.consume(QUEUE, (message) => void this.consume(channel, message), { noAck: false }); this.channel = channel; this.readyCallback?.();
     } catch { this.logger.warn("Analytics event consumer is reconnecting after RabbitMQ becomes available."); const retry = setTimeout(() => void this.connect(), 1_000); retry.unref(); }
   }
-  private async consume(channel: Channel, message: ConsumeMessage | null): Promise<void> {
-    if (!message) return;
-    try { await this.analytics.project(this.event(JSON.parse(message.content.toString("utf8")) as unknown)); channel.ack(message); }
-    catch { this.logger.warn("An invalid analytics event was sent to the DLQ."); channel.nack(message, false, false); }
+  private async consume(channel: ConfirmChannel, message: ConsumeMessage | null): Promise<void> {
+    await consumeReliably(channel, QUEUE, message, value => this.event(value), event => this.analytics.project(event), message => this.logger.warn(message));
   }
   private event(value: unknown): AnalyticsEvent {
     if (!this.object(value) || !this.uuid(value.eventId) || !this.date(value.occurredAt) || (typeof value.correlationId !== "string" && value.correlationId !== null) || !this.object(value.data)) throw new Error("Invalid event envelope.");
@@ -50,7 +49,8 @@ export class AnalyticsConsumer implements OnModuleInit, OnModuleDestroy {
     if (!this.uuid(data.orderId) || !this.uuid(data.branchId) || typeof data.currency !== "string" || !/^[A-Z]{3}$/.test(data.currency) || !this.money(data.total) || !Array.isArray(data.items) || data.items.length < 1 || data.items.length > 100) throw new Error("Invalid completed order event.");
     const items = data.items.map((item) => {
       if (!this.object(item) || !this.uuid(item.productId) || !this.uuid(item.variantId) || typeof item.productName !== "string" || !item.productName.trim() || !this.positiveInteger(item.quantity) || !this.money(item.lineTotal)) throw new Error("Invalid completed order item.");
-      return { productId: item.productId, variantId: item.variantId, productName: item.productName.trim(), quantity: item.quantity, lineTotal: item.lineTotal };
+      if (item.categoryId !== undefined && !this.uuid(item.categoryId)) throw new Error("Invalid category identity.");
+      return { productId: item.productId, variantId: item.variantId, categoryId: item.categoryId as string | undefined, productName: item.productName.trim(), quantity: item.quantity, lineTotal: item.lineTotal };
     });
     return { eventId: value.eventId as string, eventType: "order.completed.v1", occurredAt: value.occurredAt as string, correlationId: value.correlationId as string | null, orderId: data.orderId, branchId: data.branchId, currency: data.currency, total: data.total, items };
   }

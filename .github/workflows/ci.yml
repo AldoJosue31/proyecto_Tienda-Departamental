@@ -1,9 +1,14 @@
 name: Application checks
 on:
+  workflow_dispatch:
   push:
-    branches: [develop, main]
+    branches: [develop, main, 'codex/cierre-*']
+    paths-ignore: ['docs/**', 'compose.release*.yaml']
   pull_request:
     branches: [main]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -16,10 +21,65 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run lint -- src tests scripts
+      - run: npm run lint -- src tests scripts e2e playwright.accounts.config.ts playwright.phases-four-six.config.ts playwright.phases-seven.config.ts playwright.principal.config.ts
       - run: npm run typecheck
       - run: npm test
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run build
+  release-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Prepare the service modules used by integration runners
+        run: |
+          for service in auth catalog inventory pricing orders realtime analytics logistics crm notification; do
+            npm ci --prefix "services/$service-service"
+            npm run build --prefix "services/$service-service"
+          done
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/setup-integration.mjs
+      - name: Start isolated release environment
+        env:
+          COMPOSE_PARALLEL_LIMIT: 1
+        run: |
+          for service in servicio-autenticacion servicio-catalogo servicio-inventario servicio-precios servicio-pedidos servicio-tiempo-real servicio-analitica servicio-logistica servicio-clientes servicio-notificaciones pasarela-api aplicacion-web; do
+            docker compose -p departamental-five-phases --env-file .env.integration -f compose.yaml -f compose.integration.yaml build "$service"
+          done
+          docker compose -p departamental-five-phases --env-file .env.integration -f compose.yaml -f compose.integration.yaml up -d --no-build --wait --wait-timeout 180
+      - run: node scripts/audit-release-dependencies.mjs
+      - name: Certify the same candidate, sequentially, including 30-minute stability
+        run: npm run certify:release
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-verification
+          path: |
+            docs/verification-domain-dlq-departamental-five-phases.json
+            docs/verification-dependency-security.json
+            docs/verification-ci-gate.json
+            docs/verification-stability.json
+            docs/verification-close-seven.json
+            docs/verification-phases-seven-browser.json
+            docs/verification-inventory-browser-latency.json
+            docs/verification-accounts-browser.json
+            docs/verification-accounts-races.json
+            docs/verification-close-first-three.json
+            docs/verification-close-four-six.json
+            docs/verification-phases-four-six-browser.json
+            docs/verification-accounts-first-five.json
+            docs/verification-five-phases.json
+            docs/verification-final-phases.json
+            docs/verification-dlq-departamental-five-phases.json
+            docs/audit-runtime-integration-*.json
+      - name: Stop integration services
+        if: always()
+        run: docker compose -p departamental-five-phases --env-file .env.integration -f compose.yaml -f compose.integration.yaml down
   services:
     runs-on: ubuntu-latest
     strategy:
@@ -38,5 +98,6 @@ jobs:
           cache-dependency-path: services/${{ matrix.service }}-service/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run lint
       - run: npm test
       - run: npm run build

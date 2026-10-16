@@ -1,5 +1,6 @@
 services:
   aplicacion-web:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile
@@ -7,34 +8,34 @@ services:
       NODE_ENV: production
       GATEWAY_INTERNAL_URL: http://pasarela-api:8000
       PUBLIC_GATEWAY_URL: ${PUBLIC_GATEWAY_URL:-${NEXT_PUBLIC_GATEWAY_URL:-http://localhost:8000}}
-      DATABASE_URL: postgresql://departamental:departamental@postgres:5432/departamental
-      REDIS_URL: redis://redis:6379
-      USE_POSTGRES_PERSISTENCE: "${USE_POSTGRES_PERSISTENCE:-false}"
-      SCHEDULER_SECRET: "${SCHEDULER_SECRET:-cambia-este-secreto-local}"
       # The browser key is passed only to authenticated operations screens and
       # must be restricted by HTTP referrer in Google Maps Platform.
       GOOGLE_MAPS_BROWSER_KEY: "${GOOGLE_MAPS_BROWSER_KEY:-}"
       GOOGLE_MAPS_MAP_ID: "${GOOGLE_MAPS_MAP_ID:-}"
       GOOGLE_MAPS_ROUTES_API_KEY: "${GOOGLE_MAPS_ROUTES_API_KEY:-}"
+      APP_PUBLIC_ORIGIN: "${APP_PUBLIC_ORIGIN:-http://localhost:3000}"
+      TRUSTED_BFF_IP_KEY: "${TRUSTED_BFF_IP_KEY:?Define TRUSTED_BFF_IP_KEY in .env before starting Compose}"
+      BFF_TRUSTED_PROXY_CIDRS: "${BFF_TRUSTED_PROXY_CIDRS:-}"
     ports:
       - "${WEB_HOST_PORT:-3000}:3000"
     depends_on:
       pasarela-api:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     networks:
       - edge
-      - legacy-internal
 
   pasarela-api:
+    restart: unless-stopped
     build:
       context: ./infra/kong
     environment:
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
+      TRUSTED_BFF_IP_KEY: "${TRUSTED_BFF_IP_KEY:?Define TRUSTED_BFF_IP_KEY in .env before starting Compose}"
       CORS_ALLOWED_ORIGIN: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
+      # Docker can assign a new IP when a single service is recreated.
+      KONG_DNS_VALID_TTL: "5"
+      KONG_DNS_STALE_TTL: "5"
+      KONG_DNS_NOT_FOUND_TTL: "1"
     ports:
       - "8000:8000"
     depends_on:
@@ -75,9 +76,12 @@ services:
       - crm-internal
 
   servicio-autenticacion:
+    restart: unless-stopped
     build:
       context: ./services/auth-service
     environment:
+      CRM_IDENTITY_DIRECTORY_KEY: "${CRM_IDENTITY_DIRECTORY_KEY:?Configure CRM_IDENTITY_DIRECTORY_KEY privately}"
+      LOGISTICS_IDENTITY_DIRECTORY_KEY: "${LOGISTICS_IDENTITY_DIRECTORY_KEY:?Configure LOGISTICS_IDENTITY_DIRECTORY_KEY privately}"
       NODE_ENV: "${AUTH_NODE_ENV:-development}"
       DATABASE_URL: "postgresql://auth_service:${AUTH_DB_PASSWORD:?Define AUTH_DB_PASSWORD in .env before starting Compose}@auth-postgres:5432/auth_service"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
@@ -87,18 +91,33 @@ services:
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
       RUN_SEED: "${AUTH_RUN_SEED:-false}"
-      SEED_ADMIN_PASSWORD: "${SEED_ADMIN_PASSWORD:-AdminLocal!2026}"
-      SEED_EMPLOYEE_PASSWORD: "${SEED_EMPLOYEE_PASSWORD:-EmployeeLocal!2026}"
-      SEED_CUSTOMER_PASSWORD: "${SEED_CUSTOMER_PASSWORD:-CustomerLocal!2026}"
+      SEED_ADMIN_PASSWORD: "${SEED_ADMIN_PASSWORD:?Configure SEED_ADMIN_PASSWORD in the private env file}"
+      SEED_EMPLOYEE_PASSWORD: "${SEED_EMPLOYEE_PASSWORD:?Configure SEED_EMPLOYEE_PASSWORD in the private env file}"
+      SEED_CUSTOMER_PASSWORD: "${SEED_CUSTOMER_PASSWORD:?Configure SEED_CUSTOMER_PASSWORD in the private env file}"
+      APP_PUBLIC_ORIGIN: "${APP_PUBLIC_ORIGIN:-http://localhost:3000}"
+      RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
+      ONBOARDING_EMAIL_KEY: "${ONBOARDING_EMAIL_KEY:?Define ONBOARDING_EMAIL_KEY in .env before starting Compose}"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
+      AUTH_ONBOARDING_INTERNAL_SERVICE_KEY: "${AUTH_ONBOARDING_INTERNAL_SERVICE_KEY:?Define AUTH_ONBOARDING_INTERNAL_SERVICE_KEY in .env before starting Compose}"
+      TRUSTED_BFF_IP_KEY: "${TRUSTED_BFF_IP_KEY:?Define TRUSTED_BFF_IP_KEY in .env before starting Compose}"
+      AUTH_EMAIL_VERIFICATION_TTL_SECONDS: "${AUTH_EMAIL_VERIFICATION_TTL_SECONDS:-3600}"
+      AUTH_EMPLOYEE_INVITATION_TTL_SECONDS: "${AUTH_EMPLOYEE_INVITATION_TTL_SECONDS:-86400}"
+      AUTH_ONBOARDING_RESEND_COOLDOWN_SECONDS: "${AUTH_ONBOARDING_RESEND_COOLDOWN_SECONDS:-60}"
+      AUTH_ONBOARDING_RESEND_HOURLY_LIMIT: "${AUTH_ONBOARDING_RESEND_HOURLY_LIMIT:-3}"
+      AUTH_ONBOARDING_IP_WINDOW_SECONDS: "${AUTH_ONBOARDING_IP_WINDOW_SECONDS:-900}"
+      AUTH_ONBOARDING_IP_LIMIT: "${AUTH_ONBOARDING_IP_LIMIT:-10}"
     expose:
       - "3001"
     depends_on:
       auth-postgres:
         condition: service_healthy
     networks:
+      - auth-data
       - auth-internal
+      - events-internal
 
   auth-postgres:
+    restart: unless-stopped
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: auth_service
@@ -114,9 +133,10 @@ services:
       timeout: 3s
       retries: 10
     networks:
-      - auth-internal
+      - auth-data
 
   servicio-catalogo:
+    restart: unless-stopped
     build:
       context: ./services/catalog-service
     environment:
@@ -127,6 +147,8 @@ services:
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
       RUN_SEED: "${CATALOG_RUN_SEED:-false}"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3002"
     depends_on:
@@ -141,9 +163,12 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - catalog-data
+      - auth-internal
       - catalog-internal
 
   catalog-postgres:
+    restart: unless-stopped
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: catalog_service
@@ -159,9 +184,10 @@ services:
       timeout: 3s
       retries: 10
     networks:
-      - catalog-internal
+      - catalog-data
 
   catalog-redis:
+    restart: unless-stopped
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
@@ -172,9 +198,10 @@ services:
       timeout: 3s
       retries: 10
     networks:
-      - catalog-internal
+      - catalog-data
 
   servicio-inventario:
+    restart: unless-stopped
     build:
       context: ./services/inventory-service
     environment:
@@ -191,6 +218,8 @@ services:
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
       RUN_SEED: "${INVENTORY_RUN_SEED:-false}"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3003"
     depends_on:
@@ -205,10 +234,13 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - inventory-data
+      - auth-internal
       - inventory-internal
       - events-internal
 
   inventory-postgres:
+    restart: unless-stopped
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: inventory_service
@@ -224,9 +256,10 @@ services:
       timeout: 3s
       retries: 10
     networks:
-      - inventory-internal
+      - inventory-data
 
   servicio-precios:
+    restart: unless-stopped
     build:
       context: ./services/pricing-service
     environment:
@@ -240,6 +273,9 @@ services:
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
       RUN_SEED: "false"
+      CATALOG_SERVICE_URL: "http://servicio-catalogo:3002"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3004"
     depends_on:
@@ -254,11 +290,15 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - catalog-internal
+      - pricing-data
+      - auth-internal
       - pricing-internal
       - events-internal
       - orders-internal
 
   pricing-postgres:
+    restart: unless-stopped
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: pricing_service
@@ -274,12 +314,15 @@ services:
       timeout: 3s
       retries: 10
     networks:
-      - pricing-internal
+      - pricing-data
 
   servicio-pedidos:
+    restart: unless-stopped
     build:
       context: ./services/orders-service
     environment:
+      ANALYTICS_ORDERS_REPORT_KEY: "${ANALYTICS_ORDERS_REPORT_KEY:?Configure ANALYTICS_ORDERS_REPORT_KEY privately}"
+      CRM_ORDERS_REPORT_KEY: "${CRM_ORDERS_REPORT_KEY:?Configure CRM_ORDERS_REPORT_KEY privately}"
       NODE_ENV: "${ORDERS_NODE_ENV:-development}"
       DATABASE_URL: "postgresql://orders_service:${ORDERS_DB_PASSWORD:?Define ORDERS_DB_PASSWORD in .env before starting Compose}@orders-postgres:5432/orders_service"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
@@ -294,6 +337,8 @@ services:
       OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "1000"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3005"
     depends_on:
@@ -314,6 +359,8 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - orders-data
+      - auth-internal
       - orders-internal
       - catalog-internal
       - pricing-internal
@@ -322,6 +369,7 @@ services:
       - events-internal
 
   orders-postgres:
+    restart: unless-stopped
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: orders_service
@@ -337,9 +385,10 @@ services:
       timeout: 3s
       retries: 10
     networks:
-      - orders-internal
+      - orders-data
 
   servicio-tiempo-real:
+    restart: unless-stopped
     build:
       context: ./services/realtime-service
     environment:
@@ -347,6 +396,8 @@ services:
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
       RABBITMQ_URL: "amqp://departamental:${RABBITMQ_PASSWORD:?Define RABBITMQ_PASSWORD in .env before starting Compose}@rabbitmq:5672"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3006"
     depends_on:
@@ -359,13 +410,18 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - auth-internal
       - realtime-internal
       - events-internal
 
   servicio-analitica:
+    restart: unless-stopped
     build:
       context: ./services/analytics-service
     environment:
+      ANALYTICS_ORDERS_REPORT_KEY: "${ANALYTICS_ORDERS_REPORT_KEY:?Configure ANALYTICS_ORDERS_REPORT_KEY privately}"
+      ORDERS_SERVICE_URL: "http://servicio-pedidos:3005"
+      CATALOG_SERVICE_URL: "http://servicio-catalogo:3002"
       NODE_ENV: "${ANALYTICS_NODE_ENV:-development}"
       DATABASE_URL: "postgresql://analytics_service:${ANALYTICS_DB_PASSWORD:?Define ANALYTICS_DB_PASSWORD in .env before starting Compose}@analytics-postgres:5432/analytics_service"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
@@ -376,6 +432,8 @@ services:
       ANALYTICS_TIMEZONE: "${ANALYTICS_TIMEZONE:-America/Mexico_City}"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3007"
     depends_on:
@@ -390,11 +448,16 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - orders-internal
+      - catalog-internal
+      - analytics-data
+      - auth-internal
       - analytics-internal
       - inventory-internal
       - events-internal
 
   analytics-postgres:
+    restart: unless-stopped
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: analytics_service
@@ -410,12 +473,14 @@ services:
       timeout: 3s
       retries: 10
     networks:
-      - analytics-internal
+      - analytics-data
 
   servicio-logistica:
+    restart: unless-stopped
     build:
       context: ./services/logistics-service
     environment:
+      LOGISTICS_IDENTITY_DIRECTORY_KEY: "${LOGISTICS_IDENTITY_DIRECTORY_KEY:?Configure LOGISTICS_IDENTITY_DIRECTORY_KEY privately}"
       NODE_ENV: "${LOGISTICS_NODE_ENV:-development}"
       DATABASE_URL: "postgresql://logistics_service:${LOGISTICS_DB_PASSWORD:-logistics_local_dev}@logistics-postgres:5432/logistics_service"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
@@ -424,6 +489,8 @@ services:
       OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "1000"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3008"
     depends_on:
@@ -438,10 +505,13 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - logistics-data
+      - auth-internal
       - logistics-internal
       - events-internal
 
   logistics-postgres:
+    restart: unless-stopped
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: logistics_service
@@ -457,12 +527,16 @@ services:
       timeout: 3s
       retries: 10
     networks:
-      - logistics-internal
+      - logistics-data
 
   servicio-clientes:
+    restart: unless-stopped
     build:
       context: ./services/crm-service
     environment:
+      CRM_ORDERS_REPORT_KEY: "${CRM_ORDERS_REPORT_KEY:?Configure CRM_ORDERS_REPORT_KEY privately}"
+      CRM_IDENTITY_DIRECTORY_KEY: "${CRM_IDENTITY_DIRECTORY_KEY:?Configure CRM_IDENTITY_DIRECTORY_KEY privately}"
+      ORDERS_SERVICE_URL: "http://servicio-pedidos:3005"
       NODE_ENV: "${CRM_NODE_ENV:-development}"
       DATABASE_URL: "postgresql://crm_service:${CRM_DB_PASSWORD:-crm_local_dev}@crm-postgres:5432/crm_service"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET in .env before starting Compose}"
@@ -470,6 +544,8 @@ services:
       OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "${OUTBOX_PUBLISH_INTERVAL_MILLISECONDS:-1000}"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
+      AUTH_SERVICE_URL: "http://servicio-autenticacion:3001"
+      AUTH_STATUS_INTERNAL_SERVICE_KEY: "${AUTH_STATUS_INTERNAL_SERVICE_KEY:?Define AUTH_STATUS_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3009"
     depends_on:
@@ -484,11 +560,15 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - orders-internal
+      - crm-data
+      - auth-internal
       - crm-internal
       - events-internal
       - pricing-internal
 
   crm-postgres:
+    restart: unless-stopped
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: crm_service
@@ -504,9 +584,10 @@ services:
       timeout: 3s
       retries: 10
     networks:
-      - crm-internal
+      - crm-data
 
   servicio-notificaciones:
+    restart: unless-stopped
     build:
       context: ./services/notification-service
     environment:
@@ -523,6 +604,8 @@ services:
       OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "${OUTBOX_PUBLISH_INTERVAL_MILLISECONDS:-1000}"
       CORS_ORIGINS: "${CORS_ALLOWED_ORIGIN:-http://localhost:3000}"
       RUN_MIGRATIONS: "true"
+      ONBOARDING_EMAIL_KEY: "${ONBOARDING_EMAIL_KEY:?Define ONBOARDING_EMAIL_KEY in .env before starting Compose}"
+      AUTH_ONBOARDING_INTERNAL_SERVICE_KEY: "${AUTH_ONBOARDING_INTERNAL_SERVICE_KEY:?Define AUTH_ONBOARDING_INTERNAL_SERVICE_KEY in .env before starting Compose}"
     expose:
       - "3010"
     depends_on:
@@ -539,12 +622,14 @@ services:
       retries: 10
       start_period: 20s
     networks:
+      - notification-data
       - notification-internal
       - notification-egress
       - auth-internal
       - events-internal
 
   notification-postgres:
+    restart: unless-stopped
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: notification_service
@@ -560,9 +645,11 @@ services:
       timeout: 3s
       retries: 10
     networks:
-      - notification-internal
+      - notification-data
 
   rabbitmq:
+    restart: unless-stopped
+    hostname: "${RABBITMQ_HOSTNAME:-departamental-rabbit}"
     image: rabbitmq:4-management-alpine
     environment:
       RABBITMQ_DEFAULT_USER: departamental
@@ -582,6 +669,8 @@ services:
       - events-internal
 
   postgres:
+    restart: unless-stopped
+    profiles: [legacy]
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: departamental
@@ -601,6 +690,8 @@ services:
       - legacy-internal
 
   redis:
+    restart: unless-stopped
+    profiles: [legacy]
     image: redis:7-alpine
     ports:
       - "6379:6379"
@@ -657,3 +748,48 @@ networks:
     internal: true
   legacy-internal:
     internal: true
+  auth-data:
+    internal: true
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.243}.0.0/28"
+  catalog-data:
+    internal: true
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.243}.1.0/28"
+  inventory-data:
+    internal: true
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.243}.2.0/28"
+  pricing-data:
+    internal: true
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.243}.3.0/28"
+  orders-data:
+    internal: true
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.243}.4.0/28"
+  analytics-data:
+    internal: true
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.243}.5.0/28"
+  logistics-data:
+    internal: true
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.243}.6.0/28"
+  crm-data:
+    internal: true
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.243}.7.0/28"
+  notification-data:
+    internal: true
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.243}.8.0/28"

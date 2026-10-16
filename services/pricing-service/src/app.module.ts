@@ -1,3 +1,6 @@
+import { AuthStatusClient } from "./auth/auth-status.client";
+import { BatchQuoteService } from "./pricing/batch-quote.service";
+import { CartQuoteController } from "./pricing/cart-quote.controller";
 import type { MiddlewareConsumer } from "@nestjs/common";
 import { Module, type NestModule } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
@@ -18,14 +21,15 @@ import { InternalCouponGuard } from "./coupons/internal-coupon.guard";
 import { PricingService } from "./pricing/pricing.service";
 
 @Module({
-  controllers: [PricingController, CouponsController, HealthController],
+  controllers: [PricingController, CartQuoteController, CouponsController, HealthController],
   providers: [
     { provide: DATABASE_CONFIG, useFactory: loadDatabaseConfig },
     { provide: PRICING_RUNTIME_CONFIG, useFactory: loadPricingRuntimeConfig },
     DatabaseService,
     PricingOutboxService,
     TokenService,
-    PricingService, CouponsService, InternalCouponGuard,
+    AuthStatusClient,
+    PricingService, BatchQuoteService, CouponsService, InternalCouponGuard,
     JwtAuthGuard,
     RolesGuard,
     CorrelationIdMiddleware,

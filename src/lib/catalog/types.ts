@@ -7,6 +7,7 @@ export type CatalogReference = {
 };
 
 export type CatalogVariant = {
+  price?: import("@/lib/pricing/types").EffectivePrice;
   id: string;
   sku: string;
   size: string | null;
@@ -40,6 +41,7 @@ export type CatalogFacet = {
 };
 
 export type CatalogPage = {
+  pricingValidUntil?: string;
   items: CatalogProductSummary[];
   page: number;
   pageSize: number;

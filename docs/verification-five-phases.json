@@ -1,28 +1,28 @@
 {
-  "completedAt": "2026-10-08T15:49:30.046Z",
+  "completedAt": "2026-10-14T06:36:12.193Z",
   "project": "departamental-five-phases",
   "checks": [
     {
       "name": "private snapshot requires service credential and is absent from Gateway",
       "passed": true,
-      "milliseconds": 34
+      "milliseconds": 48
     },
     {
       "name": "initial inventory reconciliation covers all authoritative stock",
       "passed": true,
-      "milliseconds": 70,
-      "rows": 15,
-      "units": 128
+      "milliseconds": 66,
+      "rows": 285,
+      "units": 4456
     },
     {
       "name": "branches without stock and sales keep their authoritative name",
       "passed": true,
-      "milliseconds": 29
+      "milliseconds": 23
     },
     {
       "name": "duplicates, reversed revisions and legacy events cannot regress projection",
       "passed": true,
-      "milliseconds": 2519
+      "milliseconds": 2951
     },
     {
       "name": "real PostgreSQL ranking sums two variants into one product",
@@ -32,49 +32,49 @@
     {
       "name": "Pricing applies midnight and expiration before its scheduler catches up",
       "passed": true,
-      "milliseconds": 62
+      "milliseconds": 56
     },
     {
       "name": "API rejects ambiguous promotion dates and unauthorized writes",
       "passed": true,
-      "milliseconds": 2608
+      "milliseconds": 2593
     },
     {
       "name": "administrative BFF creates and edits a promotion with cookie authentication",
       "passed": true,
-      "milliseconds": 174
+      "milliseconds": 152
     },
     {
       "name": "only one of two simultaneous physical orders buys the last unit",
       "passed": true,
-      "milliseconds": 354,
-      "realtimeMilliseconds": 248,
-      "saleToEventMilliseconds": 350
+      "milliseconds": 2624,
+      "realtimeMilliseconds": 422,
+      "saleToEventMilliseconds": 500
     },
     {
       "name": "reservation expiry releases stock without another purchase",
       "passed": true,
-      "milliseconds": 1076
+      "milliseconds": 895
     },
     {
       "name": "a disconnected client reads the current version when it reconnects",
       "passed": true,
-      "milliseconds": 4693
+      "milliseconds": 3118
     },
     {
       "name": "campaign preview and confirmation recalculate recipients and deduplicate",
       "passed": true,
-      "milliseconds": 286
+      "milliseconds": 766
     },
     {
       "name": "CRM APIs reject one- and two-month campaigns",
       "passed": true,
-      "milliseconds": 51
+      "milliseconds": 2678
     },
     {
       "name": "final reconciliation still matches stock after sales and expiry",
       "passed": true,
-      "milliseconds": 18
+      "milliseconds": 44
     }
   ]
 }

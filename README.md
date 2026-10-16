@@ -1,397 +1,160 @@
 # Plataforma Departamental
 
-Este repositorio se desarrolla tomando como referencia vigente
-[Proyecto Universitario Tienda Departamental v2.4](docs/Proyecto_Universitario_Tienda_Departamental_v2.4.docx),
-actualizada contra el código el 6 de octubre de 2026.
-La meta es una plataforma omnicanal de microservicios, no convertir el MVP
-existente de Next.js en un monolito mayor.
+Aplicación de tienda departamental con catálogo, compras online, caja de venta física, inventario por sucursal, promociones, pedidos, entregas, CRM y reportes administrativos. Incluye cuentas con roles **ADMIN**, **EMPLOYEE** y **CUSTOMER**.
 
-## Estado de implementación
+La interfaz usa Next.js 16 y React 19. El backend tiene diez microservicios NestJS detrás de Kong, bases PostgreSQL independientes, Redis, RabbitMQ y actualizaciones por Socket.IO. Consulta los [contratos y la arquitectura](docs/arquitectura.md) para los detalles técnicos.
 
-Las Fases 1 a 6 están implementadas: Gateway Kong, Auth Service, Catalog
-Service con Redis cache-aside, Inventory Service, Pricing Service, Orders
-Service y RabbitMQ con Outbox transaccional. La Fase 7 añade Realtime Service
-para propagar cambios de inventario al Dashboard. Cada servicio conserva su
-propia base PostgreSQL cuando el dominio lo requiere. JWT tiene refresh
-rotativo, el catálogo público ya no usa Route Handlers de Next.js ni la base
-heredada y el inventario ya aplica reservas condicionales con idempotencia.
+## Requisitos
 
-```text
-Navegador → Next.js (UI) → Kong Gateway ─┬→ Auth Service → PostgreSQL Auth
-                                          ├→ Catalog Service → PostgreSQL Catalog
-                                          │                    ↘ Redis Catalog
-                                          ├→ Inventory Service → PostgreSQL Inventory
-                                          ├→ Pricing Service → PostgreSQL Pricing
-                                          ├→ Orders Service → PostgreSQL Orders
-                                               ├→ Catalog API
-                                               ├→ Pricing API
-                                               └→ Inventory API privada
-                                          ├→ Logistics Service → PostgreSQL Logistics
-                                          └→ CRM Service → PostgreSQL CRM
+- Git.
+- Node.js **22.x** y npm para preparar la configuración local. Las imágenes Docker también usan Node 22.
+- Docker Desktop iniciado, con Docker Compose v2; en Linux puede usarse Docker Engine con el plugin Compose.
+- Conexión a internet para descargar dependencias e imágenes. Los mapas OpenStreetMap también necesitan conexión para cargar sus teselas.
+- Puertos disponibles: **3000** (web), **8000** (API) y **18000** (bandeja de correo local).
 
-Orders → RabbitMQ → Logistics Service → RabbitMQ → consumidores de envíos
-Orders → RabbitMQ → CRM Service (proyección propia de historial y segmentos)
-CRM → RabbitMQ → Notification Service → PostgreSQL Notification
-Notification → Auth API interna autenticada (contacto mínimo, sin DB compartida)
-Inventory, Pricing y Orders → RabbitMQ (eventos de dominio) → Realtime Service
-Navegador ← Socket.IO ← Kong Gateway ← Realtime Service
-```
+## Instalación local con Docker Compose
 
-- El frontend utiliza únicamente el Gateway para identidad y catálogo; no
-  conoce puertos internos ni accede a ninguna base de datos de servicio.
-- Kong es DB-less y aplica CORS explícito, `X-Correlation-Id`, JWT y límites
-  de tasa. Auth y `auth-postgres` no publican puertos al host.
-- Auth es dueño exclusivo de usuarios, roles y refresh tokens; Catalog es
-  dueño de productos, categorías, marcas y variantes; Inventory es dueño de
-  stock, reservas, movimientos y mínimos; Pricing es dueño de promociones;
-  Orders es dueño de pedidos, líneas históricas, auditoría e idempotencia;
-  Logistics es dueño de envíos y sus transiciones operativas; CRM es dueño de
-  los perfiles de compra proyectados, segmentos y campañas; y Notification es
-  dueño exclusivo de intentos de entrega. No
-  comparten bases, credenciales ni FKs entre servicios.
-- Los roles son exactamente `ADMIN`, `EMPLOYEE` y `CUSTOMER`; se validan en el
-  backend, se verifican de nuevo en páginas/handlers y se reflejan en la
-  navegación del frontend.
-
-## Roadmap de desarrollo
-
-| Fase | Entregable | Estado |
-| --- | --- | --- |
-| 1 | API Gateway + Auth: entrada única, identidad y roles. | Implementada y validada. |
-| 2 | Catalog Service: productos, categorías y variantes. | Implementada y validada. |
-| 3 | Inventory Service: stock, movimientos, mínimos y concurrencia. | Implementada y validada. |
-| 4 | Pricing Service: cotización y promociones programadas. | Implementada y validada. |
-| 5 | Order / Sales Service: pedidos, reservas y snapshot de precio. | Implementada y validada. |
-| 6 | RabbitMQ + Outbox: eventos confiables y desacoplamiento. | Implementada y validada. |
-| 7 | Realtime + inventario Dashboard. | Implementada y validada. |
-| 8 | Analytics + Chart.js: proyecciones de lectura, KPIs y gráficas administrativas. | Implementada y validada. |
-| 9 | Pick & Pack y transiciones de Logistics. | Implementada y validada. |
-| 10 | Maps / tracking de repartidores. | Implementada y validada. |
-| 11 | CRM: historial proyectado y segmentación. | Implementada y validada. |
-| 12 | Notification + campañas asíncronas. | Implementada y validada. |
-
-## Fase 1: identidad y permisos
-
-### Gateway y Auth Service
-
-Kong expone la API en `http://localhost:8000` y enruta los contratos de Auth:
-
-| Ruta | Acceso |
-| --- | --- |
-| `POST /auth/login` | Público; rate limit por IP. |
-| `POST /auth/refresh` | Refresh token opaco; funciona aun si el access token expiró o no existe. |
-| `POST /auth/logout` | Refresh token opaco o Bearer; con refresh revoca esa sesión aun sin access token. |
-| `GET /auth/me` | JWT Bearer. |
-| `GET /auth/users` | Solo `ADMIN`; endpoint administrativo de identidad sin hashes ni contraseñas. |
-| `GET /health` | Público; comprueba Auth y su PostgreSQL. |
-
-Las respuestas de Auth usan `{ code, message, correlationId }` ante error. El
-access token HS256 incluye `iss: departamental-auth-service`, `sub`, `role`,
-`exp` y `jti`. La variable `JWT_ACCESS_SECRET` se genera en base64url, pero
-Nest y Kong usan el mismo valor literal como clave HMAC; así las firmas son
-compatibles de extremo a extremo.
-
-La renovación rota el refresh token y detecta su reutilización: al reutilizar
-uno ya rotado se revoca su familia y no se emite un nuevo access token. El
-cierre de sesión por refresh es idempotente para no revelar si una sesión
-existía; el Gateway conserva CORS y rate limiting en ambas rutas.
-
-### Matriz de permisos vigente
-
-| Acción disponible hoy | ADMIN | EMPLOYEE | CUSTOMER |
-| --- | ---:| ---:| ---:|
-| Dashboard heredado de administración | Sí | No | No |
-| Área operativa inicial | Sí | Sí | No |
-| Pick & Pack y transiciones de envíos | Sí | Sí | No |
-| Crear pedidos | Sí | Sí | Sí |
-| Reglas de precio heredadas | Sí | No | No |
-| Identidades `/auth/users` | Sí | No | No |
-| Crear o modificar productos y variantes | Sí | No | No |
-| Consultar catálogo publicado | Sí | Sí | Sí |
-| Pantalla de gestión de catálogo | Sí | No | No |
-| Cuenta y sesión | Sí | Sí | Sí |
-
-Los controles de interfaz solo mejoran la experiencia: la autorización real se
-aplica también en el servidor. Las rutas heredadas aún protegidas son
-`/api/dashboard/inventory` (`ADMIN`) y `/api/admin/price-rules` (`ADMIN`).
-Los pedidos ya se atienden exclusivamente en Orders vía Gateway; `CUSTOMER`
-sólo puede leer o cancelar los propios, mientras que `ADMIN` y `EMPLOYEE`
-pueden listar y consultar operaciones.
-
-## Fase 5: Órdenes y ventas
-
-Kong publica estos contratos con JWT:
-
-| Ruta | Acceso |
-| --- | --- |
-| `POST /orders` | `ADMIN`, `EMPLOYEE`, `CUSTOMER`; requiere `Idempotency-Key`. |
-| `GET /orders` | `ADMIN`, `EMPLOYEE`. |
-| `GET /orders/mine` | Solo `CUSTOMER`; devuelve únicamente los pedidos de su identidad autenticada. |
-| `GET /orders/:id` | Operación o el `CUSTOMER` propietario. |
-| `POST /orders/:id/cancel` | Operación o el `CUSTOMER` propietario. |
-
-Orders toma el precio efectivo desde Pricing, conserva el snapshot de producto
-y precio en sus propias líneas, reserva y confirma stock mediante la API
-privada de Inventory y nunca lee tablas ajenas. Repetir el mismo checkout con
-la misma clave devuelve el mismo pedido sin volver a consumir existencias; un
-pedido que no alcanza stock devuelve `409 OUT_OF_STOCK`. Para una orden online
-confirmada, Orders pide a Logistics una decisión interna y autenticada antes de
-cancelarla: `PENDING` o `PACKING` se cancelan atómicamente, mientras que
-`SHIPPED` o `DELIVERED` responden `409 ORDER_ALREADY_DISPATCHED`. La orden usa
-el estado reintentable `CANCELLATION_PENDING` si Logistics está temporalmente
-indisponible; solo al aceptar la decisión se publica `order.cancelled.v1` para
-compensar Inventory. No se declara ni procesa un reembolso.
-
-## Fase 6: RabbitMQ y Outbox transaccional
-
-RabbitMQ vive exclusivamente en la red privada `events-internal`. Cada servicio
-persiste su cambio de negocio y su evento pendiente dentro de la misma
-transacción PostgreSQL: `orders_outbox_events`, `inventory_outbox_events` o
-`pricing_outbox_events`. Un publisher local toma trabajos con `FOR UPDATE SKIP
-LOCKED`, espera la confirmación del broker y conserva el evento para reintento
-exponencial si RabbitMQ no responde. Por tanto, una venta confirmada nunca se
-pierde por una caída temporal del broker.
-
-| Evento versionado | Productor | Consumidor disponible |
-| --- | --- | --- |
-| `order.created.v1`, `order.completed.v1` | Orders | Preparados para CRM, Analytics y Notification. |
-| `order.cancelled.v1` | Orders | Inventory repone el stock. |
-| `inventory.stock.changed.v1`, `inventory.low-stock.v1` | Inventory | Realtime entrega cambios de stock; Analytics preparado. |
-| `promotion.activated.v1`, `promotion.expired.v1` | Pricing | Preparados para Catalog y Realtime. |
-
-Los mensajes usan un envelope con `eventId`, `eventType`, `occurredAt`,
-`correlationId`, `producer` y `data`. Inventory registra los `eventId`
-procesados antes de la reposición; una reentrega no genera una segunda entrada
-de stock. La cola `inventory.order-cancelled.v1` reintenta hasta el límite
-configurado y mueve fallos persistentes a
-`inventory.order-cancelled.v1.dlq`, observable y separada del flujo de venta.
-
-## Fase 7: Realtime e inventario operativo
-
-`realtime-service` no posee datos de negocio ni consulta bases de otros
-servicios. Consume la cola duradera `realtime.inventory-stock.v1`, enlazada a
-`inventory.stock.changed.v1`, valida el envelope y transmite `stock.updated`
-por Socket.IO. Los eventos inválidos pasan a su propia DLQ; los `eventId`
-recientes se deduplican para que una reentrega no produzca una actualización
-duplicada en la vista.
-
-Kong publica únicamente `/realtime/socket.io`. La conexión reutiliza la cookie
-HTTP-only `departamental_access`; Kong la verifica y Realtime la valida de
-nuevo, admitiendo solo el rol `ADMIN`. El token nunca se expone a JavaScript.
-Si la conexión cae, el Dashboard conserva la última lectura y vuelve a pedir el
-snapshot actual mediante Gateway, sin acceder a Inventory ni a su PostgreSQL de
-forma directa.
-
-El Dashboard ahora muestra por sucursal el inventario oficial con producto,
-SKU, variante, existencias físicas, reservas, disponible y punto de pedido. Las
-variantes `available <= reorder_point` se destacan en rojo y `available = 0`
-se etiquetan explícitamente como `AGOTADO`; cada vista indica la última
-sincronización recibida.
-
-## Fase 8: Analytics y Dashboard comercial
-
-`analytics-service` es dueño exclusivo de PostgreSQL Analytics y mantiene
-proyecciones de lectura; nunca consulta las bases de Orders ni Inventory. Su
-consumidor durable `analytics.projections.v1` recibe
-`order.completed.v1`, `order.cancelled.v1` e
-`inventory.stock.changed.v1`. Cada `eventId` se registra de forma transaccional
-antes de modificar una proyección, por lo que una reentrega no duplica ventas,
-líneas ni existencias. Los eventos inválidos terminan en su DLQ.
-
-Los reportes se consultan solo mediante Gateway y requieren el rol `ADMIN` en
-Kong y de nuevo en Analytics:
-
-| Ruta | Uso |
-| --- | --- |
-| `GET /analytics/sales/today` | Importe y tickets completados del día. |
-| `GET /analytics/sales/by-branch?period=today|7d|30d` | Ventas por sucursal; incluye cero para sucursales proyectadas sin ventas. |
-| `GET /analytics/products/top?period=...&limit=5|10|20` | Ranking por unidades vendidas; excluye cancelaciones. |
-| `GET /analytics/ticket-average?period=...` | Ventas completadas / tickets completados. |
-| `GET /analytics/inventory/by-branch` | Agregado de existencias, reservas y disponible. |
-
-El Dashboard ADMIN conserva el panel operativo de Inventario y añade Chart.js
-para ventas por sucursal, top productos y distribución de stock. La primera
-carga se resuelve en Server Components por Gateway; los filtros interactivos
-usan el BFF de Next.js con TanStack Query. Todos los reportes indican la última
-proyección y presentan un estado vacío o de retraso sin impedir que ventas e
-inventario sigan funcionando.
-
-## Fase 9: Pick & Pack y Logistics
-
-`logistics-service` es dueño de su PostgreSQL y no consulta la base de Orders.
-Su consumidor durable `logistics.order-events.v1` valida y conserva el canal
-del evento: proyecta únicamente `order.completed.v1` con `channel: ONLINE` en
-un envío con snapshot de artículos; una venta `PHYSICAL` queda procesada y
-deduplicada, pero no inicia preparación ni entrega. También procesa
-`order.cancelled.v1` para retirar pedidos cancelados de preparación. Antes de
-publicar esa compensación, Orders usa la ruta interna no expuesta por Kong
-`POST /internal/shipments/orders/:orderId/cancel`, protegida con una llave de
-servicio, para impedir cancelar un envío ya despachado. El
-`eventId` se registra transaccionalmente, de modo que una reentrega no crea un
-segundo envío. Cada transición y su actor quedan en
-`logistics_shipment_transitions`; su outbox publica
-`shipment.status.changed.v1` con confirmación del broker.
-
-Kong publica estos contratos solo con JWT y Logistics vuelve a validar el rol:
-
-| Ruta | Acceso |
-| --- | --- |
-| `GET /shipments` | `ADMIN`, `EMPLOYEE`; solo Pendiente, Empacando y Enviado. |
-| `GET /shipments/:id` | `ADMIN`, `EMPLOYEE`; incluye el historial auditado. |
-| `PATCH /shipments/:id/status` | `ADMIN`, `EMPLOYEE`; requiere `{ status, version }`. |
-
-Las transiciones operativas son explícitas: `PENDING → PACKING → SHIPPED`.
-Una petición con una versión anterior o una transición inválida responde
-`409`, por lo que dos empleados no pueden sobrescribir el trabajo del otro.
-`CANCELLED` nunca puede volver a preparación. La Fase 10 completa el avance
-de última milla con `SHIPPED → DELIVERED`. La página `/operations` usa
-Server Components para el primer snapshot y TanStack Query contra un BFF de
-Next.js para refresco cada 15 segundos, detalle del pedido y cambio de estado;
-la UI nunca conoce el puerto o la base interna de Logistics.
-
-## Fase 10: Maps y seguimiento de repartidores
-
-`logistics-service` conserva repartidores, la última ubicación y la dirección
-de entrega en su PostgreSQL exclusivo. La ubicación requiere coordenadas
-válidas y timestamp; una señal más antigua no sobreescribe una señal más nueva.
-El umbral de frescura es de cinco minutos, por lo que la interfaz diferencia
-claramente una señal reciente, una anterior y la ausencia de ubicación.
-
-| Ruta | Acceso |
-| --- | --- |
-| `PATCH /shipments/:id/tracking` | `ADMIN`, `EMPLOYEE`; asigna repartidor y dirección de entrega. |
-| `POST /couriers/:id/location` | `ADMIN`, `EMPLOYEE`; registra `{ shipmentId, latitude, longitude, recordedAt? }`. |
-| `GET /couriers/:id/location` | `ADMIN`, `EMPLOYEE`; consulta la última señal. |
-| `GET /shipments` y `GET /shipments/:id` | Operación; `CUSTOMER` recibe solo los propios y sin ubicación ni datos internos del repartidor. |
-
-Cada ubicación aceptada se publica como `shipment.tracking.updated.v1` desde
-el Outbox de Logistics. `realtime-service` la consume mediante la cola durable
-`realtime.courier-tracking.v1`, deduplica por `eventId` y emite
-`courier.location.updated` únicamente a `ADMIN` y `EMPLOYEE` autenticados.
-
-La pantalla `/operations` usa Google Maps JavaScript API para el marcador y
-Google Routes desde un BFF del servidor para calcular la ruta. La llave de
-Routes permanece en `GOOGLE_MAPS_ROUTES_API_KEY`; la llave de navegador se
-entrega solo a la pantalla operativa y debe restringirse por referrer. Si Maps,
-la ruta o las credenciales no están disponibles, la interfaz conserva la
-dirección y la última ubicación sin bloquear Pick & Pack. El CUSTOMER ve el
-estado y la fecha de actualización de sus propias entregas desde `/account`.
-
-## Fase 12: campañas y Notification
-
-CRM crea campañas de cupón solo para el segmento de clientes inactivos y
-responde `202 Accepted`: los trabajos `coupon.email.requested.v1` se guardan
-primero en `crm_campaign_outbox_events` y se publican por lotes sin bloquear
-la vista administrativa. La petición requiere `ADMIN`, `Idempotency-Key`, un
-código de cupón y una vigencia futura. Antes de confirmarla, `/crm` muestra el
-total de destinatarios; después, actualiza pendientes, enviados y no
-entregables mediante TanStack Query.
-
-| Ruta | Acceso |
-| --- | --- |
-| `POST /campaigns` | `ADMIN`; crea una campaña y devuelve `202`. |
-| `GET /campaigns/:id` | `ADMIN`; devuelve el progreso agregado. |
-
-`notification-service` consume el evento en una cola durable con DLQ y conserva
-sus entregas, reintentos y Outbox en PostgreSQL propio. Sus resultados
-`notification.sent.v1` y `notification.failed.v1` regresan a CRM, que actualiza
-el estado sin almacenar direcciones de correo. Para obtener un contacto,
-Notification llama una ruta privada de Auth con una llave independiente; nunca
-consulta PostgreSQL de Auth. Si RabbitMQ o Notification no están disponibles,
-el Outbox conserva el trabajo y las ventas no se interrumpen.
-
-En desarrollo `NOTIFICATION_DELIVERY_MODE=log` es el valor predeterminado:
-acepta y registra la entrega localmente, sin proveedor SMTP ni correo real. Usa
-`smtp` junto con `SMTP_URL` únicamente si se configuró un proveedor de correo.
-
-## Arranque local con Docker Compose
-
-Se requiere Docker Desktop. Antes de iniciar, crea un archivo `.env` a partir
-de `.env.example`, genera `JWT_ACCESS_SECRET` y define las contraseñas de cada
-PostgreSQL de servicio; no uses los valores de ejemplo en un entorno compartido.
-
-```powershell
-Copy-Item .env.example .env
-# Edita .env y sustituye JWT_ACCESS_SECRET, contraseñas de bases y
-# NOTIFICATION_INTERNAL_SERVICE_KEY.
-docker compose config
-docker compose up --build
-```
-
-La aplicación web queda en `http://localhost:3000` (o el puerto configurado en
-`WEB_HOST_PORT`) y el Gateway en `http://localhost:8000`. Para las cuentas
-locales de demostración de los tres roles, consulta [Acceso local](ACCESO_LOCAL.md).
-En desarrollo también se pueden crear los catorce productos semilla de Catalog;
-consulta [Catalog Service](services/catalog-service/README.md) para sus
-contratos y configuración.
-
-El Compose mantiene `postgres` y `redis` del MVP únicamente para no romper el
-trabajo existente. Auth, Catalog, Inventory, Pricing, Orders, Logistics, CRM y
-Notification tienen volúmenes, redes y credenciales propias; `catalog-redis` sólo sirve al patrón cache-aside
-de Catalog. RabbitMQ usa volumen propio y no publica puertos al host. Los
-servicios no crean tablas en bases de otros dominios.
-
-## Desarrollo sin contenedores
-
-La UI puede compilar y arrancar sin contenedores:
+### 1. Obtener el proyecto
 
 ```bash
-npm install
+git clone --branch develop --single-branch https://github.com/AldoJosue31/proyecto_Tienda-Departamental.git
+cd proyecto_Tienda-Departamental
+```
+
+### 2. Crear la configuración privada
+
+```bash
+npm run setup:local
+```
+
+El comando crea `.env` a partir de [.env.example](.env.example), genera una contraseña independiente para cada base de datos y cuenta de demostración, y genera las llaves privadas que requieren los servicios. No necesita `npm install` ni modifica un `.env` existente.
+
+Si ya tienes `.env`, conserva sus valores y compara las variables con `.env.example`; el asistente no completa ni cambia una instalación existente. Para configurar manualmente, copia el ejemplo, reemplaza todos los `replace_with_*` y completa las llaves privadas vacías con valores independientes. Las tres contraseñas `SEED_*_PASSWORD` deben tener al menos 12 caracteres.
+
+`.env` es privado y está excluido de Git. Las claves de Google Maps son opcionales para el arranque.
+
+### 3. Construir y arrancar
+
+Ejecuta desde la raíz del repositorio:
+
+```bash
+docker compose -f compose.yaml -f compose.university.yaml config --quiet
+docker compose -f compose.yaml -f compose.university.yaml up -d --build --wait --wait-timeout 300
+docker compose -f compose.yaml -f compose.university.yaml ps
+```
+
+La primera construcción puede tardar varios minutos. Docker instala las dependencias, ejecuta las migraciones y crea las cuentas, productos e inventario de demostración. No necesitas instalar PostgreSQL, Redis o RabbitMQ en tu equipo.
+
+| Servicio | Dirección |
+| --- | --- |
+| Aplicación e inicio de sesión | [http://localhost:3000/login](http://localhost:3000/login) |
+| API Gateway / salud de Auth | [http://localhost:8000/health](http://localhost:8000/health) |
+| Mailpit: correos de verificación, invitaciones y campañas | [http://localhost:18000](http://localhost:18000) |
+
+`compose.university.yaml` añade Mailpit para capturar correos dentro del entorno local; los mensajes no se entregan a buzones externos. Se incluye en estos comandos para poder completar el registro y las invitaciones desde la interfaz.
+
+## Credenciales y roles
+
+Consulta las contraseñas generadas **en tu equipo**:
+
+```bash
+npm run credentials:local
+```
+
+| Rol | Correo | Contraseña en `.env` | Acceso principal |
+| --- | --- | --- | --- |
+| ADMIN | `admin@departamental.local` | `SEED_ADMIN_PASSWORD` | Dashboard, catálogo, inventario, promociones, empleados y CRM. |
+| EMPLOYEE | `employee@departamental.local` | `SEED_EMPLOYEE_PASSWORD` | Caja, inventario operativo, preparación y reparto. |
+| CUSTOMER | `customer@departamental.local` | `SEED_CUSTOMER_PASSWORD` | Catálogo, bolsa, compras y pedidos propios. |
+
+No hay una contraseña universal publicada. El comando muestra únicamente las tres credenciales semilla de tu archivo local. Consulta [Acceso local](ACCESO_LOCAL.md) si ya existían cuentas en la base.
+
+Los usuarios semilla se crean con `AUTH_RUN_SEED=true` y `AUTH_NODE_ENV=development`; ya vienen habilitados para esta instalación. El seed crea cuentas faltantes y **no cambia contraseñas existentes**. Cambiar `SEED_*_PASSWORD` después del primer arranque no cambia la contraseña guardada en PostgreSQL.
+
+También puedes registrar un cliente desde el login y abrir su enlace de verificación en Mailpit. Un administrador invita empleados desde la pantalla de usuarios. Usa estas cuentas y los seeds solo en desarrollo local.
+
+## Uso diario
+
+Todos los comandos deben usar los mismos archivos Compose:
+
+```bash
+# Detener conservando contenedores y datos
+docker compose -f compose.yaml -f compose.university.yaml stop
+
+# Volver a iniciar con los datos existentes
+docker compose -f compose.yaml -f compose.university.yaml up -d --wait --wait-timeout 300
+
+# Consultar los últimos mensajes de los servicios
+docker compose -f compose.yaml -f compose.university.yaml logs --tail=100
+
+# Eliminar contenedores y redes conservando los volúmenes
+docker compose -f compose.yaml -f compose.university.yaml down
+```
+
+Los datos se guardan en volúmenes Docker. **No añadas `-v` a `down` si quieres conservarlos.**
+
+## Desarrollo de la interfaz
+
+Primero levanta el backend con los comandos anteriores. Luego detén únicamente la web de Docker para liberar el puerto 3000 y ejecuta la UI en tu equipo:
+
+```bash
+docker compose -f compose.yaml -f compose.university.yaml stop aplicacion-web
+npm ci
 npm run dev
 ```
 
-Para obtener identidad y productos reales se necesitan Gateway, Auth, Catalog,
-sus bases y Redis Catalog mediante Compose o mediante los comandos de sus
-READMEs. Nunca cambies el frontend para apuntar directo a los puertos internos
-`3001` o `3002`.
+El servidor usa `GATEWAY_INTERNAL_URL=http://localhost:8000` desde `.env` para llegar al Gateway. Los servicios y sus bases continúan en Docker.
 
-## Calidad
-
-Ejecuta todas estas verificaciones antes de declarar lista una fase:
+Para volver a la web de Docker, detén `npm run dev` con Ctrl+C y ejecuta:
 
 ```bash
-# UI / frontend
-npm run typecheck
-npm run lint
-npm test
-npm run build
-
-# Auth Service
-cd services/auth-service
-npm run typecheck
-npm run lint
-npm test
-npm run build
-
-# Catalog Service
-cd ../catalog-service
-npm run typecheck
-npm run lint
-npm test
-npm run build
-
-# Inventory, Pricing y Orders Service
-cd ../inventory-service && npm run typecheck && npm run lint && npm test && npm run build
-cd ../pricing-service && npm run typecheck && npm run lint && npm test && npm run build
-cd ../orders-service && npm run typecheck && npm run lint && npm test && npm run build
-cd ../realtime-service && npm run typecheck && npm run lint && npm test && npm run build
-cd ../logistics-service && npm run typecheck && npm run lint && npm test && npm run build
-cd ../crm-service && npm run typecheck && npm run lint && npm test && npm run build
-cd ../notification-service && npm run typecheck && npm run lint && npm test && npm run build
+docker compose -f compose.yaml -f compose.university.yaml up -d aplicacion-web
 ```
 
-Las validaciones en contenedor que complementan estas pruebas son `docker
-compose config`, healthchecks y contratos a través del Gateway. Docker Desktop
-está disponible en el entorno local actual y estas validaciones se ejecutan al
-cerrar cada fase.
+## Verificaciones de código
 
-## Legado de transición
+Después de `npm ci`:
 
-Inventario y precios heredados dentro de Next.js son un slice demostrativo
-previo. El checkout heredado se retiró: los pedidos sólo pasan por Orders. El
-catálogo público ya fue extraído: las rutas `/api/products` se retiraron y la
-UI usa Server Components más TanStack Query contra Kong. Las siguientes fases
-sustituirán los dominios restantes por su microservicio NestJS, PostgreSQL
-exclusivo y, cuando aplique, RabbitMQ/Outbox.
-Redis seguirá siendo cache-aside, nunca la fuente oficial de catálogo o
-inventario.
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+Cada microservicio tiene sus propias dependencias y verificaciones. Por ejemplo:
+
+```bash
+npm ci --prefix services/auth-service
+npm run typecheck --prefix services/auth-service
+npm run lint --prefix services/auth-service
+npm test --prefix services/auth-service
+npm run build --prefix services/auth-service
+```
+
+La [configuración de GitHub Actions](.github/workflows/ci.yml) comprueba web, diez servicios e integración. Las pruebas de navegador y certificación usan un entorno aislado; no las ejecutes contra una base con información que quieras conservar. Consulta la [guía de entrega](docs/entrega-definitiva-fases-7-9.md).
+
+## Problemas comunes
+
+| Problema | Qué revisar |
+| --- | --- |
+| Docker no responde | Inicia Docker Desktop y comprueba `docker info`. |
+| Compose pide una variable | Completa tu `.env` usando `.env.example`; `setup:local` conserva archivos existentes. |
+| Puerto 3000 ocupado | Detén el otro servidor o cambia `WEB_HOST_PORT`, `APP_PUBLIC_ORIGIN` y `CORS_ALLOWED_ORIGIN` al mismo puerto en `.env`; vuelve a crear los contenedores con `up -d`. |
+| Error de autenticación de PostgreSQL tras cambiar `.env` | Usa las contraseñas originales del volumen; editar el archivo no cambia usuarios de bases existentes. |
+| Las credenciales semilla no funcionan | Comprueba `AUTH_RUN_SEED=true`, los logs de `servicio-autenticacion` y si esa cuenta ya existía con otra contraseña. |
+| No llega el correo | Revisa Mailpit en el puerto 18000 y que hayas incluido `compose.university.yaml`. |
+| Un servicio tarda o queda `unhealthy` | Consulta `ps` y `logs --tail=100 nombre-del-servicio`; corrige la causa y repite `up -d --wait --wait-timeout 300`. |
+
+Las guías históricas pueden mencionar 3005, 3105 o imágenes locales congeladas. Una instalación nueva usa los archivos y puertos indicados aquí; los `compose.release*.yaml` requieren archivos de imágenes de una entrega anterior y no son necesarios para instalar desde el código.
+
+## Archivos y documentación
+
+- `src/` y `public/`: interfaz y recursos actuales.
+- `services/`: microservicios, migraciones, seeds y pruebas de cada dominio.
+- `infra/` y `compose*.yaml`: infraestructura local y configuraciones de integración/recuperación.
+- `tests/`, `e2e/` y `scripts/`: pruebas activas y herramientas de desarrollo; las usa CI.
+- [Documentación del proyecto](docs/README.md): especificación, entrega y evidencia conservada.
+- [Arquitectura y contratos](docs/arquitectura.md): dominios, permisos y API.
+
+Las versiones descartadas de documentos e imágenes pueden recuperarse desde el historial de Git. Los temporales de Office, cachés, dependencias, secretos y resultados locales de pruebas se excluyen mediante `.gitignore`.

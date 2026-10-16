@@ -19,6 +19,8 @@ interface ErrorPayload {
 
 interface DatabaseError {
   code?: unknown;
+  message?: unknown;
+  errors?: unknown[];
 }
 
 function publicError(status: number): Pick<ErrorPayload, "code" | "message"> {
@@ -44,8 +46,8 @@ function isDatabaseUnavailable(exception: unknown): boolean {
   if (typeof exception !== "object" || exception === null) {
     return false;
   }
-  const code = (exception as DatabaseError).code;
-  return typeof code === "string" && [
+  const { code, message, errors } = exception as DatabaseError;
+  return (typeof code === "string" && [
     "08001",
     "08006",
     "57P01",
@@ -53,7 +55,12 @@ function isDatabaseUnavailable(exception: unknown): boolean {
     "57P03",
     "ECONNREFUSED",
     "ETIMEDOUT",
-  ].includes(code);
+    "ECONNRESET",
+    "EHOSTUNREACH",
+    "ENOTFOUND",
+    "EAI_AGAIN",
+  ].includes(code)) || (typeof message === "string" && /^(Connection terminated(?: unexpectedly)?|Connection terminated due to connection timeout|timeout exceeded when trying to connect)$/.test(message))
+    || (exception instanceof AggregateError && Boolean(errors?.length) && errors!.every(error => typeof error === "object" && error !== null && typeof (error as DatabaseError).code === "string" && ["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "EHOSTUNREACH", "ENOTFOUND", "EAI_AGAIN"].includes((error as DatabaseError).code as string)));
 }
 
 @Catch()

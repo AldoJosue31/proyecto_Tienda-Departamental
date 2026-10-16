@@ -21,6 +21,14 @@ function config(): AuthTokenConfig {
 }
 
 describe("TokenService", () => {
+  it('issues the identity version and supports legacy version-zero claims only', () => {
+    const tokenConfig = config(), service = new TokenService(tokenConfig);
+    const user = { id: 'a03effa0-6d5f-483d-b130-d3cf4b82f21d', email: 'test@example.test', name: 'Test', role: 'CUSTOMER' as const, authVersion: 3 };
+    expect(service.verifyAccessToken(service.issueAccessToken(user).token).uv).toBe(3);
+    const make = (payload: Record<string, unknown>) => sign(payload, tokenConfig.accessSecret, { algorithm: 'HS256', issuer: AUTH_JWT_ISSUER, subject: user.id, jwtid: 'test', expiresIn: 900 });
+    expect(service.verifyAccessToken(make({ role: 'CUSTOMER' })).uv).toBe(0);
+    for (const uv of [-1, 0.5, '0', null]) expect(() => service.verifyAccessToken(make({ role: 'CUSTOMER', uv }))).toThrow(ApiException);
+  });
   it("issues an HS256 access token with the agreed issuer and role claims", () => {
     const tokenConfig = config();
     const service = new TokenService(tokenConfig);

@@ -31,6 +31,7 @@ export interface CourierLocationUpdatedEvent {
     latitude: number;
     longitude: number;
     recordedAt: string;
+    source?: "DEVICE" | "DEMO" | "MANUAL";
   };
 }
 

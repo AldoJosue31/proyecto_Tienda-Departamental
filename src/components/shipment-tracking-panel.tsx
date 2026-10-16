@@ -6,6 +6,7 @@ import { io, type Socket } from "socket.io-client";
 import { useEffect, useRef, useState } from "react";
 import { sileo } from "sileo";
 
+import { OpenstreetCourierMap } from "./openstreet-courier-map";
 import type { CourierRoute, CourierTrackingUpdate, PickPackShipment, PickPackShipmentDetail, PickPackTracking } from "@/lib/logistics/pick-pack-types";
 
 type MapConfig = { browserKey: string | null; mapId: string | null; gatewayUrl: string };
@@ -86,7 +87,7 @@ function locationLabel(freshness: PickPackTracking["locationFreshness"]): string
 }
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("es-MX", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+  return new Intl.DateTimeFormat("es-MX", { dateStyle: "medium", timeStyle: "medium",timeZone:"America/Mexico_City" }).format(new Date(value));
 }
 
 function formatDistance(value: number | undefined): string | null {
@@ -156,6 +157,8 @@ function MapFallback({ message }: { message: string }) {
 }
 
 export function ShipmentTrackingPanel({ shipment, tracking, maps, onUpdated }: { shipment: PickPackShipment; tracking?: PickPackTracking; maps: MapConfig; onUpdated: (detail: PickPackShipmentDetail) => void }) {
+  const [mapProvider,setMapProvider]=useState<"openstreet"|"google">("openstreet");
+  const couriers=useQuery({queryKey:["enabled-couriers"],queryFn:async()=>{const response=await fetch("/api/operations/couriers",{cache:"no-store"});const body=await response.json();if(!response.ok)throw new Error(body.message ?? "No pudimos consultar repartidores.");return body as {couriers:Array<{id:string;name:string}>};}});
   const [liveLocation, setLiveLocation] = useState<{ courierId: string; location: CourierTrackingUpdate["location"] } | null>(null);
   const [clockAt,setClockAt] = useState(()=>Date.now());
   const [isSaving, setIsSaving] = useState(false);
@@ -187,7 +190,7 @@ export function ShipmentTrackingPanel({ shipment, tracking, maps, onUpdated }: {
     try {
       const detail = await updateTracking(shipment.id, {
         courierId: String(values.get("courierId") ?? ""),
-        courierName: String(values.get("courierName") ?? ""),
+        courierName: couriers.data?.couriers.find(person=>person.id===String(values.get("courierId")))?.name ?? current?.courier.name ?? "",
         deliveryAddress: String(values.get("deliveryAddress") ?? ""),
         version: shipment.version,
       });
@@ -208,17 +211,19 @@ export function ShipmentTrackingPanel({ shipment, tracking, maps, onUpdated }: {
   return <section className="mt-6 border-t border-[var(--line)] pt-6" aria-labelledby="shipment-tracking-title">
     <div className="flex items-start justify-between gap-4"><div><h3 id="shipment-tracking-title" className="flex items-center gap-2 text-sm font-semibold"><IconSatellite size={17} className="text-[var(--accent)]" aria-hidden="true" />Seguimiento de entrega</h3><p className="mt-1 text-sm leading-6 text-[var(--muted)]">La ubicación complementa el estado del envío; no lo sustituye.</p></div>{current?.location ? <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${freshnessTone}`}>{current.locationFreshness === "RECENT" ? <IconWifi size={14} aria-hidden="true" /> : <IconWifiOff size={14} aria-hidden="true" />}{locationLabel(current.locationFreshness)}</span> : null}</div>
     {current ? <>
-      <dl className="mt-4 grid gap-3 rounded-xl bg-[var(--surface-muted)] p-4 sm:grid-cols-2"><Data label="Repartidor" value={current.courier.name} /><Data label="Destino" value={current.deliveryAddress} /><Data label="Última señal" value={current.location ? formatDate(current.location.recordedAt) : "Aún sin señal"} /><Data label="Ruta estimada" value={route.isLoading ? "Calculando" : routeDuration && routeDistance ? `${routeDuration} · ${routeDistance}` : route.data?.reason ?? "Aún no disponible"} /></dl>
-      <CourierMap tracking={current} route={route.data} maps={maps} />
+      <dl className="mt-4 grid gap-3 rounded-xl bg-[var(--surface-muted)] p-4 sm:grid-cols-2"><Data label="Repartidor" value={current.courier.name} /><Data label="Destino" value={current.deliveryAddress} /><Data label="Última señal" value={current.location ? formatDate(current.location.recordedAt) : "Aún sin señal"} /><Data label="Edad de señal" value={current.location ? `${Math.max(0,Math.floor((clockAt-Date.parse(current.location.recordedAt))/1000))} segundos` : "Aún sin señal"} /><Data label="Ruta estimada" value={route.isLoading ? "Calculando" : routeDuration && routeDistance ? `${routeDuration} · ${routeDistance}` : route.data?.reason ?? "Aún no disponible"} /></dl>
+      {current.location?.source==="DEMO" ? <p role="status" className="mt-3 rounded-xl bg-[var(--warning-surface)] p-3 text-sm">Ubicación ficticia · demostración universitaria.</p> : null}
+      <label className="mt-4 grid min-w-0 gap-2 text-sm">Proveedor del mapa<select value={mapProvider} onChange={event=>setMapProvider(event.target.value as "openstreet"|"google")} className="min-h-10 w-full min-w-0 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3"><option value="openstreet">OpenStreetMap · sin clave</option><option value="google" disabled={!maps.browserKey || !maps.mapId}>Google Maps · requiere configuración</option></select></label>
+      {mapProvider==="google" ? <CourierMap tracking={current} route={route.data} maps={maps} /> : <OpenstreetCourierMap tracking={current} route={route.data} />}
       {current.location ? <p className="mt-3 flex items-center gap-2 text-xs leading-5 text-[var(--muted)]"><IconMapPin size={15} aria-hidden="true" />{current.location.latitude.toFixed(5)}, {current.location.longitude.toFixed(5)} · registrada {formatDate(current.location.recordedAt)}</p> : <p className="mt-3 flex items-center gap-2 text-sm leading-6 text-[var(--muted)]"><IconTruckDelivery size={17} aria-hidden="true" />Esperando la primera señal del repartidor.</p>}
     </> : <p className="mt-4 rounded-xl bg-[var(--surface-muted)] px-4 py-3 text-sm leading-6 text-[var(--muted)]">Asigna repartidor y dirección antes de iniciar el seguimiento de este envío.</p>}
     <details className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4" open={!current}>
       <summary className="cursor-pointer list-none text-sm font-semibold marker:hidden"><span className="flex items-center justify-between gap-3"><span className="flex items-center gap-2"><IconRoute size={17} className="text-[var(--accent)]" aria-hidden="true" />{current ? "Editar asignación de reparto" : "Configurar reparto"}</span><span className="text-xs font-medium text-[var(--muted)]">Dirección y repartidor</span></span></summary>
       <form className="mt-4 grid gap-3" onSubmit={(event) => { event.preventDefault(); void onSubmit(event.currentTarget); }}>
-        <label className="grid gap-1.5 text-sm font-medium"><span>Nombre del repartidor</span><input name="courierName" defaultValue={current?.courier.name} required maxLength={120} className="min-h-11 rounded-xl border bg-[var(--surface)] px-3 text-sm" /></label>
-        <label className="grid gap-1.5 text-sm font-medium"><span>ID del repartidor</span><input name="courierId" defaultValue={current?.courier.id} required pattern="[0-9a-fA-F-]{36}" placeholder="UUID de la app de reparto" className="min-h-11 rounded-xl border bg-[var(--surface)] px-3 font-mono text-sm" /></label>
+
+        <label className="grid min-w-0 gap-1.5 text-sm font-medium"><span>Repartidor habilitado</span><select name="courierId" defaultValue={current?.courier.id ?? ""} required disabled={couriers.isPending} className="min-h-11 w-full min-w-0 rounded-xl border bg-[var(--surface)] px-3 text-sm"><option value="" disabled>Selecciona una cuenta de empleado</option>{couriers.data?.couriers.map(person=><option key={person.id} value={person.id}>{person.name}</option>)}</select></label>{couriers.error ? <div role="alert" className="text-sm text-[var(--warning)]">{couriers.error.message}<button type="button" onClick={()=>void couriers.refetch()} className="ml-3 min-h-11 underline">Reintentar directorio</button></div> : null}
         <label className="grid gap-1.5 text-sm font-medium"><span>Dirección de entrega</span><textarea name="deliveryAddress" defaultValue={current?.deliveryAddress} required maxLength={500} rows={3} className="rounded-xl border bg-[var(--surface)] px-3 py-2 text-sm leading-6" /></label>
-        <button type="submit" disabled={isSaving} className="mt-1 inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-55">{isSaving ? "Guardando seguimiento" : "Guardar asignación"}</button>
+        <button type="submit" disabled={isSaving || couriers.isPending || couriers.isError} className="mt-1 inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-55">{isSaving ? "Guardando seguimiento" : "Guardar asignación"}</button>
       </form>
     </details>
   </section>;

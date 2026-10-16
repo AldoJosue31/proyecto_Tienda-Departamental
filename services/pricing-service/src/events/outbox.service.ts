@@ -79,6 +79,10 @@ export class PricingOutboxService implements OnModuleInit, OnModuleDestroy {
           this.logger.warn("A Pricing outbox event will be retried.");
         }
       }
+    } catch {
+      // A failed claim/reschedule must not become an unhandled timer rejection.
+      // Persisted jobs remain retryable when PostgreSQL recovers (lease expires).
+      this.logger.warn("Pricing outbox will resume after its dependencies recover.");
     } finally {
       this.flushing = false;
     }

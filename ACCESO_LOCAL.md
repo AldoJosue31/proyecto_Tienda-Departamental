@@ -1,25 +1,31 @@
 # Acceso local de demostración
 
-Esta guía reúne las cuentas semilla para iniciar sesión en la aplicación durante el desarrollo o la presentación del proyecto. Son credenciales de prueba; no deben usarse en producción ni en un entorno compartido.
+Las cuentas semilla se usan en desarrollo y en la demostración local. Para crear la configuración y arrancar la app, sigue la [instalación del README](README.md#instalación-local-con-docker-compose).
 
 ## Aplicación
 
-- Web local: `http://localhost:3000` (o el puerto definido por `WEB_HOST_PORT` en `.env`).
-- Gateway API: `http://localhost:8000`.
-- El seed de Auth se habilita con `AUTH_RUN_SEED=true` en `.env`; en `.env.example` viene habilitado para desarrollo local.
+- Web: [http://localhost:3000/login](http://localhost:3000/login), o el puerto `WEB_HOST_PORT` de `.env`.
+- Gateway: [http://localhost:8000/health](http://localhost:8000/health).
+- Mailpit: [http://localhost:18000](http://localhost:18000), al usar `compose.university.yaml`.
 
 ## Cuentas por rol
 
-| Rol | Correo | Contraseña semilla predeterminada |
+```bash
+npm run credentials:local
+```
+
+Este comando lee `.env` y muestra únicamente los correos y contraseñas semilla de este equipo. No requiere instalar dependencias.
+
+| Rol | Correo | Variable de contraseña |
 | --- | --- | --- |
-| `ADMIN` | `admin@departamental.local` | `AdminLocal!2026` |
-| `EMPLOYEE` | `employee@departamental.local` | `EmployeeLocal!2026` |
-| `CUSTOMER` | `customer@departamental.local` | `CustomerLocal!2026` |
+| ADMIN | `admin@departamental.local` | `SEED_ADMIN_PASSWORD` |
+| EMPLOYEE | `employee@departamental.local` | `SEED_EMPLOYEE_PASSWORD` |
+| CUSTOMER | `customer@departamental.local` | `SEED_CUSTOMER_PASSWORD` |
 
-## Importante sobre las contraseñas
+No hay contraseñas predeterminadas compartidas. `npm run setup:local` genera valores aleatorios en una instalación nueva; también puedes configurar cada contraseña en `.env` con al menos 12 caracteres antes del primer arranque. No publiques `.env` ni reutilices estas cuentas en producción.
 
-Compose permite sustituir cada contraseña con `SEED_ADMIN_PASSWORD`, `SEED_EMPLOYEE_PASSWORD` y `SEED_CUSTOMER_PASSWORD` en `.env`. Si se definieron esos valores, usa los configurados allí en lugar de los predeterminados de esta tabla.
+## Bases existentes
 
-El seed crea las cuentas que todavía no existen. Si una cuenta ya estaba creada, volver a iniciar el seed no cambia su contraseña; por eso, en una base existente, la contraseña guardada puede diferir de la tabla. Para una base de datos local nueva, las cuentas se crean al iniciar Compose mientras `AUTH_RUN_SEED=true`.
+El seed requiere `AUTH_RUN_SEED=true` y `AUTH_NODE_ENV=development`. Crea las cuentas faltantes y marca sus correos como verificados, pero no reemplaza contraseñas de cuentas existentes. Por ello, las credenciales mostradas por el comando solo corresponden a PostgreSQL si el seed creó las cuentas con esos mismos valores.
 
-Para iniciar el proyecto, consulta la sección “Arranque local con Docker Compose” de [README.md](./README.md). Los contratos y detalles del servicio de identidad están en [services/auth-service/README.md](./services/auth-service/README.md).
+Para el registro de un cliente nuevo o la invitación de un empleado, abre el correo capturado por Mailpit y sigue su enlace. Los contratos del servicio están en [Auth Service](services/auth-service/README.md).

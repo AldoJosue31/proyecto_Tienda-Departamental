@@ -23,11 +23,11 @@ export class JwtAuthGuard implements CanActivate {
     const claims = this.tokenService.verifyAccessToken(rawToken);
     const user = await this.usersRepository.findActiveById(claims.sub);
 
-    if (!user) {
+    if (!user || user.role !== claims.role || (user.authVersion ?? 0) !== claims.uv) {
       throw new ApiException(401, "UNAUTHORIZED", "Sesión no válida o expirada");
     }
 
-    // The current DB role is authoritative if a role changes after JWT issuance.
+    // A changed role or identity version requires a newly issued session.
     request.authUser = user;
     return true;
   }

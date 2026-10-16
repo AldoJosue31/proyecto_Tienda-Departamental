@@ -2,6 +2,8 @@
 
 Fecha de preparación: 8 de octubre de 2026.
 
+Para los pendientes detectados el 13 de octubre y la entrega completa de la app, usar el [plan vigente de cierre integral](plan-cierre-definitivo.md). Las casillas de este documento conservan el historial de las correcciones anteriores; no certifican el estado actual del despliegue principal.
+
 Este plan convierte la revisión de los dos documentos proporcionados en tareas de implementación y pruebas de aceptación. El objetivo es completar los requisitos de Tienda Departamental y corregir los defectos encontrados conservando la arquitectura de microservicios, sus bases independientes y el acceso del frontend mediante Kong. Las fases 1 a 8 están implementadas. La evidencia y los límites de las verificaciones están registrados en [implementación de las fases 1 a 5](implementacion-fases-1-5.md) y [fases 6 a 8](implementacion-fases-6-8.md).
 
 ## Base de la revisión

@@ -108,6 +108,25 @@ export class PricingService implements OnModuleInit, OnModuleDestroy {
     return { promotions: await this.withTargets(rows.rows) };
   }
 
+  async quoteMany(inputs: QuoteQueryDto[], now = new Date()): Promise<{ quotes: Quote[]; validUntil: string }> {
+    const result = await this.database.query<PromotionRow & { targets: PromotionTarget[] }>(
+      "SELECT p.*, jsonb_agg(jsonb_build_object('scope', t.scope, 'targetId', t.target_id)) AS targets FROM pricing_promotions p JOIN pricing_promotion_targets t ON t.promotion_id=p.id WHERE p.status IN ('SCHEDULED','ACTIVE') AND p.ends_at > $1 GROUP BY p.id",
+      [now],
+    );
+    let next = now.getTime() + 30_000;
+    const quotes = inputs.map(input => {
+      const matches = result.rows.filter(promotion => promotion.targets.some(target => target.scope === "ALL" || target.scope === "VARIANT" && target.targetId === input.variantId || target.scope === "PRODUCT" && target.targetId === input.productId || target.scope === "CATEGORY" && target.targetId === input.categoryId));
+      for (const promotion of matches) for (const time of [promotion.starts_at, promotion.ends_at]) {
+        const boundary = new Date(time).getTime(); if (boundary > now.getTime()) next = Math.min(next, boundary);
+      }
+      const winner = this.selectPromotion(matches.filter(p => new Date(p.starts_at).getTime() <= now.getTime() && new Date(p.ends_at).getTime() > now.getTime()), input.basePrice);
+      const basePrice = this.money(input.basePrice);
+      const effectivePrice = this.money(Math.max(0, basePrice - (winner ? this.discount(basePrice, winner) : 0)));
+      return { variantId: input.variantId, basePrice, effectivePrice, currency: input.currency ?? "MXN", discountAmount: this.money(basePrice - effectivePrice), discountPercentage: basePrice === 0 ? 0 : Math.round((basePrice - effectivePrice) / basePrice * 100), appliedPromotion: winner ? { id: winner.id, name: winner.name, priority: winner.priority } : null, quotedAt: now.toISOString() };
+    });
+    return { quotes, validUntil: new Date(next).toISOString() };
+  }
+
   async createPromotion(body: CreatePromotionDto, actor: Actor): Promise<{ promotion: Promotion }> {
     this.validatePromotion(body.discountType, body.discountValue, body.startsAt, body.endsAt, body.timezone, body.targets);
     return this.database.withTransaction(async (client) => {

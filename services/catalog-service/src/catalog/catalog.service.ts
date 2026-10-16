@@ -36,6 +36,7 @@ interface PostgresError {
 @Injectable()
 export class CatalogService {
   private catalogVersion: number | null = null;
+  private cacheGeneration: number | null = null;
 
   constructor(
     private readonly repository: CatalogRepository,
@@ -200,8 +201,19 @@ export class CatalogService {
   }
 
   private async currentCatalogVersion(): Promise<number> {
+    const generation = this.cache.getGeneration();
+    const reconnected = this.cacheGeneration !== null && this.cacheGeneration !== generation;
+    this.cacheGeneration = generation;
+    if (reconnected) {
+      // Edits performed during a Redis outage may leave old versioned keys.
+      // Revalidate once per connection before admitting cache hits again.
+      const version = await this.repository.getCatalogVersion();
+      this.catalogVersion = version;
+      await this.cache.setString(CACHE_VERSION_KEY, String(version), CACHE_VERSION_TTL_SECONDS);
+      return version;
+    }
     const cachedVersion = this.parseVersion(await this.cache.getString(CACHE_VERSION_KEY));
-    if (cachedVersion !== null) {
+    if (cachedVersion !== null && (this.catalogVersion === null || cachedVersion >= this.catalogVersion)) {
       this.catalogVersion = cachedVersion;
       return cachedVersion;
     }
@@ -345,7 +357,7 @@ export class CatalogService {
     const digest = createHash("sha256")
       .update(JSON.stringify(input))
       .digest("base64url");
-    return `catalog:${kind}:v${catalogVersion}:${digest}`;
+    return `catalog:${kind}:search2:v${catalogVersion}:${digest}`;
   }
 
   private isSearchResponse(
@@ -360,6 +372,17 @@ export class CatalogService {
       response.total >= 0 &&
       this.isFacetCollection(response.facets)
     );
+  }
+
+  async getPublicBatch(ids: string[]): Promise<{ products: import("./catalog.types").PublicCatalogProduct[] }> {
+    const normalized = [...new Set(ids)].sort();
+    const version = await this.currentCatalogVersion();
+    const key = this.cacheKey("product", version, "batch:" + normalized.join(","));
+    const cached = await this.cache.getJson<{ products: import("./catalog.types").PublicCatalogProduct[] }>(key);
+    if (cached?.products?.every(product => normalized.includes(product.id) && Array.isArray(product.variants))) return cached;
+    const response = { products: await this.repository.findPublicBatch(normalized) };
+    await this.cache.setJson(key, response, this.config.searchCacheTtlSeconds);
+    return response;
   }
 
   private isFacetCollection(value: ProductSearchResponse["facets"] | undefined): value is ProductSearchResponse["facets"] {

@@ -1,0 +1,106 @@
+{
+  "checkedAt": "2026-10-11T20:24:54.619Z",
+  "checks": [
+    {
+      "domain": "auth",
+      "passed": true,
+      "exitCode": 0,
+      "summary": [
+        "Test Files  6 passed (6)",
+        "Tests  36 passed (36)",
+        "Duration  12.99s (transform 2.91s, setup 0ms, collect 39.93s, tests 273ms, environment 3ms, prepare 6.64s)"
+      ]
+    },
+    {
+      "domain": "catalog",
+      "passed": true,
+      "exitCode": 0,
+      "summary": [
+        "Test Files  5 passed (5)",
+        "Tests  21 passed (21)",
+        "Duration  11.21s (transform 1.20s, setup 0ms, collect 30.22s, tests 802ms, environment 8ms, prepare 3.66s)"
+      ]
+    },
+    {
+      "domain": "inventory",
+      "passed": true,
+      "exitCode": 0,
+      "summary": [
+        "Test Files  3 passed (3)",
+        "Tests  13 passed (13)",
+        "Duration  11.04s (transform 1.99s, setup 0ms, collect 17.98s, tests 449ms, environment 1ms, prepare 6.74s)"
+      ]
+    },
+    {
+      "domain": "pricing",
+      "passed": true,
+      "exitCode": 0,
+      "summary": [
+        "Test Files  4 passed (4)",
+        "Tests  20 passed (20)",
+        "Duration  5.81s (transform 614ms, setup 0ms, collect 11.06s, tests 154ms, environment 3ms, prepare 5.35s)"
+      ]
+    },
+    {
+      "domain": "orders",
+      "passed": true,
+      "exitCode": 0,
+      "summary": [
+        "Test Files  4 passed (4)",
+        "Tests  20 passed (20)",
+        "Duration  5.71s (transform 1.77s, setup 0ms, collect 12.61s, tests 698ms, environment 1ms, prepare 2.49s)"
+      ]
+    },
+    {
+      "domain": "analytics",
+      "passed": true,
+      "exitCode": 0,
+      "summary": [
+        "Test Files  4 passed (4)",
+        "Tests  14 passed (14)",
+        "Duration  8.49s (transform 1.53s, setup 0ms, collect 15.84s, tests 156ms, environment 1ms, prepare 2.61s)"
+      ]
+    },
+    {
+      "domain": "logistics",
+      "passed": true,
+      "exitCode": 0,
+      "summary": [
+        "Test Files  4 passed (4)",
+        "Tests  15 passed (15)",
+        "Duration  6.06s (transform 1.08s, setup 0ms, collect 10.73s, tests 216ms, environment 1ms, prepare 3.33s)"
+      ]
+    },
+    {
+      "domain": "crm",
+      "passed": true,
+      "exitCode": 0,
+      "summary": [
+        "Test Files  4 passed (4)",
+        "Tests  17 passed (17)",
+        "Duration  7.23s (transform 2.73s, setup 0ms, collect 11.29s, tests 177ms, environment 1ms, prepare 7.03s)"
+      ]
+    },
+    {
+      "domain": "notification",
+      "passed": true,
+      "exitCode": 0,
+      "summary": [
+        "Test Files  5 passed (5)",
+        "Tests  24 passed (24)",
+        "Duration  7.44s (transform 1.41s, setup 0ms, collect 17.36s, tests 141ms, environment 2ms, prepare 3.75s)"
+      ]
+    },
+    {
+      "domain": "realtime",
+      "passed": true,
+      "exitCode": 0,
+      "summary": [
+        "Test Files  4 passed (4)",
+        "Tests  16 passed (16)",
+        "Duration  6.10s (transform 419ms, setup 0ms, collect 8.55s, tests 3.17s, environment 1ms, prepare 1.82s)"
+      ]
+    }
+  ],
+  "passed": true
+}

@@ -1,0 +1,24 @@
+{
+  "completedAt": "2026-10-14T06:41:38.019Z",
+  "passed": true,
+  "project": "departamental-five-phases",
+  "sampleSize": 12,
+  "milliseconds": [
+    1143,
+    1080,
+    1041,
+    530,
+    1157,
+    1222,
+    1072,
+    562,
+    1058,
+    1021,
+    1052,
+    1039
+  ],
+  "p95Milliseconds": 1222,
+  "measurement": "HTTP sale request start through visible Dashboard available cell; healthy local Docker, one browser",
+  "targetMilliseconds": 3000,
+  "reconnectedSnapshot": true
+}

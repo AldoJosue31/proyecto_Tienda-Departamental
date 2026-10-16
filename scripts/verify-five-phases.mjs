@@ -1,3 +1,4 @@
+import {localCrmAuthority,seedInactiveCustomer} from "./verification-authority.mjs";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -10,7 +11,7 @@ import { io } from "socket.io-client";
 // Compose databases on fixed loopback ports and verifies their project labels.
 const env = Object.fromEntries(readFileSync(".env.integration", "utf8").trim().split(/\r?\n/).map((line) => { const at = line.indexOf("="); return [line.slice(0, at), line.slice(at + 1)]; }));
 assert.equal(env.COMPOSE_PROJECT_NAME, "departamental-five-phases");
-const domains = { inventory: 55433, analytics: 55437, pricing: 55434, crm: 55439 };
+const domains = { auth:55431,orders:55435,inventory: 55433, analytics: 55437, pricing: 55434, crm: 55439 };
 const pools = {};
 const databases = {};
 const results = [];
@@ -67,6 +68,14 @@ async function prepare() {
 }
 
 async function verify() {
+  // A fresh CI volume already has every migration applied by its owner image.
+  // Runtime recovery cases need their own idempotent synthetic stock fixture;
+  // migration compatibility is certified separately against restored checkpoints.
+  await databases.inventory.withTransaction(async client => {
+    await client.query("INSERT INTO inventory_branches(id,name) VALUES($1,'Sucursal prueba migración') ON CONFLICT DO NOTHING",[fixtureBranch]);
+    await client.query("INSERT INTO inventory_variant_snapshots(variant_id,product_name,sku,variant_label) VALUES($1,'Registro anterior','MIGRATION-01','Anterior') ON CONFLICT DO NOTHING",[fixtureVariant]);
+    await client.query("INSERT INTO inventory_stock(variant_id,branch_id,on_hand,reserved) VALUES($1,$2,3,0) ON CONFLICT DO NOTHING",[fixtureVariant,fixtureBranch]);
+  });
   const gateway = "http://localhost:8005";
   const web = "http://localhost:3105";
   async function api(path, token, method = "GET", body, additional = {}) {
@@ -85,7 +94,8 @@ async function verify() {
   // left by earlier test runs so the boundary fixture has no overlapping offer.
   await pools.pricing.query("UPDATE pricing_promotions SET status = 'EXPIRED' WHERE status <> 'EXPIRED'");
   const { CrmService } = load("crm", "crm/crm.service");
-  const crm = new CrmService(databases.crm);
+  const authority=localCrmAuthority(load,env);
+  const crm = new CrmService(databases.crm,authority);
   const { InventoryService } = load("inventory", "inventory/inventory.service");
   const { InventoryOutboxService } = load("inventory", "events/outbox.service");
   const outbox = new InventoryOutboxService(databases.inventory, { environment: "test" });
@@ -158,14 +168,14 @@ async function verify() {
   });
   await check("administrative BFF creates and edits a promotion with cookie authentication", async () => {
     const input = { name: "Integration sale", discountType: "PERCENTAGE", discountValue: 10, priority: 999, startsAt: new Date(Date.now() - 60000).toISOString(), endsAt: new Date(Date.now() + 3600000).toISOString(), timezone: "America/Mexico_City", targets: [{ scope: "VARIANT", targetId: variantId }] };
-    const headers = { Cookie: `departamental_access=${token}`, "Content-Type": "application/json" };
+    const headers = { Cookie: `departamental_access=${token}`, Origin: web, "Content-Type": "application/json" };
     const created = await fetch(web + "/api/promotions", { method: "POST", headers, body: JSON.stringify(input) });
     assert.equal(created.status, 201); const body = await created.json();
     const updated = await fetch(web + `/api/promotions/${body.promotion.id}`, { method: "PATCH", headers, body: JSON.stringify({ ...input, name: "Integration sale edited" }) }); assert.equal(updated.status, 200);
     const page = await fetch(web + "/promotions", { headers: { Cookie: headers.Cookie } }); assert.equal(page.status, 200); assert.match(await page.text(), /Integration sale edited/);
   });
-  const catalog = await api("/products", token); assert.equal(catalog.status, 200);
-  const product = catalog.body.items.find((item) => item.variants.some((variant) => variant.id === variantId)); assert.ok(product);
+  const catalog = await api("/products/a1000000-0000-4000-8000-000000000001", token); assert.equal(catalog.status, 200);
+  const product = catalog.body.product; assert.ok(product.variants.some(variant => variant.id === variantId));
   const order = { branchId, channel: "PHYSICAL", customerId: customer.user.id, items: [{ productId: product.id, variantId, quantity: 1 }] };
   const socket = io(gateway, { path: "/realtime/socket.io", transports: ["websocket"], withCredentials: true, extraHeaders: { cookie: `departamental_access=${token}`, origin: web } }); sockets.push(socket);
   await new Promise((resolve, reject) => { socket.once("connect", resolve); socket.once("connect_error", reject); setTimeout(() => reject(new Error("Socket connection timeout")), 10000).unref(); });
@@ -203,16 +213,17 @@ async function verify() {
   });
   await check("campaign preview and confirmation recalculate recipients and deduplicate", async () => {
     const oldCustomer = randomUUID(); const returningCustomer = randomUUID();
+    for (const id of [oldCustomer, returningCustomer]) await seedInactiveCustomer(pools.auth,pools.orders,id,branchId,admin.user.id);
     for (const id of [oldCustomer, returningCustomer]) await pools.crm.query("INSERT INTO crm_customers (customer_id, first_purchase_at, last_purchase_at, completed_orders, lifetime_total, currency) VALUES ($1, '2025-01-01', '2025-01-01', 1, 100, 'MXN')", [id]);
-    const preview = await crm.inactiveSegment("3"); assert.ok(preview.customers.some((item) => item.customerId === returningCustomer)); assert.equal(preview.segment.includesNeverPurchased, false);
-    await pools.crm.query("UPDATE crm_customers SET last_purchase_at = NOW() WHERE customer_id = $1", [returningCustomer]);
+    const preview = await crm.inactiveSegment("3"); assert.ok(preview.customers.some((item) => item.customerId === returningCustomer)); assert.equal(preview.segment.includesNeverPurchased, true);
+    const returned=await api("/orders",token,"POST",{branchId,channel:"PHYSICAL",customerId:returningCustomer,items:[{productId:product.id,variantId,quantity:1}]},{"Idempotency-Key":randomUUID()});assert.equal(returned.status,201);
     const input = { months: 3, couponCode: "REGRESA" + randomUUID().slice(0,8).toUpperCase(),discountType:"PERCENTAGE",discountValue:10,targetScope:"ALL", validUntil: new Date(Date.now() + 86400000).toISOString() }; const key = randomUUID();
     const campaigns = await Promise.all([crm.createCampaign(input, admin.user.id, key, null), crm.createCampaign(input, admin.user.id, key, null)]); assert.equal(campaigns[0].campaign.id, campaigns[1].campaign.id);
     const recipients = (await pools.crm.query("SELECT customer_id FROM crm_campaign_recipients WHERE campaign_id = $1", [campaigns[0].campaign.id])).rows;
     assert.ok(recipients.some((item) => item.customer_id === oldCustomer)); assert.ok(!recipients.some((item) => item.customer_id === returningCustomer));
     const reference = (await pools.crm.query("SELECT reference_at, cutoff_at FROM crm_campaigns WHERE id = $1", [campaigns[0].campaign.id])).rows[0]; assert.ok(reference.reference_at && reference.cutoff_at);
-    const { CampaignOutboxService } = load("crm", "crm/campaign-outbox.service"); const worker = new CampaignOutboxService(databases.crm, { environment: "test" });
-    await pools.crm.query("UPDATE crm_customers SET last_purchase_at = NOW() WHERE customer_id = $1", [oldCustomer]);
+    const { CampaignOutboxService } = load("crm", "crm/campaign-outbox.service"); const worker = new CampaignOutboxService(databases.crm, { environment: "test" },authority);
+    const bought=await api("/orders",token,"POST",{branchId,channel:"PHYSICAL",customerId:oldCustomer,items:[{productId:product.id,variantId,quantity:1}]},{"Idempotency-Key":randomUUID()});assert.equal(bought.status,201);
     const pending = (await pools.crm.query("SELECT * FROM crm_campaign_outbox_events WHERE campaign_id = $1 AND customer_id = $2", [campaigns[0].campaign.id, oldCustomer])).rows[0];
     assert.equal(await worker.eligible(pending), false);
     assert.equal((await pools.crm.query("SELECT failure_code FROM crm_campaign_recipients WHERE campaign_id = $1 AND customer_id = $2", [campaigns[0].campaign.id, oldCustomer])).rows[0].failure_code, "NO_LONGER_ELIGIBLE");

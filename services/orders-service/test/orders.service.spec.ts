@@ -70,26 +70,17 @@ describe("OrdersService idempotency and ownership", () => {
     expect(inventory.reserve).not.toHaveBeenCalled();
   });
 
-  it("exige un cliente para atribuir una venta física de Operations", async () => {
+  it("accepts an optional physical customer and keeps the staff actor for audit", async () => {
     const employee = { ...actor, role: "EMPLOYEE" as const };
-    const repository = { findIdempotency: vi.fn() };
-    const service = new OrdersService(
-      database(),
-      repository as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      { enqueue: vi.fn() } as never,
-    );
-
-    await expect(service.create({
-      channel: "PHYSICAL",
-      branchId,
-      items: [{ productId, variantId, quantity: 1 }],
-    }, "physical-customer-required", employee)).rejects.toMatchObject(
-      { code: "PHYSICAL_SALE_CUSTOMER_REQUIRED" } satisfies Partial<ApiException>,
-    );
-    expect(repository.findIdempotency).not.toHaveBeenCalled();
+    const draft = { ...order(), channel: "PHYSICAL" as const, customerId: employee.id };
+    const repository = { findIdempotency: vi.fn().mockResolvedValue(null), createDraft: vi.fn().mockResolvedValue(draft), failOutOfStock: vi.fn() };
+    const inventory = { reserve: vi.fn() };
+    const service = new OrdersService(database(), repository as never,
+      { getVariant: async () => ({ productId, variantId, categoryId: productId, listPrice: 100, currency: "MXN", productName: "Prueba", sku: "PRU", variantLabel: "M" }) } as never,
+      { quote: async () => ({ basePrice: 100, effectivePrice: 90, currency: "MXN" }) } as never, inventory as never, {} as never);
+    await expect(service.create({ channel: "PHYSICAL", branchId, expectedTotal: 100, items: [{ productId, variantId, quantity: 1 }] }, "physical-optional-customer", employee)).rejects.toMatchObject({ code: "PRICE_CHANGED" });
+    expect(repository.createDraft).toHaveBeenCalledWith(undefined, expect.objectContaining({ customerId: employee.id, actor: employee, channel: "PHYSICAL" }));
+    expect(inventory.reserve).not.toHaveBeenCalled();
   });
 
   it("devuelve el pedido confirmado previo sin volver a llamar servicios remotos", async () => {

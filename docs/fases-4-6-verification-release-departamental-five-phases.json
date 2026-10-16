@@ -1,0 +1,376 @@
+{
+  "project": "departamental-five-phases",
+  "startedAt": "2026-10-13T18:09:30.552Z",
+  "completedAt": "2026-10-13T18:12:18.381Z",
+  "passed": true,
+  "liveDatabasesMigrated": false,
+  "images": [
+    {
+      "service": "aplicacion-web",
+      "imageId": "sha256:5d6d0ad0bec23512c6e4f442d23af00244b7bd66b1b63f87a808831fe00a22ee",
+      "createdAt": "2026-10-13T17:26:10.029568861Z"
+    },
+    {
+      "service": "pasarela-api",
+      "imageId": "sha256:70100c09ee238e0f502fb1bbc0eb110e778337e76df7762ee32bd1dc178655c5",
+      "createdAt": "2026-10-13T16:12:48.165940856Z"
+    },
+    {
+      "service": "servicio-pedidos",
+      "imageId": "sha256:9f8f1ac2b73961ca5c74cf2e7f56d7bbf7aa81dd479eaace6f1761fb54ceafff",
+      "createdAt": "2026-10-13T16:10:14.737835447Z"
+    },
+    {
+      "service": "servicio-notificaciones",
+      "imageId": "sha256:eb4d4211c2c1e4c9a9cb9dc847c6f3d63283f651fddc63f96ac961fa6e059e9a",
+      "createdAt": "2026-10-13T16:10:09.324713306Z"
+    },
+    {
+      "service": "servicio-autenticacion",
+      "imageId": "sha256:a2b850be56fd88e3e100613f43c3d3beaee12e525a0672d38f05dddda4803164",
+      "createdAt": "2026-10-13T16:10:05.835822871Z"
+    },
+    {
+      "service": "servicio-clientes",
+      "imageId": "sha256:2236683b9e14baa7adb3db6b0b440e143ae8dc9202509cace6ed66536e5bd225",
+      "createdAt": "2026-10-13T16:10:05.322966223Z"
+    },
+    {
+      "service": "servicio-analitica",
+      "imageId": "sha256:d96bc768f1c0390d4339cb6d0d9a0b6a14a4659b26a3c715bd702b0b37cd2a95",
+      "createdAt": "2026-10-13T16:10:05.32168607Z"
+    },
+    {
+      "service": "servicio-inventario",
+      "imageId": "sha256:c11532e4486d64e74d5d7f04d9518da4456083aef9f8b0c75c68521f886792ed",
+      "createdAt": "2026-10-13T16:10:05.28000141Z"
+    },
+    {
+      "service": "servicio-precios",
+      "imageId": "sha256:ec9896f4139ec1266503852ac0f5f4c833e0e6dd4ff3ab4c75f6e8d2066c961a",
+      "createdAt": "2026-10-13T16:10:05.242808885Z"
+    },
+    {
+      "service": "servicio-logistica",
+      "imageId": "sha256:e5a1c2250f2efb1f54309c6eb95534dbe81050cf3ede174935667cb12efc27ae",
+      "createdAt": "2026-10-13T16:10:05.230986121Z"
+    },
+    {
+      "service": "servicio-catalogo",
+      "imageId": "sha256:84f94cc7226fed78a2da9ca7e793c1eccb6bfbd5b2d115ae76404ab711fb0f83",
+      "createdAt": "2026-10-13T16:10:02.192226513Z"
+    },
+    {
+      "service": "orders-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-10-13T16:09:59.089703805Z"
+    },
+    {
+      "service": "auth-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-10-13T16:09:58.72439944Z"
+    },
+    {
+      "service": "notification-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-10-13T16:09:58.065160673Z"
+    },
+    {
+      "service": "analytics-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-10-13T16:09:57.572875615Z"
+    },
+    {
+      "service": "inventory-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-10-13T16:09:57.419602772Z"
+    },
+    {
+      "service": "crm-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-10-13T16:09:56.795248623Z"
+    },
+    {
+      "service": "pricing-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-10-13T16:09:56.455023113Z"
+    },
+    {
+      "service": "logistics-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-10-13T16:09:56.278259539Z"
+    },
+    {
+      "service": "rabbitmq",
+      "imageId": "sha256:5b6a50b2f1dbd987bb1a6a9e20b152910c3dc8ae32e1c9060b543ecd9250f6b9",
+      "createdAt": "2026-10-13T16:09:56.183585262Z"
+    },
+    {
+      "service": "catalog-postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-10-13T16:09:56.087156049Z"
+    },
+    {
+      "service": "servicio-tiempo-real",
+      "imageId": "sha256:bf7f5d11d38c15601def627acfa59b224b57136a7f165382edefd595884579d9",
+      "createdAt": "2026-10-13T10:53:13.768596974Z"
+    },
+    {
+      "service": "catalog-redis",
+      "imageId": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+      "createdAt": "2026-10-13T10:52:52.212305491Z"
+    },
+    {
+      "service": "postgres",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "createdAt": "2026-10-08T15:30:31.297976351Z"
+    },
+    {
+      "service": "redis",
+      "imageId": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+      "createdAt": "2026-10-08T15:30:31.290306815Z"
+    },
+    {
+      "service": "smtp-capture",
+      "imageId": "sha256:b1f1be18af530d939a11ee8820b379e0c88eeec204d904bfad68862adced3a5a",
+      "createdAt": "2026-10-08T15:21:29.986853518Z"
+    }
+  ],
+  "databases": [
+    {
+      "domain": "auth",
+      "database": "auth_service",
+      "bytes": 103806,
+      "sha256": "85d2740e496e02084a81ec9b534f69e0e9f737584e63cfd219f25b0746827c34",
+      "tablesPreserved": 9
+    },
+    {
+      "domain": "catalog",
+      "database": "catalog_service",
+      "bytes": 22395,
+      "sha256": "4cee20e6c583b3e45536bb0839510af5aea18ba8ab243c69e4bf221357fce380",
+      "tablesPreserved": 5
+    },
+    {
+      "domain": "inventory",
+      "database": "inventory_service",
+      "bytes": 62889,
+      "sha256": "fb65092056191a9425bffddf1b3a51cb9f55846036cf656ef0bd941cb3e453d5",
+      "tablesPreserved": 9
+    },
+    {
+      "domain": "pricing",
+      "database": "pricing_service",
+      "bytes": 36234,
+      "sha256": "fcd9cdb7ff7401291aef307bb101ca1d4b889c10d3dccd4402ee7448e3588cb5",
+      "tablesPreserved": 6
+    },
+    {
+      "domain": "orders",
+      "database": "orders_service",
+      "bytes": 55733,
+      "sha256": "ecf1babf0c6ee2a483298e2842aa621fbf50dbc5c96adb7fa95033ea991a5c89",
+      "tablesPreserved": 5
+    },
+    {
+      "domain": "analytics",
+      "database": "analytics_service",
+      "bytes": 29326,
+      "sha256": "4685b68d2d98dfe81c332818b9f2e710bcb57720d8c8876addf99f2b468cc0f2",
+      "tablesPreserved": 7
+    },
+    {
+      "domain": "logistics",
+      "database": "logistics_service",
+      "bytes": 39377,
+      "sha256": "dab4baf0d80da0858b646d37554aa93d7b013e40a4dd9fbafbdb147fc4faa5ec",
+      "tablesPreserved": 6
+    },
+    {
+      "domain": "crm",
+      "database": "crm_service",
+      "bytes": 68160,
+      "sha256": "881e90609261cfa946043fc3e7578a3ad953e2111daf0fbbb5130cfc0e0fec43",
+      "tablesPreserved": 8
+    },
+    {
+      "domain": "notification",
+      "database": "notification_service",
+      "bytes": 87835,
+      "sha256": "5de5efea68bee7a1612b3e3b93c163950938d5001550b0516c80bebeb225b05c",
+      "tablesPreserved": 6
+    },
+    {
+      "domain": "legacy",
+      "database": "departamental",
+      "bytes": 20471,
+      "sha256": "e7575ed1c0e0a3db5348118375023ed99e6b64535f6be67477ad659799126bc3",
+      "tablesPreserved": 8
+    }
+  ],
+  "volumes": [
+    {
+      "service": "rabbitmq",
+      "bytes": 275936,
+      "sha256": "bb95305a120b93e3f310e1d00315f7fb34f83bb03914b07b978d3a11f4985f27",
+      "hostname": "d1610e289a0b",
+      "imageId": "sha256:5b6a50b2f1dbd987bb1a6a9e20b152910c3dc8ae32e1c9060b543ecd9250f6b9"
+    }
+  ],
+  "checks": [
+    {
+      "name": "all application writers stopped and broker has no unacknowledged jobs",
+      "passed": true,
+      "queues": 20,
+      "pendingMessages": 32
+    },
+    {
+      "name": "all domain databases and consistent durable RabbitMQ storage backed up",
+      "passed": true,
+      "databases": 10
+    },
+    {
+      "name": "auth restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 9
+    },
+    {
+      "name": "catalog restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 5
+    },
+    {
+      "name": "inventory restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 9
+    },
+    {
+      "name": "pricing restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 6
+    },
+    {
+      "name": "orders restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 5
+    },
+    {
+      "name": "analytics restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 7
+    },
+    {
+      "name": "logistics restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 6
+    },
+    {
+      "name": "crm restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 8
+    },
+    {
+      "name": "notification restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 6
+    },
+    {
+      "name": "legacy restoration and repeated migrations preserve preexisting columns/rows",
+      "passed": true,
+      "tables": 8
+    },
+    {
+      "name": "durable broker restoration preserves queues and pending message counts",
+      "passed": true,
+      "pendingMessages": 32
+    }
+  ],
+  "brokerCheckpoint": [
+    {
+      "name": "notification.coupon-emails.v1",
+      "messages": 0
+    },
+    {
+      "name": "inventory.order-cancelled.v1.retry",
+      "messages": 0
+    },
+    {
+      "name": "crm.campaign-delivery-status.v1.dlq",
+      "messages": 20
+    },
+    {
+      "name": "logistics.order-events.v1.dlq",
+      "messages": 6
+    },
+    {
+      "name": "auth.onboarding-delivery.v1",
+      "messages": 0
+    },
+    {
+      "name": "analytics.projections.v1",
+      "messages": 0
+    },
+    {
+      "name": "realtime.inventory-stock.v1",
+      "messages": 0
+    },
+    {
+      "name": "notification.auth-onboarding.v1",
+      "messages": 0
+    },
+    {
+      "name": "notification.auth-onboarding.v1.dlq",
+      "messages": 0
+    },
+    {
+      "name": "analytics.projections.v1.dlq",
+      "messages": 0
+    },
+    {
+      "name": "realtime.courier-tracking.v1",
+      "messages": 0
+    },
+    {
+      "name": "logistics.order-events.v1",
+      "messages": 0
+    },
+    {
+      "name": "inventory.order-cancelled.v1.dlq",
+      "messages": 0
+    },
+    {
+      "name": "crm.order-projections.v1.dlq",
+      "messages": 6
+    },
+    {
+      "name": "crm.order-projections.v1",
+      "messages": 0
+    },
+    {
+      "name": "inventory.order-cancelled.v1",
+      "messages": 0
+    },
+    {
+      "name": "crm.campaign-delivery-status.v1",
+      "messages": 0
+    },
+    {
+      "name": "notification.coupon-emails.v1.dlq",
+      "messages": 0
+    },
+    {
+      "name": "realtime.courier-tracking.v1.dlq",
+      "messages": 0
+    },
+    {
+      "name": "realtime.inventory-stock.v1.dlq",
+      "messages": 0
+    }
+  ],
+  "stage": "broker-checkpoint",
+  "backupDirectory": "C:\\Users\\Aldo\\Documents\\Proyectos\\ApliacionWeb\\.codex-backups\\integral-release\\2026-10-13T18-09-30-550Z",
+  "privacy": {
+    "secretsExcluded": true,
+    "privateBackupsOutsideGit": true
+  }
+}

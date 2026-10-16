@@ -1,0 +1,152 @@
+{
+  "completedAt": "2026-10-13T16:23:14.351Z",
+  "releaseId": "fases-1-3-20261013-5cb284204dbc",
+  "passed": true,
+  "liveDatabasesModified": false,
+  "checks": [
+    {
+      "project": "web",
+      "domain": "auth",
+      "imageId": "sha256:a2b850be56fd88e3e100613f43c3d3beaee12e525a0672d38f05dddda4803164",
+      "preexistingTablesPreserved": 2,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "web",
+      "domain": "catalog",
+      "imageId": "sha256:84f94cc7226fed78a2da9ca7e793c1eccb6bfbd5b2d115ae76404ab711fb0f83",
+      "preexistingTablesPreserved": 5,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "web",
+      "domain": "inventory",
+      "imageId": "sha256:c11532e4486d64e74d5d7f04d9518da4456083aef9f8b0c75c68521f886792ed",
+      "preexistingTablesPreserved": 9,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "web",
+      "domain": "pricing",
+      "imageId": "sha256:ec9896f4139ec1266503852ac0f5f4c833e0e6dd4ff3ab4c75f6e8d2066c961a",
+      "preexistingTablesPreserved": 6,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "web",
+      "domain": "orders",
+      "imageId": "sha256:9f8f1ac2b73961ca5c74cf2e7f56d7bbf7aa81dd479eaace6f1761fb54ceafff",
+      "preexistingTablesPreserved": 5,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "web",
+      "domain": "analytics",
+      "imageId": "sha256:d96bc768f1c0390d4339cb6d0d9a0b6a14a4659b26a3c715bd702b0b37cd2a95",
+      "preexistingTablesPreserved": 7,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "web",
+      "domain": "logistics",
+      "imageId": "sha256:e5a1c2250f2efb1f54309c6eb95534dbe81050cf3ede174935667cb12efc27ae",
+      "preexistingTablesPreserved": 6,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "web",
+      "domain": "crm",
+      "imageId": "sha256:2236683b9e14baa7adb3db6b0b440e143ae8dc9202509cace6ed66536e5bd225",
+      "preexistingTablesPreserved": 8,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "web",
+      "domain": "notification",
+      "imageId": "sha256:eb4d4211c2c1e4c9a9cb9dc847c6f3d63283f651fddc63f96ac961fa6e059e9a",
+      "preexistingTablesPreserved": 3,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "departamental-five-phases",
+      "domain": "auth",
+      "imageId": "sha256:a2b850be56fd88e3e100613f43c3d3beaee12e525a0672d38f05dddda4803164",
+      "preexistingTablesPreserved": 9,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "departamental-five-phases",
+      "domain": "catalog",
+      "imageId": "sha256:84f94cc7226fed78a2da9ca7e793c1eccb6bfbd5b2d115ae76404ab711fb0f83",
+      "preexistingTablesPreserved": 5,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "departamental-five-phases",
+      "domain": "inventory",
+      "imageId": "sha256:c11532e4486d64e74d5d7f04d9518da4456083aef9f8b0c75c68521f886792ed",
+      "preexistingTablesPreserved": 9,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "departamental-five-phases",
+      "domain": "pricing",
+      "imageId": "sha256:ec9896f4139ec1266503852ac0f5f4c833e0e6dd4ff3ab4c75f6e8d2066c961a",
+      "preexistingTablesPreserved": 6,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "departamental-five-phases",
+      "domain": "orders",
+      "imageId": "sha256:9f8f1ac2b73961ca5c74cf2e7f56d7bbf7aa81dd479eaace6f1761fb54ceafff",
+      "preexistingTablesPreserved": 5,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "departamental-five-phases",
+      "domain": "analytics",
+      "imageId": "sha256:d96bc768f1c0390d4339cb6d0d9a0b6a14a4659b26a3c715bd702b0b37cd2a95",
+      "preexistingTablesPreserved": 7,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "departamental-five-phases",
+      "domain": "logistics",
+      "imageId": "sha256:e5a1c2250f2efb1f54309c6eb95534dbe81050cf3ede174935667cb12efc27ae",
+      "preexistingTablesPreserved": 6,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "departamental-five-phases",
+      "domain": "crm",
+      "imageId": "sha256:2236683b9e14baa7adb3db6b0b440e143ae8dc9202509cace6ed66536e5bd225",
+      "preexistingTablesPreserved": 8,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    },
+    {
+      "project": "departamental-five-phases",
+      "domain": "notification",
+      "imageId": "sha256:eb4d4211c2c1e4c9a9cb9dc847c6f3d63283f651fddc63f96ac961fa6e059e9a",
+      "preexistingTablesPreserved": 6,
+      "repeatedImageMigrationPassed": true,
+      "passed": true
+    }
+  ]
+}

@@ -7,11 +7,11 @@ describe("CrmService", () => {
       .mockResolvedValueOnce({ rows: [{ customer_id: "b2d06ae4-7847-4b8d-b218-0b98f950ff44", first_purchase_at: new Date("2025-11-01T00:00:00.000Z"), last_purchase_at: new Date("2026-04-01T00:00:00.000Z"), completed_orders: "2", lifetime_total: "970.50", currency: "MXN", updated_at: new Date("2026-04-01T00:00:00.000Z") }] })
       .mockResolvedValueOnce({ rows: [{ count: "1" }] })
       .mockResolvedValueOnce({ rows: [{ last_updated_at: new Date("2026-04-01T00:00:00.000Z") }] });
-    const service = new CrmService({ query } as never);
+    const service = new CrmService({ query } as never, {snapshot:vi.fn().mockResolvedValue({referenceAt:"2026-09-04T00:00:00.000Z",users:[{id:"b2d06ae4-7847-4b8d-b218-0b98f950ff44",name:"Cliente",createdAt:"2025-01-01T00:00:00Z"}],customers:[{customerId:"b2d06ae4-7847-4b8d-b218-0b98f950ff44",firstPurchaseAt:"2025-11-01T00:00:00Z",lastPurchaseAt:"2026-04-01T00:00:00Z",completedOrders:2,lifetimeTotal:970.5,currency:"MXN"}]})} as never);
 
     await expect(service.inactiveSegment(undefined, new Date("2026-09-04T00:00:00.000Z"))).resolves.toMatchObject({
       count: 1,
-      segment: { months: 3, includesNeverPurchased: false, cutoffAt: "2026-06-04T00:00:00.000Z" },
+      segment: { months: 3, includesNeverPurchased: true, cutoffAt: "2026-06-04T00:00:00.000Z" },
       customers: [{ customerId: "b2d06ae4-7847-4b8d-b218-0b98f950ff44", completedOrders: 2, lifetimeTotal: 970.5 }],
     });
   });

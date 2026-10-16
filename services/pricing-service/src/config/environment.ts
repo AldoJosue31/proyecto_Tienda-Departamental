@@ -1,3 +1,4 @@
+import { loadAuthStatusConfig, type AuthStatusConfig } from "./auth-status";
 import { randomBytes } from "node:crypto";
 
 export const AUTH_JWT_ISSUER = "departamental-auth-service";
@@ -9,7 +10,8 @@ export interface DatabaseConfig {
   databaseSsl: boolean;
 }
 
-export interface PricingRuntimeConfig {
+export interface PricingRuntimeConfig extends AuthStatusConfig {
+  catalogServiceUrl: string;
   accessSecret: Buffer;
   corsOrigins: string[];
   environment: string;
@@ -93,7 +95,8 @@ export function loadPricingRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): PricingRuntimeConfig {
   const environment = env.NODE_ENV?.trim() || "development";
-  return {
+  return { ...loadAuthStatusConfig(env),
+    catalogServiceUrl: catalogUrl(env.CATALOG_SERVICE_URL ?? "http://servicio-catalogo:3002"),
     accessSecret: secret(required(env, "JWT_ACCESS_SECRET")),
     corsOrigins: origins(env, environment),
     environment,
@@ -111,6 +114,12 @@ export function loadPricingRuntimeConfig(
       60_000,
     ),
   };
+}
+
+function catalogUrl(value: string): string {
+  const parsed = new URL(value);
+  if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error("CATALOG_SERVICE_URL must be an HTTP(S) origin without credentials.");
+  return parsed.origin;
 }
 
 export function isRole(value: unknown): value is Role {

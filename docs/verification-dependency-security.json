@@ -1,0 +1,146 @@
+{
+  "completedAt": "2026-10-14T02:21:11.304Z",
+  "passed": true,
+  "scope": "Production dependency graph in eleven projects; rejects high and critical",
+  "checks": [
+    {
+      "project": "auth",
+      "passed": true,
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    },
+    {
+      "project": "web",
+      "passed": true,
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    },
+    {
+      "project": "catalog",
+      "passed": true,
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    },
+    {
+      "project": "inventory",
+      "passed": true,
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    },
+    {
+      "project": "pricing",
+      "passed": true,
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    },
+    {
+      "project": "orders",
+      "passed": true,
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    },
+    {
+      "project": "realtime",
+      "passed": true,
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    },
+    {
+      "project": "analytics",
+      "passed": true,
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    },
+    {
+      "project": "logistics",
+      "passed": true,
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    },
+    {
+      "project": "crm",
+      "passed": true,
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    },
+    {
+      "project": "notification",
+      "passed": true,
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    }
+  ],
+  "developmentToolingAdvisory": {
+    "id": "GHSA-vfj7-8cjw-p6xm",
+    "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+    "rootDevOnly": true,
+    "patchedVersionAvailable": false,
+    "handling": "Production images omit dev dependencies. CI lint uses fixed repository patterns; no user glob input is accepted. This remains an upstream development-tool advisory, not a claim of zero findings in npm audit including dev dependencies."
+  }
+}

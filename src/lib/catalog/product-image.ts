@@ -12,6 +12,17 @@ const spritePositionBySlug: Record<string, string> = {
   "tenis-kinetic-run": "0% 100%",
   "silla-atelier": "50% 100%",
   "reloj-vertex-fit": "100% 100%",
+  "lampara-lumen-arco": "100% 0%",
+  "silla-atelier-nordica": "50% 100%",
+  "banco-atelier-acento": "50% 100%",
+  "tenis-kinetic-trail": "0% 100%",
+  "smart-tv-aurora-65": "0% 0%",
+  "audifonos-nova-sport": "50% 0%",
+  "bocina-nova-pulse": "50% 0%",
+  "lampara-lumen-escritorio": "100% 0%",
+  "silla-atelier-ergonomica": "50% 100%",
+  "reloj-vertex-active": "100% 100%",
+  "audifonos-nova-viaje": "50% 0%",
 };
 
 /** Keeps product previews aligned whether they appear in Catalog or in the bag. */

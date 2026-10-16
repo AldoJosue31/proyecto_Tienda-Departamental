@@ -13,10 +13,13 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useCustomerCart } from "@/components/customer-cart-provider";
+import { VariantPrice } from "@/components/variant-price";
+import { priceRefreshDelay } from "@/lib/pricing/types";
+import { usePriceValidity, withoutCatalogPrices } from "@/lib/pricing/use-price-validity";
 import type { Role } from "@/lib/auth/roles";
 import { searchCatalog } from "@/lib/catalog/catalog-client";
 import { catalogProductImageStyle } from "@/lib/catalog/product-image";
@@ -26,23 +29,24 @@ type CatalogExperienceProps = {
   initialPage: CatalogPage;
   initialError?: boolean;
   initialSearch: string;
+  initialCategory: string;
+  initialBrand: string;
   userRole: Role | null;
 };
 
-function money(value: number, currency: string) {
-  try {
-    return new Intl.NumberFormat("es-MX", {
-      style: "currency",
-      currency,
-      minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  } catch {
-    return `${value.toFixed(2)} ${currency}`;
-  }
+function orderedSizes(variants: CatalogVariant[]) {
+  const order = ["S", "M", "L"];
+  return Array.from(new Set(variants.map((variant) => variant.size).filter((value): value is string => Boolean(value))))
+    .sort((left, right) => order.indexOf(left) - order.indexOf(right));
 }
 
 function visibleAttributes(product: CatalogProductSummary) {
+  const sizes = orderedSizes(product.variants);
+  const colors = Array.from(new Set(product.variants.map((variant) => variant.color).filter((value): value is string => Boolean(value))));
+  const materials = Array.from(new Set(product.variants.map((variant) => variant.material).filter((value): value is string => Boolean(value))));
+  if (sizes.length > 1 && colors.length > 1 && materials.length > 1) {
+    return ["Tallas " + sizes.join(", "), colors.length + " colores", materials.length + " materiales"];
+  }
   return product.variants.flatMap((variant) => [variant.size, variant.color, variant.material].filter(Boolean) as string[]);
 }
 
@@ -62,35 +66,41 @@ function ProductMedia({ product, compact = false }: { product: CatalogProductSum
 }
 
 function PriceHint({ product }: { product: CatalogProductSummary }) {
-  const prices = product.variants.map((variant) => variant.listPrice).filter(Number.isFinite);
-  const currency = product.variants[0]?.currency ?? "MXN";
+  const prices = product.variants.map((variant) => variant.price?.effectivePrice ?? variant.listPrice).filter(Number.isFinite);
   if (!prices.length) return <p className="text-sm font-medium text-[var(--muted)]">Sin variantes activas</p>;
   const minimum = Math.min(...prices);
   const maximum = Math.max(...prices);
-  return <div><p className="text-xs font-medium text-[var(--muted)]">Precio base</p><p className="mt-0.5 text-lg font-semibold tracking-[-0.025em]">{minimum === maximum ? money(minimum, currency) : `Desde ${money(minimum, currency)}`}</p></div>;
+  const cheapest = product.variants.find(variant => (variant.price?.effectivePrice ?? variant.listPrice) === minimum)!;
+  return <div><p className="text-xs font-medium text-[var(--muted)]">{product.variants.every(variant => variant.price) ? "Precio vigente" : "Precio de lista · Cotización pendiente"}</p><div className="mt-0.5 text-lg tracking-[-0.025em]">{minimum !== maximum ? <span className="text-xs text-[var(--muted)]">Desde</span> : null}<VariantPrice variant={cheapest} /></div></div>;
 }
 
-export function CatalogExperience({ initialPage, initialError = false, initialSearch: search, userRole }: CatalogExperienceProps) {
+export function CatalogExperience({ initialPage, initialError = false, initialSearch: search, initialCategory, initialBrand, userRole }: CatalogExperienceProps) {
   const router = useRouter();
-  const [category, setCategory] = useState("");
-  const [brand, setBrand] = useState("");
-  const [requestedPage, setRequestedPage] = useState(initialPage.page);
+  const params = useSearchParams();
+  const category = (params.get("category") ?? "").slice(0, 200);
+  const brand = (params.get("brand") ?? "").slice(0, 200);
+  const rawPage = Number(params.get("page") ?? 1);
+  const requestedPage = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
   const [selectedProduct, setSelectedProduct] = useState<CatalogProductSummary | null>(null);
   const [addedVariantId, setAddedVariantId] = useState<string | null>(null);
   const [cartAnnouncement, setCartAnnouncement] = useState("");
   const detailDialogRef = useRef<HTMLDialogElement>(null);
   const { add: addToCart, itemCount, ready: cartReady } = useCustomerCart();
-  const canBuy = userRole === "CUSTOMER";
+  const canBuy = userRole === "CUSTOMER" || userRole === null;
 
   const catalogSearch = useMemo(() => ({ search, category, brand, page: requestedPage, pageSize: 20 }), [brand, category, requestedPage, search]);
-  const isInitialCatalogSearch = !initialError && !category && !brand && requestedPage === initialPage.page;
-  const catalogQuery = useQuery({ queryKey: ["catalog", catalogSearch], queryFn: ({ signal }) => searchCatalog(catalogSearch, signal), initialData: isInitialCatalogSearch ? initialPage : undefined, retry: false });
-  const page = catalogQuery.data ?? (isInitialCatalogSearch ? initialPage : emptyCatalogPage);
+  const isInitialCatalogSearch = !initialError && category === initialCategory && brand === initialBrand && requestedPage === initialPage.page;
+  const catalogQuery = useQuery({ queryKey: ["catalog", catalogSearch], queryFn: ({ signal }) => searchCatalog(catalogSearch, signal), initialData: isInitialCatalogSearch ? initialPage : undefined, retry: false, staleTime: 0, refetchOnWindowFocus: "always", refetchOnReconnect: "always", refetchInterval: query => query.state.status === "error" ? 5000 : priceRefreshDelay(query.state.data?.pricingValidUntil) });
+  const sourcePage = catalogQuery.data ?? (isInitialCatalogSearch ? initialPage : emptyCatalogPage);
+  const pricesValid = usePriceValidity(sourcePage.pricingValidUntil, catalogQuery.isError);
+  const page = pricesValid ? sourcePage : { ...sourcePage, items: sourcePage.items.map(withoutCatalogPrices) };
   const resultsLoading = catalogQuery.isLoading && !catalogQuery.data;
   const categories = page.facets.categories;
   const brands = page.facets.brands;
   const catalogError = catalogQuery.isError || (initialError && !catalogQuery.data) ? "No pudimos actualizar el catálogo. Conservamos los últimos resultados mientras reintentas." : null;
   const totalPages = Math.max(1, Math.ceil(page.total / page.pageSize));
+
+  const currentProduct = selectedProduct ? page.items.find(item => item.id === selectedProduct.id) ?? withoutCatalogPrices(selectedProduct) : null;
 
   useEffect(() => {
     const dialog = detailDialogRef.current;
@@ -99,7 +109,16 @@ export function CatalogExperience({ initialPage, initialError = false, initialSe
     if (!selectedProduct && dialog.open) dialog.close();
   }, [selectedProduct]);
 
-  function resetPage() { setRequestedPage(1); }
+  function changeFilters(change: Record<string, string>) {
+    const next = new URLSearchParams(params.toString());
+    for (const [key, value] of Object.entries(change)) {
+      if (value) next.set(key, value); else next.delete(key);
+    }
+    router.push("/?" + next.toString(), { scroll: false });
+  }
+  function setCategory(value: string) { changeFilters({ category: value, page: "" }); }
+  function setBrand(value: string) { changeFilters({ brand: value, page: "" }); }
+  function setRequestedPage(value: number) { changeFilters({ page: String(value) }); }
   function addVariant(product: CatalogProductSummary, variant: CatalogVariant) {
     const added = addToCart({ productId: product.id, variantId: variant.id });
     if (!added) {
@@ -118,15 +137,15 @@ export function CatalogExperience({ initialPage, initialError = false, initialSe
       </div>
       <p className="sr-only" role="status" aria-live="polite">{cartAnnouncement}</p>
       <section className="mt-8 w-full max-w-[31rem] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3" aria-label="Filtros del catálogo" aria-busy={catalogQuery.isFetching}>
-        <div className="grid gap-3 sm:grid-cols-2"><label><span className="sr-only">Categoría</span><select value={category} onChange={(event) => { setCategory(event.target.value); resetPage(); }} className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none"><option value="">Todas las categorías</option>{categories.map((facet) => <option key={facet.slug} value={facet.slug}>{facet.name} ({facet.count})</option>)}</select></label><label><span className="sr-only">Marca</span><select value={brand} onChange={(event) => { setBrand(event.target.value); resetPage(); }} className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none"><option value="">Todas las marcas</option>{brands.map((facet) => <option key={facet.slug} value={facet.slug}>{facet.name} ({facet.count})</option>)}</select></label></div>
+        <div className="grid gap-3 sm:grid-cols-2"><label><span className="sr-only">Categoría</span><select value={category} onChange={(event) => { setCategory(event.target.value); }} className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none"><option value="">Todas las categorías</option>{categories.map((facet) => <option key={facet.slug} value={facet.slug}>{facet.name} ({facet.count})</option>)}</select></label><label><span className="sr-only">Marca</span><select value={brand} onChange={(event) => { setBrand(event.target.value); }} className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm transition-colors focus:border-[var(--accent)] focus:outline-none"><option value="">Todas las marcas</option>{brands.map((facet) => <option key={facet.slug} value={facet.slug}>{facet.name} ({facet.count})</option>)}</select></label></div>
       </section>
       {catalogError && <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--danger)]/30 bg-[var(--danger-surface)] px-4 py-3 text-sm text-[var(--ink)]" role="alert"><span className="flex items-center gap-2"><IconAlertTriangle size={18} className="text-[var(--danger)]" aria-hidden="true" />{catalogError}</span><button type="button" onClick={() => { void catalogQuery.refetch(); }} className="inline-flex min-h-10 items-center gap-2 font-semibold text-[var(--danger)] underline decoration-1 underline-offset-4"><IconRefresh size={16} aria-hidden="true" />Reintentar</button></div>}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3" aria-live="polite"><p className="text-sm text-[var(--muted)]">{resultsLoading ? "Cargando resultados…" : catalogQuery.isFetching ? "Actualizando catálogo…" : `${page.items.length} ${page.items.length === 1 ? "resultado" : "resultados"} en esta página`}</p>{(search || category || brand) && <button type="button" onClick={() => { if (search) { router.push("/"); return; } setCategory(""); setBrand(""); setRequestedPage(1); }} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)]"><IconX size={16} aria-hidden="true" />Limpiar filtros</button>}</div>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3" aria-live="polite"><p className="text-sm text-[var(--muted)]">{resultsLoading ? "Cargando resultados…" : catalogQuery.isFetching ? "Actualizando catálogo…" : `${page.items.length} ${page.items.length === 1 ? "resultado" : "resultados"} en esta página`}</p>{(search || category || brand) && <button type="button" onClick={() => { router.push("/"); }} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)]"><IconX size={16} aria-hidden="true" />Limpiar filtros</button>}</div>
       {resultsLoading ? <CatalogResultsSkeleton /> : catalogError && !catalogQuery.data ? <CatalogUnavailable onRetry={() => { void catalogQuery.refetch(); }} /> : page.items.length === 0 ? <div className="mt-6 rounded-2xl border border-dashed border-[var(--line)] px-6 py-16 text-center"><IconSearch className="mx-auto text-[var(--muted)]" size={30} stroke={1.5} aria-hidden="true" /><h2 className="mt-3 font-semibold">No encontramos coincidencias</h2><p className="mt-1 text-sm text-[var(--muted)]">Prueba con otra búsqueda, categoría o marca.</p></div> : <div className="mt-7 grid gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{page.items.map((product) => <ProductCard key={product.id} product={product} canBuy={canBuy} onOpen={() => { setSelectedProduct(product); setAddedVariantId(null); }} />)}</div>}
       {page.total > page.pageSize && <nav className="mt-10 flex items-center justify-center gap-3" aria-label="Paginación del catálogo"><button type="button" disabled={page.page <= 1 || catalogQuery.isFetching} onClick={() => setRequestedPage(page.page - 1)} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-[var(--line)] px-3 text-sm font-semibold transition-colors hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-45"><IconChevronLeft size={17} aria-hidden="true" />Anterior</button><p className="text-sm text-[var(--muted)]">Página <span className="font-semibold text-[var(--ink)]">{page.page}</span> de {totalPages}</p><button type="button" disabled={page.page >= totalPages || catalogQuery.isFetching} onClick={() => setRequestedPage(page.page + 1)} className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-[var(--line)] px-3 text-sm font-semibold transition-colors hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-45">Siguiente<IconChevronRight size={17} aria-hidden="true" /></button></nav>}
     </section>
     <dialog ref={detailDialogRef} onClose={() => setSelectedProduct(null)} aria-labelledby="product-dialog-title" className="w-[min(46rem,calc(100vw-2rem))] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-0 text-[var(--ink)] shadow-xl backdrop:bg-black/35">
-      {selectedProduct && <ProductDialog key={selectedProduct.id} product={selectedProduct} userRole={userRole} addedVariantId={addedVariantId} itemCount={itemCount} onAdd={addVariant} onClose={() => detailDialogRef.current?.close()} />}
+      {selectedProduct && <ProductDialog key={selectedProduct.id} product={currentProduct ?? selectedProduct} userRole={userRole} addedVariantId={addedVariantId} itemCount={itemCount} onAdd={addVariant} onClose={() => detailDialogRef.current?.close()} />}
     </dialog>
   </>;
 }
@@ -144,11 +163,107 @@ function ProductCard({ product, canBuy, onOpen }: { product: CatalogProductSumma
   return <article className="group min-w-0"><ProductMedia product={product} /><div className="mt-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold text-[var(--muted)]">{product.brand.name}</p><h2 className="mt-1 text-base font-semibold tracking-[-0.02em]">{product.name}</h2></div><span className="shrink-0 rounded-md bg-[var(--accent-soft)] px-2 py-1 text-xs font-semibold text-[var(--accent-strong)]">{product.category.name}</span></div><p className="mt-2 min-h-10 text-sm leading-5 text-[var(--muted)]">{product.description ?? "Conoce las opciones disponibles de este producto."}</p><div className="mt-4 flex items-end justify-between gap-3 border-t border-[var(--line)] pt-3"><PriceHint product={product} /><p className="text-right text-xs font-semibold text-[var(--muted)]">{product.variants.length} {product.variants.length === 1 ? "variante" : "variantes"}</p></div>{attributes.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{attributes.map((attribute) => <span key={attribute} className="rounded-md bg-[var(--surface-muted)] px-2 py-1 text-xs text-[var(--muted)]">{attribute}</span>)}</div>}<button type="button" onClick={onOpen} className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--ink)] px-3 text-sm font-semibold text-[var(--surface)] transition-colors duration-200 hover:bg-[var(--accent-strong)]"><IconTag size={17} stroke={2} aria-hidden="true" />{canBuy ? "Elegir y agregar" : "Ver variantes"}</button></div></article>;
 }
 
-function ProductDialog({ product, userRole, addedVariantId, itemCount, onAdd, onClose }: { product: CatalogProductSummary; userRole: Role | null; addedVariantId: string | null; itemCount: number; onAdd: (product: CatalogProductSummary, variant: CatalogVariant) => void; onClose: () => void }) {
-  const canBuy = userRole === "CUSTOMER";
+type AttributeSelectProps = {
+  label: string;
+  placeholder: string;
+  options: string[];
+  value: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+};
+
+function AttributeSelect({ label, placeholder, options, value, disabled = false, onChange }: AttributeSelectProps) {
+  return <label className="block">
+    <span className="text-sm font-semibold">{label}</span>
+    <select
+      value={value}
+      disabled={disabled}
+      onChange={(event) => onChange(event.target.value)}
+      className="mt-1.5 h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-sm focus:border-[var(--accent)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <option value="">{placeholder}</option>
+      {options.map((option) => <option key={option} value={option}>{option}</option>)}
+    </select>
+  </label>;
+}
+
+function ProductDialog({ product, userRole, addedVariantId, itemCount, onAdd, onClose }: {
+  product: CatalogProductSummary;
+  userRole: Role | null;
+  addedVariantId: string | null;
+  itemCount: number;
+  onAdd: (product: CatalogProductSummary, variant: CatalogVariant) => void;
+  onClose: () => void;
+}) {
+  const canBuy = userRole === "CUSTOMER" || userRole === null;
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const selectedVariant = product.variants.find((variant) => variant.id === selectedVariantId) ?? null;
+  const [selectedSize, setSelectedSize] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
+  const [selectedMaterial, setSelectedMaterial] = useState("");
+
+  const sizes = orderedSizes(product.variants);
+  const colors = Array.from(new Set(product.variants.map((variant) => variant.color).filter((value): value is string => Boolean(value))));
+  const materials = Array.from(new Set(product.variants.map((variant) => variant.material).filter((value): value is string => Boolean(value))));
+  const hasAttributeMatrix = sizes.length > 1 && colors.length > 1 && materials.length > 1
+    && product.variants.length === sizes.length * colors.length * materials.length;
+  const selectedVariant = hasAttributeMatrix
+    ? product.variants.find((variant) => variant.size === selectedSize && variant.color === selectedColor && variant.material === selectedMaterial) ?? null
+    : product.variants.find((variant) => variant.id === selectedVariantId) ?? null;
   const justAdded = selectedVariant?.id === addedVariantId;
 
-  return <div className="grid gap-6 p-5 sm:grid-cols-[11rem_minmax(0,1fr)] sm:p-6"><ProductMedia product={product} compact /><div><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-[var(--accent-strong)]">{product.brand.name} · {product.category.name}</p><h2 id="product-dialog-title" className="mt-1 text-balance text-2xl font-semibold tracking-[-0.03em]">{product.name}</h2></div><button type="button" onClick={onClose} aria-label="Cerrar detalle" className="grid size-11 shrink-0 place-items-center rounded-xl text-[var(--muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]"><IconX size={20} aria-hidden="true" /></button></div><p className="mt-3 text-sm leading-6 text-[var(--muted)]">{product.description ?? "Revisa las variantes disponibles de este producto."}</p><div className="mt-5 border-y border-[var(--line)] py-4"><p className="text-sm font-semibold">Elige una variante</p><p className="mt-1 text-sm text-[var(--muted)]">Selecciona una opción para revisar sus atributos antes de agregarla.</p><div className="mt-3 space-y-2" role="radiogroup" aria-label={`Variantes de ${product.name}`}>{product.variants.map((variant) => { const selected = variant.id === selectedVariantId; const attributes = variantAttributes(variant); return <label key={variant.id} className={`flex w-full cursor-pointer flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 has-[:focus-visible]:outline-[var(--focus)] ${selected ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-transparent bg-[var(--surface-muted)] hover:border-[var(--line)] hover:bg-[var(--surface)]"}`}><input type="radio" name={`variant-${product.id}`} checked={selected} onChange={() => setSelectedVariantId(variant.id)} className="sr-only" /><span><span className="block text-sm font-semibold">{variant.label}</span>{attributes.length > 0 ? <span className="mt-1 block text-xs leading-5 text-[var(--muted)]">{attributes.join(" · ")}</span> : null}<span className="mt-1 block text-xs text-[var(--muted)]">SKU {variant.sku}</span></span><span className="text-sm font-semibold">{money(variant.listPrice, variant.currency)}</span></label>; })}</div></div>{canBuy ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-[var(--muted)]" role="status" aria-live="polite">{selectedVariant ? `${selectedVariant.label} seleccionada.` : "Selecciona una variante para continuar."}</p><button type="button" disabled={!selectedVariant || justAdded} onClick={() => { if (selectedVariant) onAdd(product, selectedVariant); }} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] disabled:text-[var(--muted)]"><IconPlus size={17} aria-hidden="true" />{justAdded ? "Agregada a la bolsa" : "Agregar a la bolsa"}</button></div> : null}{canBuy && addedVariantId ? <Link href="/checkout" className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent-soft)] px-4 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent)] hover:text-white"><IconShoppingBag size={17} aria-hidden="true" />Ver bolsa{itemCount ? ` · ${itemCount}` : ""}</Link> : null}{userRole === null ? <Link href="/login?next=/" className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-strong)]"><IconShoppingBag size={17} aria-hidden="true" />Inicia sesión para comprar</Link> : !canBuy ? <p className="mt-4 text-sm leading-6 text-[var(--muted)]">Las compras en línea se realizan con una cuenta CUSTOMER. El personal usa el flujo de ventas físicas.</p> : <p className="mt-4 text-xs leading-5 text-[var(--muted)]">El precio final y la existencia se confirman al enviar el pedido.</p>}</div></div>;
+  return <div className="grid gap-6 p-5 sm:grid-cols-[11rem_minmax(0,1fr)] sm:p-6">
+    <ProductMedia product={product} compact />
+    <div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-[var(--accent-strong)]">{product.brand.name} · {product.category.name}</p>
+          <h2 id="product-dialog-title" className="mt-1 text-balance text-2xl font-semibold tracking-[-0.03em]">{product.name}</h2>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Cerrar detalle" className="grid size-11 shrink-0 place-items-center rounded-xl text-[var(--muted)] hover:bg-[var(--surface-muted)]"><IconX size={20} aria-hidden="true" /></button>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{product.description ?? "Revisa las variantes disponibles de este producto."}</p>
+      <div className="mt-5 border-y border-[var(--line)] py-4">
+        <p className="text-sm font-semibold">Elige una variante</p>
+        {hasAttributeMatrix ? <>
+          <p className="mt-1 text-sm text-[var(--muted)]">Selecciona talla, color y material para encontrar el SKU exacto.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <AttributeSelect label="Talla" placeholder="Elige talla" options={sizes} value={selectedSize} onChange={(value) => { setSelectedSize(value); setSelectedColor(""); setSelectedMaterial(""); }} />
+            <AttributeSelect label="Color" placeholder="Elige color" options={colors} value={selectedColor} disabled={!selectedSize} onChange={(value) => { setSelectedColor(value); setSelectedMaterial(""); }} />
+            <div className="sm:col-span-2">
+              <AttributeSelect label="Material" placeholder="Elige material" options={materials} value={selectedMaterial} disabled={!selectedColor} onChange={setSelectedMaterial} />
+            </div>
+          </div>
+          {selectedVariant && <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[var(--accent-soft)] px-4 py-3">
+            <span className="text-sm text-[var(--accent-strong)]">SKU {selectedVariant.sku}</span>
+            <VariantPrice variant={selectedVariant} />
+          </div>}
+        </> : <>
+          <p className="mt-1 text-sm text-[var(--muted)]">Selecciona una opción para revisar sus atributos antes de agregarla.</p>
+          <div className="mt-3 space-y-2" role="radiogroup" aria-label={"Variantes de " + product.name}>
+            {product.variants.map((variant) => {
+              const selected = variant.id === selectedVariantId;
+              const attributes = variantAttributes(variant);
+              return <label key={variant.id} className={"flex w-full cursor-pointer flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 has-[:focus-visible]:outline-[var(--focus)] " + (selected ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-transparent bg-[var(--surface-muted)] hover:border-[var(--line)] hover:bg-[var(--surface)]")}>
+                <input type="radio" name={"variant-" + product.id} checked={selected} onChange={() => setSelectedVariantId(variant.id)} className="sr-only" />
+                <span>
+                  <span className="block text-sm font-semibold">{variant.label}</span>
+                  {attributes.length > 0 && <span className="mt-1 block text-xs leading-5 text-[var(--muted)]">{attributes.join(" · ")}</span>}
+                  <span className="mt-1 block text-xs text-[var(--muted)]">SKU {variant.sku}</span>
+                </span>
+                <VariantPrice variant={variant} />
+              </label>;
+            })}
+          </div>
+        </>}
+      </div>
+      {canBuy && <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-[var(--muted)]" role="status" aria-live="polite">{selectedVariant ? selectedVariant.label + " seleccionada." : "Selecciona una variante para continuar."}</p>
+        <button type="button" disabled={!selectedVariant || justAdded} onClick={() => { if (selectedVariant) onAdd(product, selectedVariant); }} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:bg-[var(--surface-muted)] disabled:text-[var(--muted)]"><IconPlus size={17} aria-hidden="true" />{justAdded ? "Agregada a la bolsa" : "Agregar a la bolsa"}</button>
+      </div>}
+      {canBuy && addedVariantId && <Link href="/checkout" className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent-soft)] px-4 text-sm font-semibold text-[var(--accent-strong)] hover:bg-[var(--accent)] hover:text-white"><IconShoppingBag size={17} aria-hidden="true" />Ver bolsa{itemCount ? " · " + itemCount : ""}</Link>}
+      {userRole === null ? <Link href="/login?next=/" className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]"><IconShoppingBag size={17} aria-hidden="true" />Inicia sesión para comprar</Link>
+        : !canBuy ? <p className="mt-4 text-sm leading-6 text-[var(--muted)]">Las compras en línea se realizan con una cuenta CUSTOMER. El personal usa el flujo de ventas físicas.</p>
+        : <p className="mt-4 text-xs leading-5 text-[var(--muted)]">El precio final y la existencia se confirman al enviar el pedido.</p>}
+    </div>
+  </div>;
 }

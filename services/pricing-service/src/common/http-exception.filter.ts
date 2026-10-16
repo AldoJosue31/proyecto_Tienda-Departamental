@@ -15,12 +15,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const request = http.getRequest<AuthenticatedRequest>();
     const response = http.getResponse<Response>();
     const correlationId = request.correlationId ?? randomUUID();
+    const databaseUnavailable = typeof exception === "object" && exception !== null && (
+      ("code" in exception && typeof exception.code === "string" && ["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "EPIPE", "ENOTFOUND", "57P01", "57P02", "57P03", "53300"].includes(exception.code)) ||
+      (exception instanceof Error && /connection terminated|connection timeout/i.test(exception.message))
+    );
     const status = exception instanceof HttpException
       ? exception.getStatus()
-      : HttpStatus.INTERNAL_SERVER_ERROR;
+      : databaseUnavailable ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.INTERNAL_SERVER_ERROR;
     const api = exception instanceof ApiException
       ? { code: exception.code, message: this.message(exception) }
-      : this.standard(status);
+      : databaseUnavailable ? { code: "DATABASE_UNAVAILABLE", message: "Los precios no están disponibles temporalmente. Intenta nuevamente." } : this.standard(status);
     if (!(exception instanceof HttpException)) {
       this.logger.error("Unhandled error. correlationId=" + correlationId);
     }

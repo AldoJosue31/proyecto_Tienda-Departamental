@@ -8,37 +8,41 @@ services:
     ports: !override ["127.0.0.1:8005:8000"]
   postgres:
     ports: !reset []
+  servicio-autenticacion:
+    networks: [auth-probe]
+    ports: ["127.0.0.1:3301:3001"]
   auth-postgres:
+    networks: [auth-probe]
     ports: ["127.0.0.1:55431:5432"]
-    networks: [integration-access]
   redis:
     ports: !reset []
   inventory-postgres:
+    networks: [inventory-probe]
     ports: ["127.0.0.1:55433:5432"]
-    networks: [integration-access]
   analytics-postgres:
+    networks: [analytics-probe]
     ports: ["127.0.0.1:55437:5432"]
-    networks: [integration-access]
   pricing-postgres:
+    networks: [pricing-probe]
     ports: ["127.0.0.1:55434:5432"]
-    networks: [integration-access]
   crm-postgres:
+    networks: [crm-probe]
     ports: ["127.0.0.1:55439:5432"]
-    networks: [integration-access]
   notification-postgres:
+    networks: [notification-probe]
     ports: ["127.0.0.1:55440:5432"]
-    networks: [integration-access]
   orders-postgres:
+    networks: [orders-probe]
     ports: ["127.0.0.1:55435:5432"]
-    networks: [integration-access]
   logistics-postgres:
+    networks: [logistics-probe]
     ports: ["127.0.0.1:55438:5432"]
-    networks: [integration-access]
   smtp-capture:
     image: axllent/mailpit:v1.27.10
     ports: ["127.0.0.1:18025:8025"]
     networks: [notification-egress]
   servicio-notificaciones:
+    networks: [notification-probe]
     environment:
       NOTIFICATION_DELIVERY_MODE: smtp
       SMTP_URL: smtp://smtp-capture:1025
@@ -48,25 +52,75 @@ services:
       smtp-capture:
         condition: service_started
   servicio-precios:
+    networks: [pricing-probe]
     ports: ["127.0.0.1:3304:3004"]
-    networks: [integration-access]
   servicio-pedidos:
+    networks: [orders-probe]
     ports: ["127.0.0.1:3305:3005"]
-    networks: [integration-access]
   rabbitmq:
+    networks: [broker-probe]
     ports: ["127.0.0.1:55672:5672"]
-    networks: [integration-access]
   servicio-inventario:
+    networks: [inventory-probe]
     ports: ["127.0.0.1:3303:3003"]
-    networks: [integration-access]
     environment:
       INVENTORY_RESERVATION_SWEEP_SECONDS: "1"
   servicio-analitica:
+    networks: [analytics-probe]
     environment:
       ANALYTICS_INVENTORY_SYNC_SECONDS: "3"
   servicio-clientes:
+    networks: [crm-probe]
     environment:
       # Keep campaign publishing deterministic while the runner checks eligibility.
       OUTBOX_PUBLISH_INTERVAL_MILLISECONDS: "60000"
+  catalog-postgres:
+    networks: [catalog-probe]
+  servicio-catalogo:
+    networks: [catalog-probe]
+  servicio-logistica:
+    networks: [logistics-probe]
+
+# Loopback test ports need a non-internal bridge. Each probe bridge contains
+# only the owning domain and its database; no shared database access network.
 networks:
-  integration-access:
+  auth-probe:
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.242}.100.0/28"
+  catalog-probe:
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.242}.101.0/28"
+  inventory-probe:
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.242}.102.0/28"
+  pricing-probe:
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.242}.103.0/28"
+  orders-probe:
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.242}.104.0/28"
+  analytics-probe:
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.242}.105.0/28"
+  logistics-probe:
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.242}.106.0/28"
+  crm-probe:
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.242}.107.0/28"
+  notification-probe:
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.242}.108.0/28"
+  broker-probe:
+    ipam:
+      config:
+        - subnet: "${DATA_NETWORK_PREFIX:-10.242}.109.0/28"

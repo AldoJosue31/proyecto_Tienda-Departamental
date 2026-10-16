@@ -82,6 +82,8 @@ export class OrdersOutboxService implements OnModuleInit, OnModuleDestroy {
           this.logger.warn("An Orders outbox event will be retried.");
         }
       }
+    } catch {
+      this.logger.warn("Outbox will resume after its dependencies recover.");
     } finally {
       this.flushing = false;
     }

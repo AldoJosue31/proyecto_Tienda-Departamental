@@ -28,6 +28,11 @@ interface RefreshTokenRow {
 export class RefreshTokensRepository {
   constructor(private readonly database: DatabaseService) {}
 
+  async findUserIdByHash(client: PoolClient, tokenHash: string): Promise<string | null> {
+    const result = await client.query<{ user_id: string }>('SELECT user_id FROM auth_refresh_tokens WHERE token_hash=$1', [tokenHash]);
+    return result.rows[0]?.user_id || null;
+  }
+
   async create(
     client: PoolClient,
     userId: string,

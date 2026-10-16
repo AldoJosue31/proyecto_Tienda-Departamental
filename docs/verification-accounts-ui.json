@@ -1,0 +1,27 @@
+{
+  "completedAt": "2026-10-09T08:20:55.730Z",
+  "passed": true,
+  "disposition": "ship",
+  "reviewer": "impeccable_finish_reviewer",
+  "captures": 12,
+  "viewports": {
+    "desktop": {
+      "width": 1440,
+      "height": 1000
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844
+    },
+    "fullPage": true
+  },
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "materialFixes": [],
+  "syntheticData": true,
+  "origin": "http://localhost:3105",
+  "project": "departamental-five-phases",
+  "imageProvenanceEmbedded": true
+}

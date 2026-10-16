@@ -1,0 +1,72 @@
+# Exact locally validated images. Use with the base Compose and destination env.
+# SMTP capture is supplied by the integration or local university overlay.
+services:
+  analytics-postgres:
+    image: departamental-release/analytics-postgres:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  aplicacion-web:
+    image: departamental-release/aplicacion-web:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  auth-postgres:
+    image: departamental-release/auth-postgres:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  catalog-postgres:
+    image: departamental-release/catalog-postgres:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  catalog-redis:
+    image: departamental-release/catalog-redis:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  crm-postgres:
+    image: departamental-release/crm-postgres:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  inventory-postgres:
+    image: departamental-release/inventory-postgres:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  logistics-postgres:
+    image: departamental-release/logistics-postgres:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  notification-postgres:
+    image: departamental-release/notification-postgres:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  orders-postgres:
+    image: departamental-release/orders-postgres:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  pasarela-api:
+    image: departamental-release/pasarela-api:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  pricing-postgres:
+    image: departamental-release/pricing-postgres:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  rabbitmq:
+    image: departamental-release/rabbitmq:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  servicio-analitica:
+    image: departamental-release/servicio-analitica:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  servicio-autenticacion:
+    image: departamental-release/servicio-autenticacion:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  servicio-catalogo:
+    image: departamental-release/servicio-catalogo:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  servicio-clientes:
+    image: departamental-release/servicio-clientes:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  servicio-inventario:
+    image: departamental-release/servicio-inventario:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  servicio-logistica:
+    image: departamental-release/servicio-logistica:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  servicio-notificaciones:
+    image: departamental-release/servicio-notificaciones:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  servicio-pedidos:
+    image: departamental-release/servicio-pedidos:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  servicio-precios:
+    image: departamental-release/servicio-precios:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never
+  servicio-tiempo-real:
+    image: departamental-release/servicio-tiempo-real:fases-4-6-20261013-7a03fdfd18c3
+    pull_policy: never

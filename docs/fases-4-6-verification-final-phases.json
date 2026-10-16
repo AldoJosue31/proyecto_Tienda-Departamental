@@ -1,0 +1,71 @@
+{
+  "completedAt": "2026-10-14T00:25:39.751Z",
+  "project": "departamental-five-phases",
+  "checks": [
+    {
+      "name": "CRM confirmation persists explicit coupon definition and request idempotency",
+      "passed": true,
+      "milliseconds": 2876
+    },
+    {
+      "name": "coupon right exists before real SMTP capture and accepted status reaches CRM",
+      "passed": true,
+      "milliseconds": 563
+    },
+    {
+      "name": "public clients cannot issue rights or impersonate a coupon owner",
+      "passed": true,
+      "milliseconds": 2342
+    },
+    {
+      "name": "concurrent orders cannot consume a customer's coupon twice",
+      "passed": true,
+      "milliseconds": 3062
+    },
+    {
+      "name": "accepted pre-dispatch cancellation restores the original right",
+      "passed": true,
+      "milliseconds": 5132
+    },
+    {
+      "name": "checkout BFF verifies the coupon and replays the same confirmed order",
+      "passed": true,
+      "milliseconds": 2371
+    },
+    {
+      "name": "stock failure releases the reserved coupon without a second use",
+      "passed": true,
+      "milliseconds": 847
+    },
+    {
+      "name": "API recovery completes an interrupted coupon settlement",
+      "passed": true,
+      "milliseconds": 2898
+    },
+    {
+      "name": "temporary and persistent delivery failures use bounded retries",
+      "passed": true,
+      "milliseconds": 433
+    },
+    {
+      "name": "simulation and expired delivery never report SMTP acceptance",
+      "passed": true,
+      "milliseconds": 584
+    },
+    {
+      "name": "delivery survives a Notification service restart without duplicate SMTP messages",
+      "passed": true,
+      "milliseconds": 8706
+    },
+    {
+      "name": "logistics tracks packing, courier location, dispatch and delivery with role restrictions",
+      "passed": true,
+      "milliseconds": 1975
+    },
+    {
+      "name": "CRM history retains the customer's confirmed price snapshot",
+      "passed": true,
+      "milliseconds": 29
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { rejectUnlistedOrigins } from "./common/origin-policy";
 import "reflect-metadata";
 import "./config/load-env";
 
@@ -12,7 +13,9 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
     logger: config.environment === "test" ? false : ["log", "warn", "error"],
   });
+  app.enableShutdownHooks();
   app.use(helmet());
+  app.use(rejectUnlistedOrigins(config.corsOrigins));
   app.enableCors({ origin: config.corsOrigins, credentials: true, methods: ["GET", "POST", "OPTIONS"] });
   const port = Number.parseInt(process.env.PORT || "3006", 10);
   if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) throw new Error("PORT must be a valid TCP port.");

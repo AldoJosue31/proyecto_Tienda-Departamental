@@ -2,6 +2,7 @@ import "server-only";
 
 import { GatewayRequestError, gatewayJson } from "@/lib/auth/gateway-client.server";
 import type { CatalogPage, CatalogSearch } from "@/lib/catalog/types";
+import { enrichCatalogPrices } from "@/lib/pricing/catalog-pricing.server";
 
 function buildSearchParams(search: CatalogSearch): string {
   const params = new URLSearchParams();
@@ -26,5 +27,5 @@ export async function getCatalogPage(search: CatalogSearch = {}): Promise<Catalo
     );
   }
 
-  return body;
+  return { ...body, ...await enrichCatalogPrices(body.items) };
 }
