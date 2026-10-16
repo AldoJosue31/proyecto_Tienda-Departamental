@@ -1,19 +1,27 @@
-# Especificación del proyecto
+# Documentación del proyecto
 
-Para instalar desde cero y consultar las cuentas de demostración, usa el [README principal](../README.md) y la [guía de acceso local](../ACCESO_LOCAL.md). Los documentos de cierre describen entregas históricas y pueden usar otros puertos.
+Para instalar la app desde el código, empieza por el [README principal](../README.md). Las cuentas y contraseñas locales se consultan siguiendo [Acceso local](../ACCESO_LOCAL.md).
 
-La entrega universitaria final está aprobada el 14 de octubre de 2026. El [acta de fases 7–9](./entrega-definitiva-fases-7-9.md), la [guía de demostración](./guia-demostracion-requisitos.md) y el [plan de nueve fases cerrado](./plan-cierre-definitivo.md) enlazan la versión exacta, CI, respaldo, recuperación y pruebas del principal en localhost:3005. Los informes de [fases 1–3](./implementacion-cierre-fases-1-3.md) y [fases 4–6](./implementacion-cierre-fases-4-6.md) conservan la historia; su entorno aislado usa 3105.
+## Guías y contratos
 
-La referencia vigente es [Proyecto Universitario Tienda Departamental v2.4](./Proyecto_Universitario_Tienda_Departamental_v2.4.docx), revisada el 6 de octubre de 2026 contra el código y la configuración del repositorio en `1c6a677`. La versión 2.3 anterior puede recuperarse desde el historial de Git. La [memoria final de entrega](./Proyecto_Universitario_Tienda_Departamental_Final.docx) se conserva como entregable universitario.
+| Documento | Contenido |
+| --- | --- |
+| [Memoria final](Proyecto_Universitario_Tienda_Departamental_Final.docx) | Entregable universitario del sistema. |
+| [Arquitectura](arquitectura.md) | Microservicios, dominios, permisos y comunicación. |
+| [Cuentas](cuentas-contrato.md) | Registro, invitaciones, sesiones, seguridad y configuración. |
+| [Demostración de cuentas](alta-cuentas-entrega-y-demostracion.md) | Registro de clientes, invitaciones de empleados y Mailpit. |
+| [Ventas físicas](physical-sales-contract.md) | Contrato de caja e inventario compartido con ventas online. |
+| [Demostración de requisitos](guia-demostracion-requisitos.md) | Recorridos, matriz de requisitos y capturas de la entrega. |
+| [Recuperación coordinada](recuperacion.md) | Checkpoints, imágenes, bases, RabbitMQ y reversión. |
 
-La revisión mantiene microservicios, bases independientes, roles y las doce fases del roadmap arquitectónico. Actualiza tecnologías, diagramas, consumidores reales de eventos, Outbox, recursos heredados y límites de escalado. Las doce áreas tienen implementación en código; esto no certifica integración completa, rendimiento ni producción.
+## Evidencia de la entrega
 
-Los cierres P01–P04 y el ciclo CUSTOMER se verificaron en la entrega final: modalidades física/online, cancelación frente a proyección tardía y despacho, filtros de categoría/marca/página, precios vigentes, bolsa por usuario, compra, pedidos propios y seguimiento. La [evidencia de fases 7–9](./verification-fases-7-9-summary.json) distingue pruebas locales, CI, versión desplegada y validación del principal. La especificación Word conserva el diagnóstico que tenía al redactarse; el acta final determina el estado operativo actual.
+El [acta del 14 de octubre de 2026](entrega-definitiva-fases-7-9.md) y el [resumen verificable](verification-fases-7-9-summary.json) identifican la versión universitaria certificada, sus pruebas, CI y despliegue. Sus fechas, cantidades y puertos describen esa ejecución; no certifican automáticamente los commits posteriores.
 
-El [contrato de venta física](./physical-sales-contract.md) complementa la especificación. Ante una discrepancia con el código, distinguir requisito, capacidad implementada y defecto pendiente antes de modificar cualquiera de ellos.
+- `verification-*.json` y `audit-runtime-*.json`: resultados y datos que utilizan las herramientas de verificación y recuperación.
+- `ci-release-2ea6dbe/`: evidencia de GitHub Actions de la versión indicada en el acta; es independiente de la ejecución local.
+- `release-fases-*.json` y los reportes de imágenes/archivo: manifiestos históricos necesarios para identificar imágenes y cadenas de respaldo. Se mantienen en sus rutas porque los scripts los consultan. Algunos duplicados son entradas distintas de esas herramientas.
+- [Capturas de la entrega](guia-demostracion-requisitos.md#capturas-de-la-entrega): escritorio y móvil. Las capturas de registro e invitaciones están en la guía de cuentas.
+- [Auditoría de compatibilidad con Supabase](auditoria-supabase-2026-10-11.md): evaluación opcional fechada; no forma parte de la instalación local.
 
-El módulo de alta de cuentas tiene su propio [plan de ocho fases](./plan-alta-cuentas.md). La [guía de entrega y demostración](./alta-cuentas-entrega-y-demostracion.md) explica el registro de clientes desde login, las invitaciones de empleados desde ADMIN, Mailpit, pruebas y respaldo; sus reportes distinguen comprobación local, CI preparado y bases de negocio sin migrar.
-
-## Conservación de archivos
-
-Se mantienen la especificación vigente, la memoria final, las pruebas activas y los informes únicos que respaldan los cierres y la recuperación. Se retiraron temporales de Word, versiones descartadas del diseño de login, recursos de ejemplo sin uso y copias idénticas de reportes sin referencias. Las versiones anteriores siguen disponibles en Git. Los manifiestos de entregas son registros históricos inmutables: sus listas describen los archivos de aquella versión.
+Los planes terminados, informes de puntos de control anteriores, capturas sustituidas y versiones antiguas de Word se recuperan desde el historial de Git. Los manifiestos conservan nombres y hashes de archivos que existían al congelar cada versión; esas referencias históricas no son enlaces a la documentación actual.

@@ -1,14 +1,14 @@
-# Recuperación coordinada de las fases 1 a 3
+# Recuperación coordinada
 
-Fecha: 13 de octubre de 2026. Los ensayos descritos restauraron clones; no reemplazaron datos del principal. La instalación definitiva pertenece a la fase 9.
+Esta guía describe la recuperación del conjunto de microservicios, bases y RabbitMQ. Los manifiestos enlazados corresponden a la entrega universitaria del 14 de octubre de 2026; para una instalación nueva desde el código, sigue el [README principal](../README.md).
 
 ## Artefactos y consistencia
 
-Consulta los directorios privados y hashes en [respaldo principal](fases-1-3-verification-release-web.json) y [respaldo de pruebas](verification-release-fases-1-3-departamental-five-phases.json). Cada checkpoint contiene diez dumps PostgreSQL, almacenamiento durable de RabbitMQ, manifiesto privado, configuración del entorno y `compose.baseline.yaml`. Los archivos de imágenes aparecen en [el reporte de archivo](fases-1-3-verification-release-archive.json). Si el archivo es incremental, **se necesitan ambos archivos**: carga primero el base y después el complemento. Cada SHA-256 debe coincidir con su reporte.
+El [respaldo principal](verification-release-web.json), el [respaldo aislado](verification-release-departamental-five-phases.json) y el [despliegue aprobado](verification-principal-deployment.json) identifican los checkpoints de la entrega. Los dumps, archivos del broker, configuración privada y `compose.baseline.yaml` se guardan fuera de Git. Consulta su manifiesto privado para localizar el conjunto completo y verificar los hashes.
 
-El [manifiesto de entrega](release-fases-1-3.json) y `compose.release.yaml` identifican la candidata compatible. El respaldo principal conserva sus imágenes originales para revertir como conjunto. No mezcles servicios de identidad nuevos con servicios que usan contratos anteriores.
+El [manifiesto de entrega](release-fases-7-9.json) y `compose.release-fases-7-9.yaml` identifican las imágenes compatibles. El [reporte de archivo](verification-release-archive-fases-7-9.json) enumera la cadena de imágenes: un archivo incremental requiere también sus archivos base. Carga todos los archivos con `docker load --input <ruta-privada>` y verifica cada SHA-256. Los manifiestos de fases 1–3 y 4–6 se conservan porque las herramientas también pueden ensayar esos checkpoints; no son la versión actual de la app.
 
-Los checkpoints de RabbitMQ requieren el hostname original: principal `b807706f5fa7`, pruebas `d1610e289a0b`. El entorno privado conserva ese valor. Restaura el almacenamiento con RabbitMQ detenido y sus propietarios originales; cambiar el hostname puede hacer que el broker inicialice otro nodo y no encuentre los mensajes respaldados.
+RabbitMQ requiere el hostname guardado en el entorno privado del checkpoint. Restaura su almacenamiento con el broker detenido y sus propietarios originales; cambiar el hostname puede inicializar otro nodo sin los mensajes respaldados. El respaldo principal conserva las imágenes originales para revertir como conjunto. No mezcles servicios de contratos diferentes.
 
 Redis contiene cache reconstruible. Los volúmenes heredados se conservan y sus datos PostgreSQL también tienen dump. No se necesita borrar ni purgar volúmenes para probar o arrancar esta entrega.
 
@@ -24,7 +24,7 @@ Para ensayar trabajo pendiente usa únicamente el proyecto de datos sintéticos:
 
 ```powershell
 node scripts/backup-release.mjs --project departamental-five-phases --pending-fixtures
-node scripts/rehearse-release-images.mjs
+node scripts/rehearse-release-images.mjs --phases-7-9
 ```
 
 El segundo comando ensaya las imágenes exactas del manifiesto contra clones de ambos checkpoints. Cada base se restaura en tmpfs sin acceso externo; se aplican las migraciones dos veces y se comparan fingerprints de columnas/registros originales y ledgers. Auth puede actualizar `updated_at` al completar el backfill de alta; esa columna se excluye de su comparación, conservando IDs, hashes, roles, sesiones y fechas originales de creación.
@@ -42,14 +42,14 @@ El ensayo pendiente verifica conservación sin consumir el correo o los eventos.
 Si la carga recupera IDs sin las etiquetas del conjunto, reconstruye las etiquetas desde el manifiesto verificado antes de usar `compose.release.yaml`:
 
 ```powershell
-$releaseManifest = Get-Content -LiteralPath 'docs/release-fases-1-3.json' -Raw | ConvertFrom-Json
+$releaseManifest = Get-Content -LiteralPath 'docs/release-fases-7-9.json' -Raw | ConvertFrom-Json
 foreach ($releaseImage in $releaseManifest.images) {
   docker tag $releaseImage.imageId $releaseImage.tag
   if ($LASTEXITCODE -ne 0) { throw 'No se pudo recuperar una imagen de la entrega' }
 }
 ```
 
-No se ejecutó una reversión del principal ni se migraron sus bases en esta entrega. Se ensayaron datos y broker preservados, migraciones repetibles y conservación de imágenes como piezas de la recuperación coordinada.
+El [acta de entrega](entrega-definitiva-fases-7-9.md) registra el despliegue y las comprobaciones de conservación. Los ensayos de restauración se realizaron en clones; no constituyen una reversión del principal.
 
 ## Fallos temporales y DLQ
 
@@ -63,14 +63,6 @@ node scripts/audit-projection-dlq.mjs --recover-valid
 node scripts/audit-projection-dlq.mjs --business
 ```
 
-El primer comando inspecciona la DLQ aislada sin exportar payloads; el segundo reenvía solo los válidos, confirma antes de ACK y conserva inválidos. El tercero audita el principal. Añadir `--business --recover-valid` exige que **todos** sus servicios y Kong coincidan con las imágenes compatibles del manifiesto; antes de la fase 9 debe rechazar la acción. Los ledgers deduplican eventos ya procesados.
+El primer comando inspecciona la DLQ aislada sin exportar payloads; el segundo reenvía solo los válidos, confirma antes de ACK y conserva inválidos. El tercero audita el principal. Añadir `--business --recover-valid` exige que **todos** sus servicios y Kong coincidan con las imágenes compatibles del manifiesto; si las imágenes no coinciden debe rechazar la acción. Usa además `--phases-7-9` para validar contra el manifiesto de la entrega final. Los ledgers deduplican eventos ya procesados.
 
 Si SMTP aceptó un correo y el proceso cayó antes de registrar esa aceptación, un reintento puede entregarlo otra vez. Conserva estados e IDs y reconcílialos con el proveedor; el sistema no promete exactamente una entrega SMTP.
-
-## Arranque de Docker Desktop observado en Windows
-
-Durante la validación, el motor quedó inaccesible y Desktop falló al renombrar `sailor-ingest.sock`. Los intentos de eliminar ese socket desde la sesión del agente también recibieron error 1920. Abrir Docker Desktop a través de Windows Explorer permitió el arranque; se comprobaron después los contenedores e imágenes originales. No se movieron carpetas, se borraron discos ni se reinicializaron volúmenes. El fallo es compatible con el [reporte de arranque en contexto MSIX](https://github.com/openai/codex/issues/52698); esa causa no se diagnosticó de forma concluyente en esta máquina.
-
-Si vuelve a ocurrir, abre Docker Desktop desde Windows y espera la respuesta de `docker info`. No utilices Reset to factory defaults para este fallo de socket: elimina el estado persistente. Tras recuperar el motor, arranca los contenedores existentes del principal con `docker start` y comprueba sus IDs; un `compose up --build` con el código nuevo sería una actualización que corresponde a la fase 9.
-
-Al reanudar el cierre de fases 4–6, la API de Docker volvió a bloquearse mientras la web aún respondía. Se reinició Desktop desde su instalación por usuario mediante Explorer y se recuperó el motor. Los 25 contenedores del principal se arrancaron con sus mismas imágenes, verificadas contra el checkpoint; nueve servicios sin política de reinicio antigua necesitaron otro arranque después de que sus bases estuvieran listas. No se recrearon contenedores del principal ni se borraron volúmenes. El conjunto de fases 4–6 quedó desplegado únicamente en el candidato aislado.

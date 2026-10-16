@@ -2,11 +2,11 @@
 
 Esta guía organiza una exposición de aproximadamente 25 a 30 minutos. Cubre la sección B Tienda Departamental de `Proyectos App Web.docx`, los requisitos técnicos generales y los requisitos técnicos específicos de esa tienda en `Requerimientos Técnicos Generales.docx`. Los apartados de clínica y red social corresponden a otros proyectos. CORS y JWT son opcionales en el Word; también se pueden demostrar porque están implementados.
 
-**Entrega final del 14 de octubre de 2026:** las fases 1–9 están cerradas con el alcance universitario acordado. El [acta final](entrega-definitiva-fases-7-9.md) y el [plan cerrado](plan-cierre-definitivo.md) enlazan CI aprobado, estabilidad de 30 minutos, pruebas de inventario/ventas y siete recorridos del principal. La versión desplegada es fases-7-9-20261013-be87fd10ff60; las imágenes coinciden exactamente con la certificación local. Los informes de [fases 1–3](implementacion-cierre-fases-1-3.md) y [4–6](implementacion-cierre-fases-4-6.md) conservan sus fechas y alcance históricos.
+**Evidencia de la entrega del 14 de octubre de 2026:** el [acta final](entrega-definitiva-fases-7-9.md) enlaza CI, estabilidad, pruebas de inventario/ventas y siete recorridos del principal para la versión `fases-7-9-20261013-be87fd10ff60`. Sus resultados describen ese despliegue. Para instalar desde el código actual, usa el [README principal](../README.md); una instalación nueva usa web 3000 y no requiere las imágenes históricas.
 
 ## Preparar la exposición en el principal
 
-Docker Desktop debe estar iniciado. Desde la carpeta web, ejecutar:
+Docker Desktop debe estar iniciado. Si conservas el entorno `web` y las imágenes de aquella entrega, ejecuta desde la raíz del repositorio:
 
 ~~~powershell
 docker compose -p web --env-file .env -f compose.yaml -f compose.university.yaml -f compose.release-fases-7-9.yaml up -d --no-build --wait
@@ -23,7 +23,13 @@ SMTP se acepta y captura realmente en Mailpit. En Mi reparto, el empleado public
 
 ## Pruebas que alteran servicios: únicamente en aislado
 
-Las carreras, apagados y recuperación se ejecutan exclusivamente en departamental-five-phases, con .env.integration y compose.integration.yaml: app 3105, Gateway 8005, Mailpit 18025. La batería es node scripts/certify-release.mjs; incluye los 30 minutos obligatorios. Nunca trasladar sus puertos/probes al principal. Para demostrar fallos durante una exposición, usar ese entorno y el procedimiento de recuperación indicado; no ejecutar down -v ni purgar DLQ.
+Las carreras, apagados y recuperación se ejecutan exclusivamente en departamental-five-phases, con .env.integration y compose.integration.yaml: app 3105, Gateway 8005, Mailpit 18025. La batería es node scripts/certify-release.mjs; incluye los 30 minutos obligatorios. Para los comandos PowerShell de esta guía, define los argumentos del entorno aislado:
+
+```powershell
+$demoArgs = @('-p', 'departamental-five-phases', '--env-file', '.env.integration', '-f', 'compose.yaml', '-f', 'compose.integration.yaml')
+```
+
+Nunca trasladar sus puertos/probes al principal. Para demostrar fallos durante una exposición, usar ese entorno y el procedimiento de recuperación indicado; no ejecutar down -v ni purgar DLQ.
 
 ## Matriz de requisitos y evidencia
 
@@ -63,7 +69,7 @@ Abre Administración (`/dashboard`) en otra ventana. Muestra Atención prioritar
 
 En Ventas físicas (`/operations/sales`), elige esa misma sucursal y variante y confirma una venta de una unidad. Mantén visible el dashboard, sin pulsar Actualizar. Graba el cambio de 1 a 0 y AGOTADO.
 
-La demostración manual acredita la actualización; la carrera entre dos compradores se acredita con la prueba automatizada de la sección siguiente. Conserva el identificador de la venta. La [captura anterior](screenshots/physical-sale-exhausted.jpg) sirve como respaldo.
+La demostración manual acredita la actualización; la carrera entre dos compradores se acredita con la prueba automatizada de la sección siguiente. Conserva el identificador de la venta. La [captura de venta física](screenshots/principal-physical-sale-desktop.png) sirve como respaldo del recorrido; el cambio a AGOTADO debe mostrarse durante la demostración.
 
 ### 3 Indicadores y promoción
 
@@ -71,7 +77,7 @@ Realiza otra venta sintética en una sucursal diferente. En Administración sele
 
 En Promociones (`/promotions`), muestra descuento, alcance, zona, inicio y fin. Para demostrar visualmente una transición rápida puedes programar una promoción unos minutos después; para acreditar exactamente las 00:00 utiliza la prueba de límites temporales. No cambies la hora del sistema ni esperes hasta medianoche durante la exposición.
 
-La [captura del dashboard](screenshots/dashboard-verified.jpg) y la [captura de promociones](screenshots/promotions.jpg) respaldan estos pasos.
+La [captura del dashboard](screenshots/principal-dashboard-desktop.png) y la [captura de promociones](screenshots/promotions.jpg) respaldan estos pasos.
 
 ### 4 Compra online y preparación
 
@@ -83,7 +89,7 @@ En otro navegador o ventana privada, entra con esa cuenta EMPLOYEE y abre **Mi r
 
 La opción GPS del navegador solicita permiso. La prueba local utiliza emulación y verifica denegación, desconexión y señal nueva al recuperar red. No se atribuye ese ensayo a una posición física. `verify-close-four-six.mjs` acredita que una señal antigua no sustituye una nueva.
 
-Finalmente, desde Mi reparto pulsa Confirmar paquete entregado y acepta la confirmación. Muestra Entregado en Operación y en la cuenta del cliente. El [informe actual de reparto](implementacion-cierre-fases-4-6.md) enlaza la prueba y las capturas nuevas.
+Finalmente, desde Mi reparto pulsa Confirmar paquete entregado y acepta la confirmación. Muestra Entregado en Operación y en la cuenta del cliente. El [reporte de navegador](verification-principal-browser.json) y las [capturas de la entrega](#capturas-de-la-entrega) conservan la evidencia de ese recorrido.
 
 ### 5 Historial y campaña CRM
 
@@ -93,15 +99,15 @@ Para la segmentación necesitas comprador antiguo, comprador reciente, alta anti
 
 Selecciona 3 meses y muestra la vista previa. Confirma que el comprador reciente no está incluido. Define código nuevo, descuento, alcance y vigencia futura; confirma la campaña. El entorno de integración publica el outbox de CRM cada 60 segundos: durante ese intervalo puede aparecer pendiente.
 
-Abre Mailpit (`http://localhost:18025`) y muestra el correo correspondiente, destinatario, código y vigencia. Vuelve a CRM para mostrar Aceptados por SMTP. Esta evidencia acredita aceptación por el servidor SMTP de prueba; no acredita recepción en Gmail ni lectura del destinatario. En el modo log del entorno de negocio, el estado correcto es Simulado.
+Abre Mailpit del mismo entorno (principal: `http://localhost:18000`; aislado: `http://localhost:18025`) y muestra el correo correspondiente, destinatario, código y vigencia. Vuelve a CRM para mostrar Aceptados por SMTP. Esta evidencia acredita aceptación por el servidor SMTP de prueba; no acredita recepción en Gmail ni lectura del destinatario. Si configuras el modo `log`, el estado correcto es Simulado.
 
-Como ampliación del Word puedes canjear el cupón con el cliente elegible en checkout y mostrar la reducción del total. El Word original exige envío y segmentación, pero no define el canje. [Campaña SMTP](screenshots/crm-smtp.jpg) y [compra con descuento](screenshots/checkout-confirmed.jpg).
+Como ampliación del Word puedes canjear el cupón con el cliente elegible en checkout y mostrar la reducción del total. El Word original exige envío y segmentación, pero no define el canje. [Campaña SMTP](screenshots/principal-crm-smtp-coupon-desktop.png) y [compra con descuento](screenshots/principal-coupon-redeemed-desktop.png).
 
 ## Pruebas técnicas durante la exposición
 
 ### Concurrencia y límites de tiempo
 
-Desde `web`, con el entorno aislado saludable, compila primero los módulos que importan los runners:
+Desde la raíz del repositorio, con el entorno aislado saludable, compila primero los módulos que importan los runners:
 
 ```powershell
 foreach ($service in @('inventory', 'analytics', 'pricing', 'crm', 'notification', 'orders')) {
@@ -189,7 +195,7 @@ Incluye:
 5. Salidas PASS de las pruebas de concurrencia, medianoche y segmentación; evidencia de Redis y contenedores separados.
 6. [PR 3 fusionado](https://github.com/AldoJosue31/proyecto_Tienda-Departamental/pull/3) y los controles aprobados de GitHub Actions.
 
-La verificación registrada incluye 188 pruebas unitarias, 27 comprobaciones de integración y nueve de navegador. Consulta [el informe final](implementacion-fases-6-8.md) para los límites de SMTP y las dependencias de Maps. No presentes una captura SMTP local como envío probado a una dirección real.
+Las cantidades y resultados de la entrega están en el [acta final](entrega-definitiva-fases-7-9.md). SMTP acredita captura local y el mapa requiere conexión para cargar teselas; la demostración GPS usa emulación de navegador.
 
 ## Evidencia final para la exposición
 
@@ -199,4 +205,23 @@ La verificación registrada incluye 188 pruebas unitarias, 27 comprobaciones de 
 - [Latencia visible](verification-inventory-browser-latency.json): 12 ventas, p95 1.222 ms, reconexión y AGOTADO.
 - [CI de la versión desplegada](verification-remote-ci.json) y [estabilidad local](verification-stability.json): treinta minutos y cero errores.
 - [Despliegue y conservación](verification-principal-deployment.json), [restauración/migraciones](verification-release-images-fases-7-9.json) y [archivo de imágenes](verification-release-archive-fases-7-9.json).
-- Capturas actuales: docs/screenshots/principal-*, en desktop y móvil.
+- [Capturas de la entrega](#capturas-de-la-entrega), en escritorio y móvil.
+
+## Capturas de la entrega
+
+Capturas del entorno universitario validado el 14 de octubre de 2026. Permiten revisar pantallas y datos de esa ejecución; las transiciones y los tiempos se acreditan con los reportes enlazados.
+
+| Recorrido | Escritorio | Móvil |
+| --- | --- | --- |
+| Dashboard | [Ver captura](screenshots/principal-dashboard-desktop.png) | [Ver captura](screenshots/principal-dashboard-mobile.png) |
+| Confirmación SMTP | [Ver captura](screenshots/principal-smtp-confirmation-desktop.png) | [Ver captura](screenshots/principal-smtp-confirmation-mobile.png) |
+| Compra online | [Ver captura](screenshots/principal-online-sale-desktop.png) | [Ver captura](screenshots/principal-online-sale-mobile.png) |
+| Pedido del cliente | [Ver captura](screenshots/principal-customer-order-desktop.png) | [Ver captura](screenshots/principal-customer-order-mobile.png) |
+| Venta física | [Ver captura](screenshots/principal-physical-sale-desktop.png) | [Ver captura](screenshots/principal-physical-sale-mobile.png) |
+| Preparación | [Ver captura](screenshots/principal-pick-pack-desktop.png) | [Ver captura](screenshots/principal-pick-pack-mobile.png) |
+| Demostración de reparto | [Ver captura](screenshots/principal-delivery-demo-desktop.png) | [Ver captura](screenshots/principal-delivery-demo-mobile.png) |
+| Mapa en vivo | [Ver captura](screenshots/principal-map-live-desktop.png) | [Ver captura](screenshots/principal-map-live-mobile.png) |
+| Pedido entregado | [Ver captura](screenshots/principal-delivered-order-desktop.png) | [Ver captura](screenshots/principal-delivered-order-mobile.png) |
+| Historial CRM | [Ver captura](screenshots/principal-crm-history-desktop.png) | [Ver captura](screenshots/principal-crm-history-mobile.png) |
+| Correo de cupón | [Ver captura](screenshots/principal-crm-smtp-coupon-desktop.png) | [Ver captura](screenshots/principal-crm-smtp-coupon-mobile.png) |
+| Canje de cupón | [Ver captura](screenshots/principal-coupon-redeemed-desktop.png) | [Ver captura](screenshots/principal-coupon-redeemed-mobile.png) |

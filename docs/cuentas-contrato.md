@@ -1,24 +1,12 @@
-# Alta de cuentas: implementación de las fases 1–5
+# Contratos de cuentas y sesiones
 
-Fecha: 9 de octubre de 2026.
-
-Estado de este punto de control: **fases 1–5 implementadas y verificadas**, incluyendo ejecución real con Docker, PostgreSQL, RabbitMQ, Kong y Mailpit. La implementación posterior de pantallas y el cierre de las fases 6–8 se describen en [alta-cuentas-entrega-y-demostracion.md](alta-cuentas-entrega-y-demostracion.md).
-
-El alcance corresponde a [plan-alta-cuentas.md](plan-alta-cuentas.md), independiente de las fases anteriores de cumplimiento de los Word. No incluye commit, push, PR ni merge para este módulo.
+Esta guía reúne los contratos de registro de clientes, invitaciones de empleados y autorización de sesiones. Para recorrer las pantallas, consulta la [demostración de cuentas](alta-cuentas-entrega-y-demostracion.md); para instalar, sigue el [README principal](../README.md).
 
 ## Comportamiento implementado
 
 Un registro público crea únicamente un cliente pendiente de confirmar su correo. Un administrador puede invitar un empleado; la invitación no tiene contraseña y el empleado establece la suya al aceptarla. Ninguno de estos flujos crea administradores.
 
 Auth conserva la propiedad de usuarios, roles, desafíos, sesiones, habilitación y auditoría. Notification envía el correo mediante un flujo separado de las campañas de cupones. Los servicios de negocio consultan el estado de Auth por API privada, sin leer su base.
-
-| Fase | Implementación verificada |
-| --- | --- |
-| 1 | Estado de alta, correo confirmado, versión de identidad, desafíos, auditoría, límites persistentes y outbox transaccional. |
-| 2 | Eventos cifrados de onboarding, autorización privada antes del envío, entregas independientes y resultados recibidos por Auth. |
-| 3 | Registro, reenvío y confirmación de clientes; adaptación de login y refresh. |
-| 4 | Listado, invitación, reenvío, aceptación y habilitación de empleados. |
-| 5 | Rutas de Kong, adaptadores BFF, CSRF, IP autenticada, JWT versionado y validación de APIs y sockets. |
 
 ## Modelo y compatibilidad
 
@@ -68,7 +56,7 @@ El BFF conserva cookies HTTP-only de acceso, refresh, CSRF y nonce de alta. Las 
 
 En un registro se guarda el hash del nonce del navegador en el desafío. La confirmación desde ese navegador puede utilizar la contraseña original. Desde otro navegador Auth devuelve PASSWORD_CONFIRMATION_REQUIRED hasta que el destinatario establece una contraseña nueva. Esto impide que una prealta ajena mantenga una contraseña elegida por otra persona.
 
-Los enlaces llevan el token en el fragmento #token=…, sin token en el query. Abrir un enlace por GET no consume el desafío ni inicia sesión. La interfaz añadida en la fase 6 lee el fragmento, lo retira de la barra y confirma por POST. Las páginas /register, /verify-email, /accept-invitation y /users pertenecen a esa entrega posterior; el runner de las fases 1–5 verifica los contratos sin requerir esas páginas.
+Los enlaces llevan el token en el fragmento #token=…, sin token en el query. Abrir un enlace por GET no consume el desafío ni inicia sesión. La interfaz lee el fragmento, lo retira de la barra y confirma por POST en /verify-email o /accept-invitation. /register y /users completan el registro y la administración de empleados.
 
 Los destinos de retorno se limitan a rutas locales permitidas por el rol. Se rechazan destinos externos, rutas administrativas de un cliente, barras dobles, barras invertidas y valores malformados. La confirmación devuelve el destino; no inicia sesión automáticamente. Los adaptadores de alta no modifican el contenido del carrito.
 
@@ -84,7 +72,7 @@ Los JWT nuevos incluyen uv. Los anteriores sin ese campo se interpretan con vers
 
 Catalog, Inventory, Pricing, Orders, Logistics, CRM, Analytics y Realtime consultan la API privada de estado. Comparan ID, rol, versión y habilitación efectiva. El cache positivo dura como máximo 30 segundos desde el **inicio** de la consulta, con timeout de 3 segundos y deduplicación de consultas concurrentes. Sin estado vigente y ante fallo de Auth, rechazan la operación.
 
-Realtime también valida las conexiones existentes cada segundo, mediante comprobaciones secuenciales y limpieza al desconectar. El objetivo de aceptación es bloquear APIs y sockets dentro de **35 segundos** después de desactivar. Esta es una ventana de revocación, no revocación instantánea. La prueba conjunta midió **30.093 segundos para las siete APIs de negocio y 30.037 segundos para el socket abierto**. Los tiempos corresponden a esta ejecución del entorno aislado.
+Realtime también valida las conexiones existentes cada segundo, mediante comprobaciones secuenciales y limpieza al desconectar. El objetivo de aceptación es bloquear APIs y sockets dentro de **35 segundos** después de desactivar. Esta es una ventana de revocación, no revocación instantánea.
 
 Las llamadas internas entre servicios mantienen credenciales independientes de los JWT humanos.
 
@@ -133,93 +121,10 @@ Las claves son independientes y no se derivan del secreto JWT. .env.example cont
 
 Auth almacena los contadores en PostgreSQL para que sobrevivan reinicios y los actualiza atómicamente. Kong agrega un límite local de diez peticiones por minuto en cada ruta pública de onboarding. El límite local de Kong complementa los contadores persistentes de Auth.
 
-## Preparación y reproducción
+## Verificación
 
-Usar Node.js 22 o superior, Docker Desktop y PowerShell desde C:/Users/Aldo/Documents/Proyectos/ApliacionWeb/web.
+La instalación local y las credenciales se describen en el [README](../README.md). La certificación utiliza exclusivamente el entorno sintético `departamental-five-phases`, preparado por `node scripts/setup-integration.mjs` y `compose.integration.yaml`.
 
-El setup conserva .env.integration existente y añade solo variables nuevas ausentes, sin imprimir claves:
+Los contratos de cuentas se comprueban con `node scripts/verify-accounts-first-five.mjs`; el navegador, con `npm run test:accounts-browser`; y las carreras de reenvío, aceptación y desactivación, con `node scripts/verify-accounts-races.mjs`. Estos runners modifican cuentas sintéticas e interrumpen servicios del entorno aislado. La [batería compartida](entrega-definitiva-fases-7-9.md#certificación-de-una-versión) los ejecuta secuencialmente y respeta los límites de autenticación.
 
-~~~powershell
-node scripts/setup-integration.mjs
-docker compose -p departamental-five-phases --env-file .env.integration -f compose.yaml -f compose.integration.yaml config --quiet
-~~~
-
-Las migraciones se ejecutan con el entrypoint de cada servicio al arrancar. **No se necesitan borrar volúmenes ni reiniciar seeds de datos existentes.** Los respaldos y la comparación previa de identidades y refresh deben prepararse antes de recrear Auth y Notification. Los respaldos privados de este trabajo están fuera de Git, en ../.codex-backups/accounts-first-five/.
-
-Para construir e iniciar el entorno aislado, limitar la construcción a una imagen por vez:
-
-~~~powershell
-$env:COMPOSE_PARALLEL_LIMIT = "1"
-docker compose -p departamental-five-phases --env-file .env.integration -f compose.yaml -f compose.integration.yaml build
-docker compose -p departamental-five-phases --env-file .env.integration -f compose.yaml -f compose.integration.yaml up -d
-docker compose -p departamental-five-phases --env-file .env.integration -f compose.yaml -f compose.integration.yaml ps
-~~~
-
-El override publica únicamente en loopback: web 3105, Kong 8005, Mailpit 18025, Auth 3301, Auth PostgreSQL 55431 y Notification PostgreSQL 55440. Las conexiones privadas del runner comprueban etiquetas de Compose y puertos para rechazar el entorno de negocio.
-
-Validación de un servicio, repitiéndola para Auth, Notification y los ocho servicios que validan personas:
-
-~~~powershell
-Push-Location services/auth-service
-npm run typecheck
-npm run lint
-npm test
-npm run build
-Pop-Location
-~~~
-
-Validación web y sintaxis del runner:
-
-~~~powershell
-npm run lint
-npm run typecheck
-npm test
-npm run build
-node --check scripts/verify-accounts-first-five.mjs
-~~~
-
-La comparación de migración admite un baseline privado con usersSha256, usersCount, refreshSha256 y refreshCount; no escribe filas, hashes de contraseñas ni tokens al reporte. Después de comprobar que todos los servicios del entorno aislado están saludables:
-
-~~~powershell
-node scripts/verify-accounts-first-five.mjs --baseline ../.codex-backups/accounts-first-five/baseline.json
-~~~
-
-Para repetir solo las comprobaciones funcionales después de la primera ejecución, omitir el baseline anterior: los nuevos usuarios sintéticos cambian el total de cuentas de pruebas. Los contadores por IP son persistentes; si se repite inmediatamente, esperar la ventana del límite para las solicitudes BFF del mismo navegador/IP.
-
-~~~powershell
-node scripts/verify-accounts-first-five.mjs
-~~~
-
-El runner crea cuentas sintéticas con un identificador de ejecución, usa cookies y correo de captura, prueba APIs y sockets, interrumpe y restaura RabbitMQ/Notification/Auth del proyecto aislado y registra resultados sanitizados en docs/verification-accounts-first-five.json. No utiliza bases de negocio. Los casos de simulación y fallo SMTP usan el worker real con un proveedor controlado y datos aislados; los envíos exitosos se comprueban contra Mailpit.
-
-Comprobaciones independientes de migración y firma de IP en Kong:
-
-~~~powershell
-node services/auth-service/test/check-onboarding-migration.mjs
-node scripts/verify-onboarding-client-ip.mjs
-~~~
-
-Regresiones del módulo anterior, ejecutadas secuencialmente después del runner de cuentas:
-
-~~~powershell
-node scripts/verify-five-phases.mjs
-node scripts/verify-final-phases.mjs
-~~~
-
-## Evidencia y pendientes
-
-| Verificación | Estado actual |
-| --- | --- |
-| TypeScript, lint, pruebas y build de Catalog, Inventory, Pricing, Orders, Logistics, CRM, Analytics y Realtime | Pasaron; 136 pruebas, incluidas 76 nuevas de identidad y sockets. |
-| Auth y Notification: TypeScript, lint, pruebas y build | Pasaron; 36 pruebas de Auth y 24 de Notification. |
-| Web: lint, TypeScript, pruebas y build | Pasaron; 129 pruebas Vitest y 7 pruebas de IP. El build final de Docker también pasó y el servidor web está saludable. |
-| Firma de IP en Kong | Pasaron 13 comprobaciones en Kong 3.9.3, con firmas inválidas, encabezados falsificados y compatibilidad con el HMAC de Node. |
-| Migración y compatibilidad | Migración real en PostgreSQL con identidades y refresh existentes: pasó. La comparación del entorno aislado preservó las 15 identidades y los 36 registros de refresh anteriores a las pruebas; los logins, la rotación y los JWT anteriores sin versión siguieron funcionando. |
-| Registro e invitación reales mediante BFF/Kong/Auth/Notification/Mailpit | Pasaron, incluidas confirmación con nonce, contraseña nueva desde otro navegador, aceptación concurrente, roles y reenvíos. |
-| Medición real de desactivación de APIs y sockets dentro de 35 segundos | Pasó: APIs 30.093 s; socket 30.037 s. Reactivar exigió login nuevo y no recuperó los tokens anteriores. |
-| Reinicios, caída de RabbitMQ, expiración, concurrencia y ausencia de secretos | Pasaron; trabajo recuperado, cero mensajes duplicados observados y ningún envío de desafíos vencidos o revocados. Los límites persistieron tras reiniciar Auth y el cifrado terminal se eliminó. |
-| Regresiones de compras, inventario, campañas, cupones y logística | Pasaron 14 comprobaciones del runner de primeras fases y 13 del runner de fases finales del módulo anterior. |
-
-El conjunto suma **332 pruebas locales**, **21 comprobaciones conjuntas de cuentas**, **27 regresiones** y **13 comprobaciones específicas de Kong**. Los reportes sanitizados son [verification-accounts-first-five.json](verification-accounts-first-five.json), [verification-five-phases.json](verification-five-phases.json) y [verification-final-phases.json](verification-final-phases.json). La ejecución conjunta de cuentas terminó el 9 de octubre de 2026 a las 06:35:47 UTC; todos sus casos figuran como aprobados. El entorno aislado quedó funcionando después de restaurar los servicios interrumpidos por las pruebas.
-
-Los resultados y cantidades anteriores corresponden al punto de control de las fases 1–5. La entrega posterior agrega las pantallas, pruebas de navegador y concurrencia, guía y respaldo con ensayo de migración del entorno de negocio. Consulta [la guía actualizada](alta-cuentas-entrega-y-demostracion.md) y sus reportes. Los cambios de este módulo quedan disponibles en el workspace, sin commit ni publicación.
+Los reportes sanitizados son [contratos](verification-accounts-first-five.json), [navegador](verification-accounts-browser.json) y [concurrencia](verification-accounts-races.json). Cada reporte identifica su ejecución; las cantidades de pruebas de un punto de control anterior no describen automáticamente la versión actual.

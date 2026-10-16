@@ -53,7 +53,7 @@ Principal: http://localhost:3005; Gateway http://localhost:8000; Mailpit http://
 
 Para principal: `docker compose -p web --env-file .env -f compose.yaml -f compose.university.yaml -f compose.release-fases-7-9.yaml up -d --no-build --wait`. No iniciar las bases legacy. Un nuevo equipo necesita recuperar configuración privada, imágenes y el punto coordinado de bases/broker; los secretos no están en Git.
 
-El procedimiento de [recuperación coordinada](recuperacion-cierre-fases-1-3.md) mantiene sus reglas: detener escritores/consumidores, restaurar todas las bases y Rabbit como conjunto, conservar su hostname y las imágenes compatibles, comprobar datos/colas antes de reanudar. No ejecutar `down -v`, purgar DLQ ni reemplazar ventas nuevas con un respaldo anterior después de reanudar operaciones. Los mensajes válidos de DLQ se reenvían con confirmación antes de ACK; los inválidos se conservan.
+El procedimiento de [recuperación coordinada](recuperacion.md) mantiene sus reglas: detener escritores/consumidores, restaurar todas las bases y Rabbit como conjunto, conservar su hostname y las imágenes compatibles, comprobar datos/colas antes de reanudar. No ejecutar `down -v`, purgar DLQ ni reemplazar ventas nuevas con un respaldo anterior después de reanudar operaciones. Los mensajes válidos de DLQ se reenvían con confirmación antes de ACK; los inválidos se conservan.
 
 Las imágenes históricas se trasladaron, con SHA-256 verificado, a un directorio local privado por falta de espacio en la unidad de sistema. Los reportes conservan sus nombres y hashes, pero omiten la ruta local. Los respaldos y secretos permanecen fuera de Git en la ubicación privada local. Redis se reconstruye desde su propietario.
 
