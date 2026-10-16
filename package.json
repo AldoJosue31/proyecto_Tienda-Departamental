@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "setup:local": "node scripts/setup-local.mjs",
+    "credentials:local": "node scripts/setup-local.mjs --credentials",
     "dev": "node scripts/secured-web-server.mjs --dev",
     "build": "next build",
     "start": "node scripts/secured-web-server.mjs",

@@ -10,3 +10,6 @@ playwright-report
 services
 *.tsbuildinfo
 npm-debug.log
+docs
+~$*
+.DS_Store

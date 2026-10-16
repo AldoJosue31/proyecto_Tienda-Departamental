@@ -4,7 +4,7 @@ Scope: user-requested refinement on 2026-10-13. Change the photo's perimeter and
 
 Asset: `public/catalog/login-products-v3.png`.
 
-Provenance: edited with the built-in Imagegen tool using `public/catalog/login-products-v2.png` as the reference. Previous versions are preserved. This is an AI-generated decorative interpretation of the existing catalog products.
+Provenance: edited with the built-in Imagegen tool using the previous login photograph as the reference. Previous versions are available in Git history. This is an AI-generated decorative interpretation of the existing catalog products.
 
 Source: `C:/Users/Aldo/.codex/generated_images/01a132f3-f44d-7200-a31d-eed79369a050/exec-1e95d4dc-b102-4730-8a8c-19f46d066ceb.png`.
 
