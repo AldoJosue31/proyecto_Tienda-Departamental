@@ -66,11 +66,15 @@ test("discounted checkout rejects a changed price and recovers a lost confirmati
 
 test("customer registers from checkout, confirms by SMTP, signs in and buys without losing the guest bag", async ({ page, context }) => {
   const email = fixtureEmail("customer");
+  // Catalog also seeds products without stock. This purchase uses
+  // the Inventory seed in Sucursal Centro, independent of catalog ordering.
+  const purchaseSku = "NOV-ANC-01";
   let selectedVariant = "";
   await test.step("anonymous selection and safe checkout return", async () => {
-    await page.goto("/");
-    await page.getByRole("button", { name: "Elegir y agregar" }).first().click();
-    await page.getByRole("radio").first().press("Space");
+    await page.goto("/?q=" + purchaseSku);
+    await expect(page.getByRole("article")).toHaveCount(1);
+    await page.getByRole("button", { name: "Elegir y agregar" }).click();
+    await page.getByRole("radio", { name: new RegExp(purchaseSku) }).press("Space");
     await page.getByRole("button", { name: "Agregar a la bolsa", exact: true }).click();
     await expect(page.getByRole("button", { name: "Agregada a la bolsa" })).toBeVisible();
     const items = await page.evaluate(() => JSON.parse(localStorage.getItem("departamental.guest-cart.v1") || "[]"));
@@ -113,9 +117,13 @@ test("customer registers from checkout, confirms by SMTP, signs in and buys with
     await expect.poll(() => page.evaluate(id => JSON.parse(localStorage.getItem(`departamental.customer-cart.v1:${id}`) || "[]").length, user.id)).toBe(1);
     expect(await page.evaluate(() => localStorage.getItem("departamental.guest-cart.v1"))).toBe(null);
     await page.reload();
-    await page.getByRole("radio").first().press("Space");
+    await page.getByRole("radio", { name: /Sucursal Centro/ }).press("Space");
     await expect(page.getByRole("button", { name: "Confirmar pedido", exact: true })).toBeEnabled();
-    await page.getByRole("button", { name: "Confirmar pedido", exact: true }).click();
+    const [created] = await Promise.all([
+      page.waitForResponse(response => new URL(response.url()).pathname === "/api/checkout" && response.request().method() === "POST"),
+      page.getByRole("button", { name: "Confirmar pedido", exact: true }).click(),
+    ]);
+    expect(created.status()).toBe(201);
     await expect(page.getByRole("heading", { name: "Tu compra quedó registrada." })).toBeVisible();
     const persisted = await orders.query("SELECT o.id FROM orders o JOIN order_items i ON i.order_id=o.id WHERE o.customer_id=$1 AND i.variant_id=$2", [user.id, selectedVariant]);
     expect(persisted.rows.length).toBe(1);
