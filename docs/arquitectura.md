@@ -1,8 +1,7 @@
 # Arquitectura y contratos
 
-Este repositorio se desarrolla tomando como referencia vigente
-[Proyecto Universitario Tienda Departamental v2.4](Proyecto_Universitario_Tienda_Departamental_v2.4.docx),
-actualizada contra el código el 6 de octubre de 2026. Para instalar la app y consultar las cuentas locales, usa el [README principal](../README.md). El [acta final](entrega-definitiva-fases-7-9.md) conserva la evidencia de la entrega del 14 de octubre.
+Esta guía describe la arquitectura y los contratos del repositorio. La
+[memoria final](Proyecto_Universitario_Tienda_Departamental_Final.docx) es el entregable universitario. Para instalar la app y consultar las cuentas locales, usa el [README principal](../README.md). El [acta final](entrega-definitiva-fases-7-9.md) conserva la evidencia de la entrega del 14 de octubre.
 La meta es una plataforma omnicanal de microservicios, no convertir el MVP
 existente de Next.js en un monolito mayor.
 
